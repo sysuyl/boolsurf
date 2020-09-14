@@ -429,17 +429,14 @@ image<vec4f> trace_image(const trace_scene* scene, const trace_params& params,
 // -----------------------------------------------------------------------------
 namespace yocto {
 
-// Scene lights used during rendering. These are created automatically.
-struct trace_light {
-  int           instance     = -1;
-  int           environment  = -1;
-  vector<float> elements_cdf = {};
-};
-
 // Scene lights
 struct trace_lights {
-  // light elements
-  vector<trace_light> lights = {};
+  // instance lights
+  vector<int>           instances  = {};
+  vector<vector<float>> shape_cdfs = {};
+  // environment lights
+  vector<int>           environments = {};
+  vector<vector<float>> texture_cdfs = {};
 };
 
 // Initialize lights.
