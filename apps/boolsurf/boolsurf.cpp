@@ -34,6 +34,8 @@
 #include <yocto/yocto_shape.h>
 #include <yocto_gui/yocto_imgui.h>
 #include <yocto_gui/yocto_shade.h>
+
+#include "myfile.h"
 using namespace yocto;
 
 #include <deque>
