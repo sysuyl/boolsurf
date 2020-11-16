@@ -69,14 +69,18 @@ struct app_state {
   generic_shape* ioshape = new generic_shape{};
   shape_bvh      bvh     = {};
 
-  // bezier info (maybe not the most efficient solution)
-  mesh_point  start  = mesh_point{};
-  mesh_point  end    = mesh_point{};
-  bezier_mesh bezier = bezier_mesh{};
+  // mesh info (maybe not the most efficient solution)
+  mesh_point  start = mesh_point{};
+  mesh_point  end   = mesh_point{};
+  bezier_mesh mesh  = bezier_mesh{};
 
   // rendering state
-  shade_scene*  glscene  = new shade_scene{};
-  shade_camera* glcamera = nullptr;
+  shade_scene*    glscene         = new shade_scene{};
+  shade_camera*   glcamera        = nullptr;
+  shade_material* mesh_material   = nullptr;
+  shade_material* edges_material  = nullptr;
+  shade_material* points_material = nullptr;
+  shade_material* paths_material  = nullptr;
 
   gui_widgets widgets = {};
 
@@ -103,7 +107,7 @@ void load_shape(app_state* app, const string& filename) {
     app->ioshape->quads     = {};
   }
 
-  app->bezier = init_bezier_mesh(app->ioshape);
+  app->mesh = init_bezier_mesh(app->ioshape);
 }
 
 // TODO(fabio): move this function to math
@@ -133,6 +137,35 @@ quads_shape make_sphere(vec3f position, float radius, int steps) {
   return sphere;
 }
 
+void update_path_shape(
+    shade_shape* shape, const bezier_mesh& mesh, const geodesic_path& path) {
+  auto positions = path_positions(
+      path, mesh.triangles, mesh.positions, mesh.adjacencies);
+
+  auto froms = vector<vec3f>();
+  auto tos   = vector<vec3f>();
+  froms.reserve(positions.size() - 1);
+  tos.reserve(positions.size() - 1);
+  for (int i = 0; i < positions.size() - 1; i++) {
+    auto from = positions[i];
+    auto to   = positions[i + 1];
+    if (from == to) continue;
+    froms.push_back(from);
+    tos.push_back(to);
+  }
+  auto radius   = 0.0005f;
+  auto cylinder = make_uvcylinder({4, 1, 1}, {radius, 1});
+  for (auto& p : cylinder.positions) {
+    p.z = p.z * 0.5 + 0.5;
+  }
+
+  set_quads(shape, cylinder.quads);
+  set_positions(shape, cylinder.positions);
+  set_normals(shape, cylinder.normals);
+  set_texcoords(shape, cylinder.texcoords);
+  set_instances(shape, froms, tos);
+}
+
 void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
     progress_callback progress_cb) {
   // handle progress
@@ -156,11 +189,11 @@ void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
 
   // material
   if (progress_cb) progress_cb("convert material", progress.x++, progress.y);
-  auto glmaterial  = add_material(glscene, {0, 0, 0}, {0.5, 1, 0.5}, 1, 0, 0.2);
-  auto glmateriale = add_material(glscene, {0, 0, 0}, {0, 0, 0}, 0, 0, 1);
-  auto glmaterialv = add_material(glscene, {0, 0, 0}, {0, 0, 0}, 0, 0, 1);
-  set_unlit(glmateriale, true);
-  set_unlit(glmaterialv, true);
+  app->mesh_material = add_material(
+      glscene, {0, 0, 0}, {0.5, 1, 0.5}, 1, 0, 0.2);
+  app->edges_material  = add_material(glscene, {0, 0, 0}, {0, 0, 1}, 1, 0, 0.1);
+  app->points_material = add_material(glscene, {0, 0, 0}, {0, 0, 1}, 1, 0, 0.1);
+  app->paths_material  = add_material(glscene, {0, 0, 0}, {1, 0, 0}, 1, 0, 0.1);
 
   // shapes
   if (progress_cb) progress_cb("convert shape", progress.x++, progress.y);
@@ -175,7 +208,7 @@ void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
   app->bvh = make_triangles_bvh(
       ioshape->triangles, ioshape->positions, ioshape->radius);
 
-  app->bezier = init_bezier_mesh(ioshape);
+  app->mesh = init_bezier_mesh(ioshape);
 
   auto edges = get_edges(ioshape->triangles, ioshape->quads);
   auto froms = vector<vec3f>();
@@ -208,9 +241,10 @@ void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
 
   // shapes
   if (progress_cb) progress_cb("convert instance", progress.x++, progress.y);
-  add_instance(glscene, identity3x4f, model_shape, glmaterial);
-  add_instance(glscene, identity3x4f, edges_shape, glmateriale, true);
-  add_instance(glscene, identity3x4f, vertices_shape, glmaterialv, true);
+  add_instance(glscene, identity3x4f, model_shape, app->mesh_material);
+  add_instance(glscene, identity3x4f, edges_shape, app->edges_material, true);
+  add_instance(
+      glscene, identity3x4f, vertices_shape, app->points_material, true);
 
   // done
   if (progress_cb) progress_cb("convert done", progress.x++, progress.y);
@@ -222,7 +256,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
   begin_imgui(widgets, "boolsurf", {0, 0}, {320, 720});
 
   if (begin_header(widgets, "view")) {
-    auto  glmaterial = app->glscene->materials.front();
+    auto  glmaterial = app->mesh_material;
     auto& params     = app->drawgl_prms;
     draw_checkbox(widgets, "faceted", params.faceted);
     continue_line(widgets);
@@ -325,14 +359,16 @@ void select_point(app_state* app, const gui_input& input) {
       auto pos = eval_position(
           app->ioshape->triangles, app->ioshape->positions, mp);
 
-      auto sphere = make_sphere(pos, 0.01f, 2);
-      // Problem(?): adding shapes and adding instances at the same time.
+      auto sphere = make_sphere(2, 0.0015f);
+      auto frame  = frame3f{};
+      frame.o     = pos;
+
       auto sphere_shape = add_shape(app->glscene, {}, {}, {}, sphere.quads,
           sphere.positions, sphere.normals, sphere.texcoords, {});
       set_instances(sphere_shape, {}, {});
 
-      add_instance(app->glscene, identity3x4f, sphere_shape,
-          app->glscene->materials[1], false);  // Material
+      add_instance(
+          app->glscene, frame, sphere_shape, app->paths_material, false);
 
       if (app->start.face < 0)
         app->start = mp;
@@ -344,19 +380,11 @@ void select_point(app_state* app, const gui_input& input) {
 
 void compute_path(app_state* app, const gui_input& input) {
   if (app->start.face > 0 && app->end.face > 0) {
-    auto path = compute_geodesic_path(app->bezier, app->start, app->end);
+    auto path  = compute_geodesic_path(app->mesh, app->start, app->end);
+    auto shape = add_shape(app->glscene);
+    update_path_shape(shape, app->mesh, path);
 
-    auto positions = path_positions(path, app->bezier.triangles,
-        app->bezier.positions, app->bezier.adjacencies);
-
-    // Create
-    auto spheres            = make_spheres(positions, 0.001f, 2);
-    auto path_spheres_shape = add_shape(app->glscene, {}, {}, {}, spheres.quads,
-        spheres.positions, spheres.normals, spheres.texcoords, {});
-    set_instances(path_spheres_shape, {}, {});
-
-    add_instance(app->glscene, identity3x4f, path_spheres_shape,
-        app->glscene->materials[1], false);  // Material
+    add_instance(app->glscene, identity3x4f, shape, app->paths_material, false);
 
     app->start = app->end;
     app->end   = mesh_point{};
