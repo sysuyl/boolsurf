@@ -39,7 +39,8 @@
 #include <yocto_gui/yocto_shade.h>
 #include <yocto_gui/yocto_window.h>
 
-#include "myfile.h"
+#include "boolsurf_utils.h"
+
 using namespace yocto;
 
 #include <deque>
@@ -67,6 +68,11 @@ struct app_state {
   // scene
   generic_shape* ioshape = new generic_shape{};
   shape_bvh      bvh     = {};
+
+  // bezier info (maybe not the most efficient solution)
+  mesh_point  start  = mesh_point{};
+  mesh_point  end    = mesh_point{};
+  bezier_mesh bezier = bezier_mesh{};
 
   // rendering state
   shade_scene*  glscene  = new shade_scene{};
@@ -100,11 +106,13 @@ void load_shape(app_state* app, const string& filename) {
     return;
   }
 
-  // Converting quads to triangles
+  // Move somewhere else (?)
   if (app->ioshape->quads.size()) {
     app->ioshape->triangles = quads_to_triangles(app->ioshape->quads);
     app->ioshape->quads     = {};
   }
+
+  app->bezier = init_bezier_mesh(app->ioshape);
 }
 
 // TODO(fabio): move this function to math
@@ -169,15 +177,6 @@ quads_shape make_cylinders(const vector<vec2i>& lines,
   return shape;
 }
 
-vec2f get_mouse_pos_normalized(const gui_input& input, bool isometric) {
-  auto pos  = input.mouse_pos;
-  auto size = input.window_size;
-  pos = vec2f{2.0f * (pos.x / size.x) - 1.0f, 1.0f - 2.0f * (pos.y / size.y)};
-
-  if (isometric) pos.x *= size.x / size.y;
-  return pos;
-}
-
 void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
     progress_callback progress_cb) {
   // handle progress
@@ -219,6 +218,8 @@ void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
 
   app->bvh = make_triangles_bvh(
       ioshape->triangles, ioshape->positions, ioshape->radius);
+
+  app->bezier = init_bezier_mesh(ioshape);
 
   auto edges = get_edges(ioshape->triangles, ioshape->quads);
   auto froms = vector<vec3f>();
@@ -368,8 +369,7 @@ void select_point(app_state* app, const gui_input& input) {
       auto pos = eval_position(
           app->ioshape->triangles, app->ioshape->positions, mp);
 
-      auto sphere = add_sphere(pos, 0.03f, 2);
-
+      auto sphere = add_sphere(pos, 0.01f, 2);
       // Problem(?): adding shapes and adding instances at the same time.
       auto sphere_shape = add_shape(app->glscene, {}, {}, {}, sphere.quads,
           sphere.positions, sphere.normals, sphere.texcoords, {});
@@ -377,15 +377,42 @@ void select_point(app_state* app, const gui_input& input) {
 
       add_instance(app->glscene, identity3x4f, sphere_shape,
           app->glscene->materials[1], false);  // Material
+
+      if (app->start.face < 0)
+        app->start = mp;
+      else
+        app->end = mp;
     }
   }
 };
+
+void compute_path(app_state* app, const gui_input& input) {
+  if (app->start.face > 0 && app->end.face > 0) {
+    auto path = compute_geodesic_path(app->bezier, app->start, app->end);
+
+    auto positions = path_positions(path, app->bezier.triangles,
+        app->bezier.positions, app->bezier.adjacencies);
+
+    // Create
+    auto spheres            = make_spheres(positions, 0.001f, 2);
+    auto path_spheres_shape = add_shape(app->glscene, {}, {}, {}, spheres.quads,
+        spheres.positions, spheres.normals, spheres.texcoords, {});
+    set_instances(path_spheres_shape, {}, {});
+
+    add_instance(app->glscene, identity3x4f, path_spheres_shape,
+        app->glscene->materials[1], false);  // Material
+
+    app->start = app->end;
+    app->end   = mesh_point{};
+  }
+}
 
 void update_app(const gui_input& input, void* data) {
   auto app = (app_state*)data;
 
   update_camera(app, input);
   select_point(app, input);
+  compute_path(app, input);
   drop(app, input);
 
   draw_scene(app, input);

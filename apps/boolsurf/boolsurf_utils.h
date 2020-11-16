@@ -1,6 +1,7 @@
 #pragma once
 
 #include <yocto/yocto_mesh.h>
+#include <yocto/yocto_shape.h>
 
 using namespace yocto;
 
@@ -11,6 +12,17 @@ struct bezier_mesh {
   vector<vec3f>        normals     = {};
   dual_geodesic_solver dual_solver = {};
 };
+
+inline bezier_mesh init_bezier_mesh(const generic_shape* shape) {
+  auto mesh        = bezier_mesh{};
+  mesh.triangles   = shape->triangles;
+  mesh.normals     = shape->normals;
+  mesh.positions   = shape->positions;
+  mesh.adjacencies = face_adjacencies(mesh.triangles);
+  mesh.dual_solver = make_dual_geodesic_solver(
+      mesh.triangles, mesh.positions, mesh.adjacencies);
+  return mesh;
+}
 
 inline geodesic_path compute_geodesic_path(
     const bezier_mesh& mesh, const mesh_point& start, const mesh_point& end) {
