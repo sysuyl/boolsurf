@@ -114,23 +114,6 @@ frame3f camera_frame(float lens, float aspect, float film = 0.036) {
   return lookat_frame(camera_dir * camera_dist, {0, 0, 0}, {0, 1, 0});
 }
 
-// TODO(fabio): move this function to shape
-vector<vec3f> compute_normals(const generic_shape& shape) {
-  if (!shape.points.empty()) {
-    return {};
-  } else if (!shape.lines.empty()) {
-    return compute_tangents(shape.lines, shape.positions);
-  } else if (!shape.triangles.empty()) {
-    return compute_normals(shape.triangles, shape.positions);
-  } else if (!shape.quads.empty()) {
-    return compute_normals(shape.quads, shape.positions);
-  } else if (!shape.quadspos.empty()) {
-    return compute_normals(shape.quadspos, shape.positions);
-  } else {
-    return {};
-  }
-}
-
 // Create a shape with small spheres for each point
 quads_shape make_spheres(
     const vector<vec3f>& positions, float radius, int steps) {
@@ -144,28 +127,10 @@ quads_shape make_spheres(
   return shape;
 }
 
-quads_shape add_sphere(vec3f position, float radius, int steps) {
+quads_shape make_sphere(vec3f position, float radius, int steps) {
   auto sphere = make_sphere(steps, radius);
   for (auto& p : sphere.positions) p += position;
   return sphere;
-}
-
-quads_shape make_cylinders(const vector<vec2i>& lines,
-    const vector<vec3f>& positions, float radius, const vec3i& steps) {
-  auto shape = quads_shape{};
-  for (auto line : lines) {
-    auto len      = length(positions[line.x] - positions[line.y]);
-    auto dir      = normalize(positions[line.x] - positions[line.y]);
-    auto center   = (positions[line.x] + positions[line.y]) / 2;
-    auto cylinder = make_uvcylinder({4, 1, 1}, {radius, len / 2});
-    auto frame    = frame_fromz(center, dir);
-    for (auto& p : cylinder.positions) p = transform_point(frame, p);
-    for (auto& n : cylinder.normals) n = transform_direction(frame, n);
-    merge_quads(shape.quads, shape.positions, shape.normals, shape.texcoords,
-        cylinder.quads, cylinder.positions, cylinder.normals,
-        cylinder.texcoords);
-  }
-  return shape;
 }
 
 void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
@@ -360,7 +325,7 @@ void select_point(app_state* app, const gui_input& input) {
       auto pos = eval_position(
           app->ioshape->triangles, app->ioshape->positions, mp);
 
-      auto sphere = add_sphere(pos, 0.01f, 2);
+      auto sphere = make_sphere(pos, 0.01f, 2);
       // Problem(?): adding shapes and adding instances at the same time.
       auto sphere_shape = add_shape(app->glscene, {}, {}, {}, sphere.quads,
           sphere.positions, sphere.normals, sphere.texcoords, {});
