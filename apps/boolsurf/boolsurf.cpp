@@ -166,6 +166,16 @@ void update_path_shape(
   set_instances(shape, froms, tos);
 }
 
+void update_path_shape_thin(
+    shade_shape* shape, const bezier_mesh& mesh, const geodesic_path& path) {
+  auto positions = path_positions(
+      path, mesh.triangles, mesh.positions, mesh.adjacencies);
+
+  set_positions(shape, positions);
+  shape->shape->elements = ogl_element_type::line_strip;
+  set_instances(shape, {}, {});
+}
+
 void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
     progress_callback progress_cb) {
   // handle progress
