@@ -26,14 +26,18 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //
 
+#include <yocto/yocto_bvh.h>
 #include <yocto/yocto_commonio.h>
 #include <yocto/yocto_geometry.h>
 #include <yocto/yocto_image.h>
+#include <yocto/yocto_math.h>
+#include <yocto/yocto_mesh.h>
 #include <yocto/yocto_parallel.h>
 #include <yocto/yocto_sceneio.h>
 #include <yocto/yocto_shape.h>
 #include <yocto_gui/yocto_imgui.h>
 #include <yocto_gui/yocto_shade.h>
+#include <yocto_gui/yocto_window.h>
 
 #include "myfile.h"
 using namespace yocto;
@@ -62,10 +66,13 @@ struct app_state {
 
   // scene
   generic_shape* ioshape = new generic_shape{};
+  shape_bvh      bvh     = {};
 
   // rendering state
   shade_scene*  glscene  = new shade_scene{};
   shade_camera* glcamera = nullptr;
+
+  gui_widgets widgets = {};
 
   // loading status
   std::atomic<bool> ok           = false;
@@ -82,36 +89,22 @@ struct app_state {
   }
 };
 
-// Application state
-struct app_states {
-  // data
-  vector<app_state*>     states   = {};
-  app_state*             selected = nullptr;
-  std::deque<app_state*> loading  = {};
-
-  // default options
-  shade_params drawgl_prms = {};
-
-  // cleanup
-  ~app_states() {
-    for (auto state : states) delete state;
+void load_shape(app_state* app, const string& filename) {
+  app->filename  = filename;
+  app->imagename = replace_extension(filename, ".png");
+  app->outname   = replace_extension(filename, ".edited.obj");
+  app->name      = path_filename(app->filename);
+  app->status    = "load";
+  if (!load_shape(app->filename, *app->ioshape, app->loader_error)) {
+    printf("Error loading shape: %s\n", app->loader_error.c_str());
+    return;
   }
-};
 
-void load_shape_async(
-    app_states* apps, const string& filename, const string& camera_name = "") {
-  auto app         = apps->states.emplace_back(new app_state{});
-  app->filename    = filename;
-  app->imagename   = replace_extension(filename, ".png");
-  app->outname     = replace_extension(filename, ".edited.obj");
-  app->name        = path_filename(app->filename);
-  app->drawgl_prms = apps->drawgl_prms;
-  app->status      = "load";
-  app->loader      = std::async(std::launch::async, [app, camera_name]() {
-    if (!load_shape(app->filename, *app->ioshape, app->loader_error)) return;
-  });
-  apps->loading.push_back(app);
-  if (!apps->selected) apps->selected = app;
+  // Converting quads to triangles
+  if (app->ioshape->quads.size()) {
+    app->ioshape->triangles = quads_to_triangles(app->ioshape->quads);
+    app->ioshape->quads     = {};
+  }
 }
 
 // TODO(fabio): move this function to math
@@ -151,6 +144,13 @@ quads_shape make_spheres(
   }
   return shape;
 }
+
+quads_shape add_sphere(vec3f position, float radius, int steps) {
+  auto sphere = make_sphere(steps, radius);
+  for (auto& p : sphere.positions) p += position;
+  return sphere;
+}
+
 quads_shape make_cylinders(const vector<vec2i>& lines,
     const vector<vec3f>& positions, float radius, const vec3i& steps) {
   auto shape = quads_shape{};
@@ -167,6 +167,15 @@ quads_shape make_cylinders(const vector<vec2i>& lines,
         cylinder.texcoords);
   }
   return shape;
+}
+
+vec2f get_mouse_pos_normalized(const gui_input& input, bool isometric) {
+  auto pos  = input.mouse_pos;
+  auto size = input.window_size;
+  pos = vec2f{2.0f * (pos.x / size.x) - 1.0f, 1.0f - 2.0f * (pos.y / size.y)};
+
+  if (isometric) pos.x *= size.x / size.y;
+  return pos;
 }
 
 void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
@@ -208,6 +217,9 @@ void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
   }
   set_instances(model_shape, {}, {});
 
+  app->bvh = make_triangles_bvh(
+      ioshape->triangles, ioshape->positions, ioshape->radius);
+
   auto edges = get_edges(ioshape->triangles, ioshape->quads);
   auto froms = vector<vec3f>();
   auto tos   = vector<vec3f>();
@@ -248,188 +260,167 @@ void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
 }
 
 // draw with shading
-void draw_widgets(gui_window* win, app_states* apps, const gui_input& input) {
-  static auto load_path = ""s, save_path = ""s, error_message = ""s;
-  if (draw_filedialog_button(win, "load", true, "load", load_path, false, "./",
-          "", "*.ply;*.obj")) {
-    load_shape_async(apps, load_path);
-    load_path = "";
-  }
-  continue_line(win);
-  if (draw_filedialog_button(win, "save", apps->selected && apps->selected->ok,
-          "save", save_path, true, path_dirname(save_path),
-          path_filename(save_path), "*.ply;*.obj")) {
-    auto app     = apps->selected;
-    app->outname = save_path;
-    save_shape(app->outname, *app->ioshape, app->error);
-    save_path = "";
-  }
-  continue_line(win);
-  if (draw_button(win, "close", (bool)apps->selected)) {
-    if (apps->selected->loader.valid()) return;
-    delete apps->selected;
-    apps->states.erase(
-        std::find(apps->states.begin(), apps->states.end(), apps->selected));
-    apps->selected = apps->states.empty() ? nullptr : apps->states.front();
-  }
-  continue_line(win);
-  if (draw_button(win, "quit")) {
-    set_close(win, true);
-  }
-  if (apps->states.empty()) return;
-  draw_combobox(win, "shape", apps->selected, apps->states, false);
-  if (!apps->selected) return;
-  draw_progressbar(win, apps->selected->status.c_str(), apps->selected->current,
-      apps->selected->total);
-  if (apps->selected->error != "") {
-    draw_label(win, "error", apps->selected->error);
-    return;
-  }
-  if (!apps->selected->ok) return;
-  auto app = apps->selected;
-  if (begin_header(win, "view")) {
+void draw_widgets(app_state* app, const gui_input& input) {
+  auto widgets = &app->widgets;
+  begin_imgui(widgets, "boolsurf", {0, 0}, {320, 720});
+
+  if (begin_header(widgets, "view")) {
     auto  glmaterial = app->glscene->materials.front();
     auto& params     = app->drawgl_prms;
-    draw_checkbox(win, "faceted", params.faceted);
-    continue_line(win);
-    draw_checkbox(win, "lines", app->glscene->instances[1]->hidden, true);
-    continue_line(win);
-    draw_checkbox(win, "points", app->glscene->instances[2]->hidden, true);
-    draw_coloredit(win, "color", glmaterial->color);
-    draw_slider(win, "resolution", params.resolution, 0, 4096);
-    draw_combobox(win, "lighting", (int&)params.lighting, shade_lighting_names);
-    draw_checkbox(win, "wireframe", params.wireframe);
-    continue_line(win);
-    draw_checkbox(win, "double sided", params.double_sided);
-    draw_slider(win, "exposure", params.exposure, -10, 10);
-    draw_slider(win, "gamma", params.gamma, 0.1f, 4);
-    draw_slider(win, "near", params.near, 0.01f, 1.0f);
-    draw_slider(win, "far", params.far, 1000.0f, 10000.0f);
-    end_header(win);
+    draw_checkbox(widgets, "faceted", params.faceted);
+    continue_line(widgets);
+    draw_checkbox(widgets, "lines", app->glscene->instances[1]->hidden, true);
+    continue_line(widgets);
+    draw_checkbox(widgets, "points", app->glscene->instances[2]->hidden, true);
+    draw_coloredit(widgets, "color", glmaterial->color);
+    draw_slider(widgets, "resolution", params.resolution, 0, 4096);
+    draw_combobox(
+        widgets, "lighting", (int&)params.lighting, shade_lighting_names);
+    draw_checkbox(widgets, "wireframe", params.wireframe);
+    continue_line(widgets);
+    draw_checkbox(widgets, "double sided", params.double_sided);
+    draw_slider(widgets, "exposure", params.exposure, -10, 10);
+    draw_slider(widgets, "gamma", params.gamma, 0.1f, 4);
+    draw_slider(widgets, "near", params.near, 0.01f, 1.0f);
+    draw_slider(widgets, "far", params.far, 1000.0f, 10000.0f);
+    end_header(widgets);
   }
-  if (begin_header(win, "inspect")) {
-    draw_label(win, "shape", app->name);
-    draw_label(win, "filename", app->filename);
-    draw_label(win, "outname", app->outname);
-    draw_label(win, "imagename", app->imagename);
+  if (begin_header(widgets, "inspect")) {
+    draw_label(widgets, "shape", app->name);
+    draw_label(widgets, "filename", app->filename);
+    draw_label(widgets, "outname", app->outname);
+    draw_label(widgets, "imagename", app->imagename);
     auto ioshape = app->ioshape;
-    draw_label(win, "points", std::to_string(ioshape->points.size()));
-    draw_label(win, "lines", std::to_string(ioshape->lines.size()));
-    draw_label(win, "triangles", std::to_string(ioshape->triangles.size()));
-    draw_label(win, "quads", std::to_string(ioshape->quads.size()));
-    draw_label(win, "positions", std::to_string(ioshape->positions.size()));
-    draw_label(win, "normals", std::to_string(ioshape->normals.size()));
-    draw_label(win, "texcoords", std::to_string(ioshape->texcoords.size()));
-    draw_label(win, "colors", std::to_string(ioshape->colors.size()));
-    draw_label(win, "radius", std::to_string(ioshape->radius.size()));
-    draw_label(win, "quads pos", std::to_string(ioshape->quadspos.size()));
-    draw_label(win, "quads norm", std::to_string(ioshape->quadsnorm.size()));
+    draw_label(widgets, "points", std::to_string(ioshape->points.size()));
+    draw_label(widgets, "lines", std::to_string(ioshape->lines.size()));
+    draw_label(widgets, "triangles", std::to_string(ioshape->triangles.size()));
+    draw_label(widgets, "quads", std::to_string(ioshape->quads.size()));
+    draw_label(widgets, "positions", std::to_string(ioshape->positions.size()));
+    draw_label(widgets, "normals", std::to_string(ioshape->normals.size()));
+    draw_label(widgets, "texcoords", std::to_string(ioshape->texcoords.size()));
+    draw_label(widgets, "colors", std::to_string(ioshape->colors.size()));
+    draw_label(widgets, "radius", std::to_string(ioshape->radius.size()));
+    draw_label(widgets, "quads pos", std::to_string(ioshape->quadspos.size()));
     draw_label(
-        win, "quads texcoord", std::to_string(ioshape->quadstexcoord.size()));
-    end_header(win);
+        widgets, "quads norm", std::to_string(ioshape->quadsnorm.size()));
+    draw_label(widgets, "quads texcoord",
+        std::to_string(ioshape->quadstexcoord.size()));
+    end_header(widgets);
   }
+
+  end_imgui(widgets);
 }
 
-// draw with shading
-void draw(gui_window* win, app_states* apps, const gui_input& input) {
-  if (!apps->selected || !apps->selected->ok) return;
-  auto app = apps->selected;
+// draw with shape
+void draw_scene(app_state* app, const gui_input& input) {
   draw_scene(app->glscene, app->glcamera, input.framebuffer_viewport,
       app->drawgl_prms);
 }
 
-// update
-void update(gui_window* win, app_states* apps) {
-  auto is_ready = [](const std::future<void>& result) -> bool {
-    return result.valid() && result.wait_for(std::chrono::microseconds(0)) ==
-                                 std::future_status::ready;
-  };
+void update_camera(app_state* app, const gui_input& input) {
+  if (is_active(&app->widgets)) return;
 
-  while (!apps->loading.empty()) {
-    auto app = apps->loading.front();
-    if (!is_ready(app->loader)) break;
-    apps->loading.pop_front();
-    auto progress_cb = [app](const string& message, int current, int total) {
-      app->current = current;
-      app->total   = total;
-    };
-    app->loader.get();
-    if (app->loader_error.empty()) {
-      init_glscene(app, app->glscene, app->ioshape, progress_cb);
-      app->glcamera = app->glscene->cameras.front();
-      app->ok       = true;
-      app->status   = "ok";
-    } else {
-      app->status = "error";
-      app->error  = app->loader_error;
-    }
+  // handle mouse and keyboard for navigation
+  if ((input.mouse_left || input.mouse_right) && !input.modifier_alt) {
+    auto dolly  = 0.0f;
+    auto pan    = zero2f;
+    auto rotate = zero2f;
+    if (input.mouse_left && !input.modifier_shift)
+      rotate = (input.mouse_pos - input.mouse_last) / 100.0f;
+    if (input.mouse_right)
+      dolly = (input.mouse_pos.x - input.mouse_last.x) / 100.0f;
+    if (input.mouse_left && input.modifier_shift)
+      pan = (input.mouse_pos - input.mouse_last) / 100.0f;
+    pan.x    = -pan.x;
+    rotate.y = -rotate.y;
+
+    std::tie(app->glcamera->frame, app->glcamera->focus) = camera_turntable(
+        app->glcamera->frame, app->glcamera->focus, rotate, dolly, pan);
+  }
+};
+
+void drop(app_state* app, const gui_input& input) {
+  if (input.dropped.size()) {
+    load_shape(app, input.dropped[0]);
+    clear_scene(app->glscene);
+    init_glscene(app, app->glscene, app->ioshape, {});
+    app->glcamera = app->glscene->cameras.front();
+    return;
   }
 }
 
+void select_point(app_state* app, const gui_input& input) {
+  if (is_active(&app->widgets)) return;
+
+  if (input.modifier_alt &&
+      input.mouse_left.state == gui_button::state::releasing) {
+    // Normalizing mouse position
+    auto mouse_uv = vec2f{input.mouse_pos.x / float(input.window_size.x),
+        input.mouse_pos.y / float(input.window_size.y)};
+    auto ray      = camera_ray(app->glcamera->frame, app->glcamera->lens,
+        app->glcamera->aspect, app->glcamera->film, mouse_uv);
+
+    auto isec = intersect_triangles_bvh(
+        app->bvh, app->ioshape->triangles, app->ioshape->positions, ray);
+
+    if (isec.hit) {
+      auto mp  = mesh_point{isec.element, isec.uv};
+      auto pos = eval_position(
+          app->ioshape->triangles, app->ioshape->positions, mp);
+
+      auto sphere = add_sphere(pos, 0.03f, 2);
+
+      // Problem(?): adding shapes and adding instances at the same time.
+      auto sphere_shape = add_shape(app->glscene, {}, {}, {}, sphere.quads,
+          sphere.positions, sphere.normals, sphere.texcoords, {});
+      set_instances(sphere_shape, {}, {});
+
+      add_instance(app->glscene, identity3x4f, sphere_shape,
+          app->glscene->materials[1], false);  // Material
+    }
+  }
+};
+
+void update_app(const gui_input& input, void* data) {
+  auto app = (app_state*)data;
+
+  update_camera(app, input);
+  select_point(app, input);
+  drop(app, input);
+
+  draw_scene(app, input);
+  draw_widgets(app, input);
+}
+
 int main(int argc, const char* argv[]) {
-  // initialize app
-  auto apps_guard  = std::make_unique<app_states>();
-  auto apps        = apps_guard.get();
-  auto filenames   = vector<string>{};
+  auto app         = new app_state{};
+  auto filename    = "tests/_data/shapes/bunny.obj"s;
   auto camera_name = ""s;
 
   // parse command line
-  auto cli = make_cli("yshapeview", "views shapes inteactively");
+  auto cli = make_cli("yboolsurf", "views shapes inteactively");
   add_option(cli, "--camera", camera_name, "Camera name.");
-  add_option(cli, "--resolution,-r", apps->drawgl_prms.resolution,
-      "Image resolution.");
-  add_option(cli, "--lighting", apps->drawgl_prms.lighting, "Lighting type.",
+  add_option(
+      cli, "--resolution,-r", app->drawgl_prms.resolution, "Image resolution.");
+  add_option(cli, "--lighting", app->drawgl_prms.lighting, "Lighting type.",
       shade_lighting_names);
-  add_option(cli, "shapes", filenames, "Shape filenames", true);
+  add_option(cli, "shape", filename, "Shape filename", true);
   parse_cli(cli, argc, argv);
 
-  // loading images
-  for (auto filename : filenames) load_shape_async(apps, filename, camera_name);
+  auto window = new gui_window{};
+  init_window(window, {1280 + 320, 720}, "boolsurf", true);
+  window->user_data = app;
 
-  // callbacks
-  auto callbacks     = gui_callbacks{};
-  callbacks.clear_cb = [apps](gui_window* win, const gui_input& input) {
-    for (auto app : apps->states) clear_scene(app->glscene);
-  };
-  callbacks.draw_cb = [apps](gui_window* win, const gui_input& input) {
-    draw(win, apps, input);
-  };
-  callbacks.widgets_cb = [apps](gui_window* win, const gui_input& input) {
-    draw_widgets(win, apps, input);
-  };
-  callbacks.drop_cb = [apps](gui_window* win, const vector<string>& paths,
-                          const gui_input& input) {
-    for (auto& path : paths) load_shape_async(apps, path);
-  };
-  callbacks.update_cb = [apps](gui_window* win, const gui_input& input) {
-    update(win, apps);
-  };
-  callbacks.uiupdate_cb = [apps](gui_window* win, const gui_input& input) {
-    if (!apps->selected || !apps->selected->ok) return;
-    auto app = apps->selected;
+  load_shape(app, filename);
 
-    // handle mouse and keyboard for navigation
-    if ((input.mouse_left || input.mouse_right) && !input.modifier_alt &&
-        !input.widgets_active) {
-      auto dolly  = 0.0f;
-      auto pan    = zero2f;
-      auto rotate = zero2f;
-      if (input.mouse_left && !input.modifier_shift)
-        rotate = (input.mouse_pos - input.mouse_last) / 100.0f;
-      if (input.mouse_right)
-        dolly = (input.mouse_pos.x - input.mouse_last.x) / 100.0f;
-      if (input.mouse_left && input.modifier_shift)
-        pan = (input.mouse_pos - input.mouse_last) / 100.0f;
-      pan.x    = -pan.x;
-      rotate.y = -rotate.y;
+  init_glscene(app, app->glscene, app->ioshape, {});
+  app->glcamera = app->glscene->cameras.front();
+  app->widgets  = create_imgui(window);
 
-      std::tie(app->glcamera->frame, app->glcamera->focus) = camera_turntable(
-          app->glcamera->frame, app->glcamera->focus, rotate, dolly, pan);
-    }
-  };
+  run_ui(window, update_app);
 
-  // run ui
-  run_ui({1280 + 320, 720}, "yshapeview", callbacks);
+  // clear
+  clear_scene(app->glscene);
 
   // done
   return 0;
