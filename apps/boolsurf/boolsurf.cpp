@@ -80,15 +80,6 @@ struct app_state {
 
   gui_widgets widgets = {};
 
-  // loading status
-  std::atomic<bool> ok           = false;
-  std::future<void> loader       = {};
-  string            status       = "";
-  string            error        = "";
-  std::atomic<int>  current      = 0;
-  std::atomic<int>  total        = 0;
-  string            loader_error = "";
-
   ~app_state() {
     if (glscene) delete glscene;
     if (ioshape) delete ioshape;
@@ -100,9 +91,9 @@ void load_shape(app_state* app, const string& filename) {
   app->imagename = replace_extension(filename, ".png");
   app->outname   = replace_extension(filename, ".edited.obj");
   app->name      = path_filename(app->filename);
-  app->status    = "load";
-  if (!load_shape(app->filename, *app->ioshape, app->loader_error)) {
-    printf("Error loading shape: %s\n", app->loader_error.c_str());
+  auto error     = ""s;
+  if (!load_shape(app->filename, *app->ioshape, error)) {
+    printf("Error loading shape: %s\n", error.c_str());
     return;
   }
 
