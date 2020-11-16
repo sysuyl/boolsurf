@@ -137,10 +137,17 @@ quads_shape make_sphere(vec3f position, float radius, int steps) {
   return sphere;
 }
 
-void update_path_shape(
-    shade_shape* shape, const bezier_mesh& mesh, const geodesic_path& path) {
+void update_path_shape(shade_shape* shape, const bezier_mesh& mesh,
+    const geodesic_path& path, bool thin = false) {
   auto positions = path_positions(
       path, mesh.triangles, mesh.positions, mesh.adjacencies);
+
+  if (thin) {
+    set_positions(shape, positions);
+    shape->shape->elements = ogl_element_type::line_strip;
+    set_instances(shape, {}, {});
+    return;
+  }
 
   auto froms = vector<vec3f>();
   auto tos   = vector<vec3f>();
@@ -164,16 +171,6 @@ void update_path_shape(
   set_normals(shape, cylinder.normals);
   set_texcoords(shape, cylinder.texcoords);
   set_instances(shape, froms, tos);
-}
-
-void update_path_shape_thin(
-    shade_shape* shape, const bezier_mesh& mesh, const geodesic_path& path) {
-  auto positions = path_positions(
-      path, mesh.triangles, mesh.positions, mesh.adjacencies);
-
-  set_positions(shape, positions);
-  shape->shape->elements = ogl_element_type::line_strip;
-  set_instances(shape, {}, {});
 }
 
 void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
@@ -435,6 +432,7 @@ int main(int argc, const char* argv[]) {
   load_shape(app, filename);
 
   init_glscene(app, app->glscene, app->ioshape, {});
+  set_ogl_blending(true);
   app->glcamera = app->glscene->cameras.front();
   app->widgets  = create_imgui(window);
 
