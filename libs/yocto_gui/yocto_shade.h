@@ -270,6 +270,7 @@ void set_normals(shade_shape* shape, const vector<vec3f>& normals);
 void set_texcoords(shade_shape* shape, const vector<vec2f>& texcoords);
 void set_colors(shade_shape* shape, const vector<vec4f>& colors);
 void set_tangents(shade_shape* shape, const vector<vec4f>& tangents);
+void set_instances(shade_shape* shape, const vector<vec3f>& positions);
 void set_instances(
     shade_shape* shape, const vector<vec3f>& froms, const vector<vec3f>& tos);
 

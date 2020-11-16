@@ -112,6 +112,19 @@ void set_tangents(shade_shape* shape, const vector<vec4f>& tangents) {
     set_vertex_buffer(shape->shape, tangents, 4);
   }
 }
+void set_instances(shade_shape* shape, const vector<vec3f>& positions) {
+  if (positions.empty()) {
+    set_vertex_buffer(shape->shape, vec3f{0, 0, 0}, 5);
+    set_instance_buffer(shape->shape, 5, false);
+    set_vertex_buffer(shape->shape, vec3f{0, 0, 0}, 6);
+    set_instance_buffer(shape->shape, 6, false);
+  } else {
+    set_vertex_buffer(shape->shape, positions, 5);
+    set_instance_buffer(shape->shape, 5, true);
+    set_vertex_buffer(shape->shape, positions, 6);
+    set_instance_buffer(shape->shape, 6, true);
+  }
+}
 void set_instances(
     shade_shape* shape, const vector<vec3f>& froms, const vector<vec3f>& tos) {
   if (froms.empty()) {
@@ -122,7 +135,7 @@ void set_instances(
     set_instance_buffer(shape->shape, 5, true);
   }
   if (tos.empty()) {
-    set_vertex_buffer(shape->shape, vec3f{0, 0, 0}, 5);
+    set_vertex_buffer(shape->shape, vec3f{0, 0, 0}, 6);
     set_instance_buffer(shape->shape, 6, false);
   } else {
     set_vertex_buffer(shape->shape, tos, 6);

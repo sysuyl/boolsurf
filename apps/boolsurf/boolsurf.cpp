@@ -118,25 +118,6 @@ frame3f camera_frame(float lens, float aspect, float film = 0.036) {
   return lookat_frame(camera_dir * camera_dist, {0, 0, 0}, {0, 1, 0});
 }
 
-// Create a shape with small spheres for each point
-quads_shape make_spheres(
-    const vector<vec3f>& positions, float radius, int steps) {
-  auto shape = quads_shape{};
-  for (auto position : positions) {
-    auto sphere = make_sphere(steps, radius);
-    for (auto& p : sphere.positions) p += position;
-    merge_quads(shape.quads, shape.positions, shape.normals, shape.texcoords,
-        sphere.quads, sphere.positions, sphere.normals, sphere.texcoords);
-  }
-  return shape;
-}
-
-quads_shape make_sphere(vec3f position, float radius, int steps) {
-  auto sphere = make_sphere(steps, radius);
-  for (auto& p : sphere.positions) p += position;
-  return sphere;
-}
-
 void update_path_shape(shade_shape* shape, const bezier_mesh& mesh,
     const geodesic_path& path, bool thin = false) {
   auto positions = path_positions(
@@ -184,33 +165,34 @@ void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
   // compute bounding box
   auto bbox = invalidb3f;
   for (auto& pos : ioshape->positions) bbox = merge(bbox, pos);
-  for (auto& pos : ioshape->positions) pos -= center(bbox);
-  for (auto& pos : ioshape->positions) pos /= max(size(bbox));
+  for (auto& pos : ioshape->positions)
+    pos = (pos - center(bbox)) / max(size(bbox));
   // TODO(fabio): this should be a math function
 
   // camera
   if (progress_cb) progress_cb("convert camera", progress.x++, progress.y);
-  auto glcamera = add_camera(glscene, camera_frame(0.050, 16.0f / 9.0f, 0.036),
+  app->glcamera = add_camera(glscene, camera_frame(0.050, 16.0f / 9.0f, 0.036),
       0.050, 16.0f / 9.0f, 0.036);
-  glcamera->focus = length(glcamera->frame.o - center(bbox));
+  app->glcamera->focus = length(app->glcamera->frame.o - center(bbox));
 
   // material
   if (progress_cb) progress_cb("convert material", progress.x++, progress.y);
   app->mesh_material = add_material(
-      glscene, {0, 0, 0}, {0.5, 1, 0.5}, 1, 0, 0.2);
-  app->edges_material  = add_material(glscene, {0, 0, 0}, {0, 0, 1}, 1, 0, 0.1);
-  app->points_material = add_material(glscene, {0, 0, 0}, {0, 0, 1}, 1, 0, 0.1);
-  app->paths_material  = add_material(glscene, {0, 0, 0}, {1, 0, 0}, 1, 0, 0.1);
+      glscene, {0, 0, 0}, {0.5, 0.5, 0.9}, 1, 0, 0.4);
+  app->edges_material = add_material(
+      glscene, {0, 0, 0}, {0.4, 0.4, 1}, 1, 0, 0.4);
+  app->points_material = add_material(glscene, {0, 0, 0}, {0, 0, 1}, 1, 0, 0.4);
+  app->paths_material  = add_material(glscene, {0, 0, 0}, {1, 0, 0}, 1, 0, 0.4);
 
   // shapes
   if (progress_cb) progress_cb("convert shape", progress.x++, progress.y);
-  auto model_shape = add_shape(glscene, ioshape->points, ioshape->lines,
+  auto mesh_shape = add_shape(glscene, ioshape->points, ioshape->lines,
       ioshape->triangles, ioshape->quads, ioshape->positions, ioshape->normals,
       ioshape->texcoords, ioshape->colors, true);
-  if (!is_initialized(get_normals(model_shape))) {
+  if (!is_initialized(get_normals(mesh_shape))) {
     app->drawgl_prms.faceted = true;
   }
-  set_instances(model_shape, {}, {});
+  set_instances(mesh_shape, {}, {});
 
   app->bvh = make_triangles_bvh(
       ioshape->triangles, ioshape->positions, ioshape->radius);
@@ -232,7 +214,7 @@ void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
   }
   avg_edge_length /= edges.size();
   auto cylinder_radius = 0.05f * avg_edge_length;
-  auto cylinder        = make_uvcylinder({4, 1, 1}, {cylinder_radius, 1});
+  auto cylinder        = make_uvcylinder({8, 1, 1}, {cylinder_radius, 1});
   for (auto& p : cylinder.positions) {
     p.z = p.z * 0.5 + 0.5;
   }
@@ -241,14 +223,14 @@ void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
   set_instances(edges_shape, froms, tos);
 
   auto vertices_radius = 3.0f * cylinder_radius;
-  auto vertices        = make_spheres(ioshape->positions, vertices_radius, 2);
+  auto vertices        = make_sphere(3, vertices_radius);
   auto vertices_shape  = add_shape(glscene, {}, {}, {}, vertices.quads,
       vertices.positions, vertices.normals, vertices.texcoords, {});
-  set_instances(vertices_shape, {}, {});
+  set_instances(vertices_shape, ioshape->positions);
 
   // shapes
   if (progress_cb) progress_cb("convert instance", progress.x++, progress.y);
-  add_instance(glscene, identity3x4f, model_shape, app->mesh_material);
+  add_instance(glscene, identity3x4f, mesh_shape, app->mesh_material);
   add_instance(glscene, identity3x4f, edges_shape, app->edges_material, true);
   add_instance(
       glscene, identity3x4f, vertices_shape, app->points_material, true);
@@ -342,7 +324,7 @@ void drop(app_state* app, const gui_input& input) {
     load_shape(app, input.dropped[0]);
     clear_scene(app->glscene);
     init_glscene(app, app->glscene, app->ioshape, {});
-    app->glcamera = app->glscene->cameras.front();
+
     return;
   }
 }
@@ -366,7 +348,7 @@ void select_point(app_state* app, const gui_input& input) {
       auto pos = eval_position(
           app->ioshape->triangles, app->ioshape->positions, mp);
 
-      auto sphere = make_sphere(2, 0.0015f);
+      auto sphere = make_sphere(4, 0.0015f);
       auto frame  = frame3f{};
       frame.o     = pos;
 
@@ -433,8 +415,7 @@ int main(int argc, const char* argv[]) {
 
   init_glscene(app, app->glscene, app->ioshape, {});
   set_ogl_blending(true);
-  app->glcamera = app->glscene->cameras.front();
-  app->widgets  = create_imgui(window);
+  app->widgets = create_imgui(window);
 
   run_ui(window, update_app);
 
