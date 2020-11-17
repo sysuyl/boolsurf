@@ -70,9 +70,8 @@ struct app_state {
   shape_bvh      bvh     = {};
 
   // mesh info (maybe not the most efficient solution)
-  mesh_point  start = mesh_point{};
-  mesh_point  end   = mesh_point{};
-  bezier_mesh mesh  = bezier_mesh{};
+  bezier_mesh mesh     = bezier_mesh{};
+  polygon     polygons = polygon{};
 
   // rendering state
   shade_scene*    glscene         = new shade_scene{};
@@ -319,6 +318,20 @@ void update_camera(app_state* app, const gui_input& input) {
   }
 };
 
+void key_input(app_state* app, const gui_input& input) {
+  for (auto idx = 0; idx < input.key_buttons.size(); idx++) {
+    auto button = input.key_buttons[idx];
+    if (button.state != gui_button::state::pressing) continue;
+
+    switch (idx) {
+      case (int)gui_key::enter: {
+        printf("Invio\n");
+        break;
+      }
+    }
+  }
+}
+
 void drop(app_state* app, const gui_input& input) {
   if (input.dropped.size()) {
     load_shape(app, input.dropped[0]);
@@ -344,7 +357,10 @@ void select_point(app_state* app, const gui_input& input) {
         app->bvh, app->ioshape->triangles, app->ioshape->positions, ray);
 
     if (isec.hit) {
-      auto mp  = mesh_point{isec.element, isec.uv};
+      auto mp = mesh_point{isec.element, isec.uv};
+      app->polygons.points.push_back(mp);
+
+      // Metti tutto in un metodo a parte
       auto pos = eval_position(
           app->ioshape->triangles, app->ioshape->positions, mp);
 
@@ -358,25 +374,24 @@ void select_point(app_state* app, const gui_input& input) {
 
       add_instance(
           app->glscene, frame, sphere_shape, app->paths_material, false);
-
-      if (app->start.face < 0)
-        app->start = mp;
-      else
-        app->end = mp;
     }
   }
 };
 
 void compute_path(app_state* app, const gui_input& input) {
-  if (app->start.face > 0 && app->end.face > 0) {
-    auto path  = compute_geodesic_path(app->mesh, app->start, app->end);
+  auto size = app->polygons.points.size();
+  if (size > 1 && !is_updated(app->polygons)) {
+    auto start = app->polygons.points[size - 2];
+    auto end   = app->polygons.points[size - 1];
+
+    printf("Path start: %d end: %d\n", start.face, end.face);
+
+    auto path = compute_geodesic_path(app->mesh, start, end);
+    app->polygons.paths.push_back(path);
+
     auto shape = add_shape(app->glscene);
     update_path_shape(shape, app->mesh, path);
-
     add_instance(app->glscene, identity3x4f, shape, app->paths_material, false);
-
-    app->start = app->end;
-    app->end   = mesh_point{};
   }
 }
 
@@ -386,6 +401,7 @@ void update_app(const gui_input& input, void* data) {
   update_camera(app, input);
   select_point(app, input);
   compute_path(app, input);
+  key_input(app, input);
   drop(app, input);
 
   draw_scene(app, input);

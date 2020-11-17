@@ -13,6 +13,15 @@ struct bezier_mesh {
   dual_geodesic_solver dual_solver = {};
 };
 
+struct polygon {
+  vector<mesh_point>    points = {};
+  vector<geodesic_path> paths  = {};
+};
+
+inline bool is_updated(const polygon& polyg) {
+  return (polyg.points.size() - 1) == polyg.paths.size();
+}
+
 inline bezier_mesh init_bezier_mesh(const generic_shape* shape) {
   auto mesh        = bezier_mesh{};
   mesh.triangles   = shape->triangles;
