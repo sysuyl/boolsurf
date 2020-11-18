@@ -68,8 +68,8 @@ struct app_state {
   shape_bvh      bvh     = {};
 
   // mesh info (maybe not the most efficient solution)
-  bezier_mesh mesh     = bezier_mesh{};
-  polygon     polygons = polygon{};
+  bezier_mesh  mesh     = bezier_mesh{};
+  mesh_polygon polygons = mesh_polygon{};
 
   // rendering state
   shade_scene*    glscene         = new shade_scene{};
@@ -287,7 +287,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
 }
 
 // draw with shape
-void draw_scene(app_state* app, const gui_input& input) {
+void draw_scene(const app_state* app, const gui_input& input) {
   draw_scene(app->glscene, app->glcamera, input.framebuffer_viewport,
       app->drawgl_prms);
 }
@@ -324,7 +324,8 @@ void drop(app_state* app, const gui_input& input) {
   }
 }
 
-shape_intersection intersect_shape(app_state* app, const gui_input& input) {
+shape_intersection intersect_shape(
+    const app_state* app, const gui_input& input) {
   auto mouse_uv = vec2f{input.mouse_pos.x / float(input.window_size.x),
       input.mouse_pos.y / float(input.window_size.y)};
   auto ray      = camera_ray(app->glcamera->frame, app->glcamera->lens,
@@ -336,9 +337,9 @@ shape_intersection intersect_shape(app_state* app, const gui_input& input) {
   return isec;
 }
 
-void draw_mesh_point(shade_scene* glscene, generic_shape* ioshape,
-    shade_material* material, mesh_point& point) {
-  auto pos = eval_position(ioshape->triangles, ioshape->positions, point);
+void draw_mesh_point(shade_scene* glscene, const bezier_mesh& mesh,
+    shade_material* material, const mesh_point& point) {
+  auto pos = eval_position(mesh.triangles, mesh.positions, point);
 
   auto sphere = make_sphere(4, 0.0015f);
   auto frame  = frame3f{};
@@ -350,16 +351,17 @@ void draw_mesh_point(shade_scene* glscene, generic_shape* ioshape,
   add_instance(glscene, frame, shape, material, false);
 }
 
-geodesic_path compute_path(polygon& polyg, bezier_mesh& mesh) {
-  auto size  = polyg.points.size();
-  auto start = polyg.points[size - 2];
-  auto end   = polyg.points[size - 1];
+geodesic_path compute_path(
+    const mesh_polygon& polygon, const bezier_mesh& mesh) {
+  auto size  = polygon.points.size();
+  auto start = polygon.points[size - 2];
+  auto end   = polygon.points[size - 1];
   auto path  = compute_geodesic_path(mesh, start, end);
   return path;
 }
 
-void draw_path(shade_scene* scene, shade_material* material, bezier_mesh& mesh,
-    geodesic_path& path) {
+void draw_path(shade_scene* scene, shade_material* material,
+    const bezier_mesh& mesh, const geodesic_path& path) {
   auto shape = add_shape(scene);
   update_path_shape(shape, mesh, path);
   add_instance(scene, identity3x4f, shape, material, false);
@@ -375,7 +377,7 @@ void compute_polygon(app_state* app, const gui_input& input) {
       auto point = mesh_point{isec.element, isec.uv};
       app->polygons.points.push_back(point);
 
-      draw_mesh_point(app->glscene, app->ioshape, app->paths_material, point);
+      draw_mesh_point(app->glscene, app->mesh, app->paths_material, point);
 
       if (app->polygons.points.size() > 1) {
         auto path = compute_path(app->polygons, app->mesh);
