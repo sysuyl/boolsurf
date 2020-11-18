@@ -103,6 +103,7 @@ void load_shape(app_state* app, const string& filename) {
   }
 
   app->mesh = init_bezier_mesh(app->ioshape);
+  app->bvh  = make_triangles_bvh(app->mesh.triangles, app->mesh.positions, {});
 }
 
 // TODO(fabio): move this function to math
@@ -151,7 +152,7 @@ void update_path_shape(shade_shape* shape, const bezier_mesh& mesh,
   set_instances(shape, froms, tos);
 }
 
-void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
+void init_glscene(app_state* app, shade_scene* glscene, const bezier_mesh& mesh,
     progress_callback progress_cb) {
   // handle progress
   auto progress = vec2i{0, 4};
@@ -159,18 +160,11 @@ void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
   // init scene
   init_scene(glscene, true);
 
-  // compute bounding box
-  auto bbox = invalidb3f;
-  for (auto& pos : ioshape->positions) bbox = merge(bbox, pos);
-  for (auto& pos : ioshape->positions)
-    pos = (pos - center(bbox)) / max(size(bbox));
-  // TODO(fabio): this should be a math function
-
   // camera
   if (progress_cb) progress_cb("convert camera", progress.x++, progress.y);
   app->glcamera = add_camera(glscene, camera_frame(0.050, 16.0f / 9.0f, 0.036),
       0.050, 16.0f / 9.0f, 0.036);
-  app->glcamera->focus = length(app->glcamera->frame.o - center(bbox));
+  app->glcamera->focus = length(app->glcamera->frame.o);
 
   // material
   if (progress_cb) progress_cb("convert material", progress.x++, progress.y);
@@ -183,28 +177,22 @@ void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
 
   // shapes
   if (progress_cb) progress_cb("convert shape", progress.x++, progress.y);
-  auto mesh_shape = add_shape(glscene, ioshape->points, ioshape->lines,
-      ioshape->triangles, ioshape->quads, ioshape->positions, ioshape->normals,
-      ioshape->texcoords, ioshape->colors, true);
+  auto mesh_shape = add_shape(glscene, {}, {}, app->mesh.triangles, {},
+      app->mesh.positions, app->mesh.normals, {}, {}, true);
   if (!is_initialized(get_normals(mesh_shape))) {
     app->drawgl_prms.faceted = true;
   }
   set_instances(mesh_shape, {}, {});
 
-  app->bvh = make_triangles_bvh(
-      ioshape->triangles, ioshape->positions, ioshape->radius);
-
-  app->mesh = init_bezier_mesh(ioshape);
-
-  auto edges = get_edges(ioshape->triangles, ioshape->quads);
+  auto edges = get_edges(app->mesh.triangles, {});
   auto froms = vector<vec3f>();
   auto tos   = vector<vec3f>();
   froms.reserve(edges.size());
   tos.reserve(edges.size());
   float avg_edge_length = 0;
   for (auto& edge : edges) {
-    auto from = ioshape->positions[edge.x];
-    auto to   = ioshape->positions[edge.y];
+    auto from = app->mesh.positions[edge.x];
+    auto to   = app->mesh.positions[edge.y];
     froms.push_back(from);
     tos.push_back(to);
     avg_edge_length += length(from - to);
@@ -223,7 +211,7 @@ void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
   auto vertices        = make_sphere(3, vertices_radius);
   auto vertices_shape  = add_shape(glscene, {}, {}, {}, vertices.quads,
       vertices.positions, vertices.normals, vertices.texcoords, {});
-  set_instances(vertices_shape, ioshape->positions);
+  set_instances(vertices_shape, app->mesh.positions);
 
   // shapes
   if (progress_cb) progress_cb("convert instance", progress.x++, progress.y);
@@ -318,7 +306,7 @@ void drop(app_state* app, const gui_input& input) {
   if (input.dropped.size()) {
     load_shape(app, input.dropped[0]);
     clear_scene(app->glscene);
-    init_glscene(app, app->glscene, app->ioshape, {});
+    init_glscene(app, app->glscene, app->mesh, {});
 
     return;
   }
@@ -332,7 +320,7 @@ shape_intersection intersect_shape(
       app->glcamera->aspect, app->glcamera->film, mouse_uv);
 
   auto isec = intersect_triangles_bvh(
-      app->bvh, app->ioshape->triangles, app->ioshape->positions, ray);
+      app->bvh, app->mesh.triangles, app->mesh.positions, ray);
 
   return isec;
 }
@@ -442,7 +430,7 @@ int main(int argc, const char* argv[]) {
 
   load_shape(app, filename);
 
-  init_glscene(app, app->glscene, app->ioshape, {});
+  init_glscene(app, app->glscene, app->mesh, {});
   set_ogl_blending(true);
   app->widgets = create_imgui(window);
 

@@ -23,11 +23,18 @@ inline bool is_updated(const mesh_polygon& polygon) {
 }
 
 inline bezier_mesh init_bezier_mesh(const generic_shape* shape) {
-  auto mesh        = bezier_mesh{};
+  auto mesh = bezier_mesh{};
+
   mesh.triangles   = shape->triangles;
-  mesh.normals     = shape->normals;
   mesh.positions   = shape->positions;
+  mesh.normals     = shape->normals;
   mesh.adjacencies = face_adjacencies(mesh.triangles);
+
+  // Fit shaphe in [-1, 1]^3
+  auto bbox = invalidb3f;
+  for (auto& pos : mesh.positions) bbox = merge(bbox, pos);
+  for (auto& pos : mesh.positions) pos = (pos - center(bbox)) / max(size(bbox));
+
   mesh.dual_solver = make_dual_geodesic_solver(
       mesh.triangles, mesh.positions, mesh.adjacencies);
   return mesh;
