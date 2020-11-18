@@ -22,6 +22,12 @@ inline bool is_updated(const polygon& polyg) {
   return (polyg.points.size() - 1) == polyg.paths.size();
 }
 
+inline bool is_closed(const polygon& polyg) {
+  if (polyg.points.size() < 3) return false;
+  return (polyg.points.front().face == polyg.points.back().face) &&
+         (polyg.points.front().uv == polyg.points.back().uv);
+}
+
 inline bezier_mesh init_bezier_mesh(const generic_shape* shape) {
   auto mesh        = bezier_mesh{};
   mesh.triangles   = shape->triangles;

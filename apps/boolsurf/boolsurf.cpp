@@ -70,8 +70,8 @@ struct app_state {
   shape_bvh      bvh     = {};
 
   // mesh info (maybe not the most efficient solution)
-  bezier_mesh mesh     = bezier_mesh{};
-  polygon     polygons = polygon{};
+  bezier_mesh     mesh     = bezier_mesh{};
+  vector<polygon> polygons = {};
 
   // rendering state
   shade_scene*    glscene         = new shade_scene{};
@@ -116,8 +116,6 @@ frame3f camera_frame(float lens, float aspect, float film = 0.036) {
   auto camera_dist = bbox_radius * lens / (film / aspect);
   return lookat_frame(camera_dir * camera_dist, {0, 0, 0}, {0, 1, 0});
 }
-
-void update_point_shape(shade_shape* shape) {}
 
 void update_path_shape(shade_shape* shape, const bezier_mesh& mesh,
     const geodesic_path& path, bool thin = false) {
@@ -378,14 +376,18 @@ void compute_polygon(app_state* app, const gui_input& input) {
       input.mouse_left.state == gui_button::state::releasing) {
     auto isec = intersect_shape(app, input);
     if (isec.hit) {
-      auto point = mesh_point{isec.element, isec.uv};
-      app->polygons.points.push_back(point);
+      if (!app->polygons.size()) app->polygons.push_back(polygon{});
+      if (is_closed(app->polygons.back())) app->polygons.push_back(polygon{});
+
+      auto& polyg = app->polygons.back();
+      auto  point = mesh_point{isec.element, isec.uv};
+      polyg.points.push_back(point);
 
       draw_mesh_point(app->glscene, app->ioshape, app->paths_material, point);
 
-      if (app->polygons.points.size() > 1) {
-        auto path = compute_path(app->polygons, app->mesh);
-        app->polygons.paths.push_back(path);
+      if (polyg.points.size() > 1) {
+        auto path = compute_path(polyg, app->mesh);
+        polyg.paths.push_back(path);
         draw_path(app->glscene, app->paths_material, app->mesh, path);
       }
     }
@@ -399,11 +401,14 @@ void key_input(app_state* app, const gui_input& input) {
 
     switch (idx) {
       case (int)gui_key::enter: {
-        auto end = app->polygons.points.front();
-        app->polygons.points.push_back(end);
+        auto& polyg = app->polygons.back();
+        if (polyg.points.size() < 3 || is_closed(polyg)) return;
 
-        auto path = compute_path(app->polygons, app->mesh);
-        app->polygons.paths.push_back(path);
+        auto end = polyg.points.front();
+        polyg.points.push_back(end);
+
+        auto path = compute_path(polyg, app->mesh);
+        polyg.paths.push_back(path);
 
         draw_path(app->glscene, app->paths_material, app->mesh, path);
         break;
