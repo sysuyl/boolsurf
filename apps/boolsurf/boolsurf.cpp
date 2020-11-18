@@ -117,6 +117,8 @@ frame3f camera_frame(float lens, float aspect, float film = 0.036) {
   return lookat_frame(camera_dir * camera_dist, {0, 0, 0}, {0, 1, 0});
 }
 
+void update_point_shape(shade_shape* shape) {}
+
 void update_path_shape(shade_shape* shape, const bezier_mesh& mesh,
     const geodesic_path& path, bool thin = false) {
   auto positions = path_positions(
@@ -318,20 +320,6 @@ void update_camera(app_state* app, const gui_input& input) {
   }
 };
 
-void key_input(app_state* app, const gui_input& input) {
-  for (auto idx = 0; idx < input.key_buttons.size(); idx++) {
-    auto button = input.key_buttons[idx];
-    if (button.state != gui_button::state::pressing) continue;
-
-    switch (idx) {
-      case (int)gui_key::enter: {
-        printf("Invio\n");
-        break;
-      }
-    }
-  }
-}
-
 void drop(app_state* app, const gui_input& input) {
   if (input.dropped.size()) {
     load_shape(app, input.dropped[0]);
@@ -342,56 +330,85 @@ void drop(app_state* app, const gui_input& input) {
   }
 }
 
-void select_point(app_state* app, const gui_input& input) {
+shape_intersection intersect_shape(app_state* app, const gui_input& input) {
+  auto mouse_uv = vec2f{input.mouse_pos.x / float(input.window_size.x),
+      input.mouse_pos.y / float(input.window_size.y)};
+  auto ray      = camera_ray(app->glcamera->frame, app->glcamera->lens,
+      app->glcamera->aspect, app->glcamera->film, mouse_uv);
+
+  auto isec = intersect_triangles_bvh(
+      app->bvh, app->ioshape->triangles, app->ioshape->positions, ray);
+
+  return isec;
+}
+
+void draw_mesh_point(shade_scene* glscene, generic_shape* ioshape,
+    shade_material* material, mesh_point& point) {
+  auto pos = eval_position(ioshape->triangles, ioshape->positions, point);
+
+  auto sphere = make_sphere(4, 0.0015f);
+  auto frame  = frame3f{};
+  frame.o     = pos;
+
+  auto shape = add_shape(glscene, {}, {}, {}, sphere.quads, sphere.positions,
+      sphere.normals, sphere.texcoords, {});
+  set_instances(shape, {}, {});
+  add_instance(glscene, frame, shape, material, false);
+}
+
+geodesic_path compute_path(polygon& polyg, bezier_mesh& mesh) {
+  auto size  = polyg.points.size();
+  auto start = polyg.points[size - 2];
+  auto end   = polyg.points[size - 1];
+  auto path  = compute_geodesic_path(mesh, start, end);
+  return path;
+}
+
+void draw_path(shade_scene* scene, shade_material* material, bezier_mesh& mesh,
+    geodesic_path& path) {
+  auto shape = add_shape(scene);
+  update_path_shape(shape, mesh, path);
+  add_instance(scene, identity3x4f, shape, material, false);
+}
+
+void compute_polygon(app_state* app, const gui_input& input) {
   if (is_active(&app->widgets)) return;
 
   if (input.modifier_alt &&
       input.mouse_left.state == gui_button::state::releasing) {
-    // Normalizing mouse position
-    auto mouse_uv = vec2f{input.mouse_pos.x / float(input.window_size.x),
-        input.mouse_pos.y / float(input.window_size.y)};
-    auto ray      = camera_ray(app->glcamera->frame, app->glcamera->lens,
-        app->glcamera->aspect, app->glcamera->film, mouse_uv);
-
-    auto isec = intersect_triangles_bvh(
-        app->bvh, app->ioshape->triangles, app->ioshape->positions, ray);
-
+    auto isec = intersect_shape(app, input);
     if (isec.hit) {
-      auto mp = mesh_point{isec.element, isec.uv};
-      app->polygons.points.push_back(mp);
+      auto point = mesh_point{isec.element, isec.uv};
+      app->polygons.points.push_back(point);
 
-      // Metti tutto in un metodo a parte
-      auto pos = eval_position(
-          app->ioshape->triangles, app->ioshape->positions, mp);
+      draw_mesh_point(app->glscene, app->ioshape, app->paths_material, point);
 
-      auto sphere = make_sphere(4, 0.0015f);
-      auto frame  = frame3f{};
-      frame.o     = pos;
-
-      auto sphere_shape = add_shape(app->glscene, {}, {}, {}, sphere.quads,
-          sphere.positions, sphere.normals, sphere.texcoords, {});
-      set_instances(sphere_shape, {}, {});
-
-      add_instance(
-          app->glscene, frame, sphere_shape, app->paths_material, false);
+      if (app->polygons.points.size() > 1) {
+        auto path = compute_path(app->polygons, app->mesh);
+        app->polygons.paths.push_back(path);
+        draw_path(app->glscene, app->paths_material, app->mesh, path);
+      }
     }
   }
-};
+}
 
-void compute_path(app_state* app, const gui_input& input) {
-  auto size = app->polygons.points.size();
-  if (size > 1 && !is_updated(app->polygons)) {
-    auto start = app->polygons.points[size - 2];
-    auto end   = app->polygons.points[size - 1];
+void key_input(app_state* app, const gui_input& input) {
+  for (auto idx = 0; idx < input.key_buttons.size(); idx++) {
+    auto button = input.key_buttons[idx];
+    if (button.state != gui_button::state::pressing) continue;
 
-    printf("Path start: %d end: %d\n", start.face, end.face);
+    switch (idx) {
+      case (int)gui_key::enter: {
+        auto end = app->polygons.points.front();
+        app->polygons.points.push_back(end);
 
-    auto path = compute_geodesic_path(app->mesh, start, end);
-    app->polygons.paths.push_back(path);
+        auto path = compute_path(app->polygons, app->mesh);
+        app->polygons.paths.push_back(path);
 
-    auto shape = add_shape(app->glscene);
-    update_path_shape(shape, app->mesh, path);
-    add_instance(app->glscene, identity3x4f, shape, app->paths_material, false);
+        draw_path(app->glscene, app->paths_material, app->mesh, path);
+        break;
+      }
+    }
   }
 }
 
@@ -399,9 +416,9 @@ void update_app(const gui_input& input, void* data) {
   auto app = (app_state*)data;
 
   update_camera(app, input);
-  select_point(app, input);
-  compute_path(app, input);
+  compute_polygon(app, input);
   key_input(app, input);
+
   drop(app, input);
 
   draw_scene(app, input);
