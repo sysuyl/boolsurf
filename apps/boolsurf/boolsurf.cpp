@@ -69,7 +69,7 @@ struct app_state {
   generic_shape* ioshape = new generic_shape{};
   shape_bvh      bvh     = {};
 
-  // mesh info (maybe not the most efficient solution)
+  // bezier info
   bezier_mesh     mesh     = bezier_mesh{};
   vector<polygon> polygons = {};
 
@@ -369,7 +369,7 @@ void draw_path(shade_scene* scene, shade_material* material, bezier_mesh& mesh,
   add_instance(scene, identity3x4f, shape, material, false);
 }
 
-void compute_polygon(app_state* app, const gui_input& input) {
+void mouse_input(app_state* app, const gui_input& input) {
   if (is_active(&app->widgets)) return;
 
   if (input.modifier_alt &&
@@ -411,6 +411,9 @@ void key_input(app_state* app, const gui_input& input) {
         polyg.paths.push_back(path);
 
         draw_path(app->glscene, app->paths_material, app->mesh, path);
+
+        // auto faces = get_crossed_faces(polyg);
+        // for (auto f : faces) printf("Crossed face: %d\n", f);
         break;
       }
     }
@@ -421,7 +424,7 @@ void update_app(const gui_input& input, void* data) {
   auto app = (app_state*)data;
 
   update_camera(app, input);
-  compute_polygon(app, input);
+  mouse_input(app, input);
   key_input(app, input);
 
   drop(app, input);

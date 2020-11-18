@@ -28,6 +28,17 @@ inline bool is_closed(const polygon& polyg) {
          (polyg.points.front().uv == polyg.points.back().uv);
 }
 
+inline vector<int> get_crossed_faces(const polygon& polyg) {
+  auto faces = vector<int>();
+  for (auto path : polyg.paths) {
+    for (auto f : path.strip) {
+      if (faces.size() && faces.back() == f) continue;
+      faces.push_back(f);
+    }
+  }
+  return faces;
+}
+
 inline bezier_mesh init_bezier_mesh(const generic_shape* shape) {
   auto mesh        = bezier_mesh{};
   mesh.triangles   = shape->triangles;
@@ -48,6 +59,7 @@ inline geodesic_path compute_geodesic_path(
     path.strip = {start.face};
     return path;
   }
+
   auto strip = strip_on_dual_graph(
       mesh.dual_solver, mesh.triangles, mesh.positions, end.face, start.face);
   path = shortest_path(
