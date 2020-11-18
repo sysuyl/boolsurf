@@ -57,10 +57,8 @@ void print_obj_camera(sceneio_camera* camera);
 // Application state
 struct app_state {
   // loading parameters
-  string filename  = "shape.obj";
-  string imagename = "out.png";
-  string outname   = "out.obj";
-  string name      = "";
+  string filename = "shape.obj";
+  string name     = "";
 
   // options
   shade_params drawgl_prms = {};
@@ -90,11 +88,9 @@ struct app_state {
 };
 
 void load_shape(app_state* app, const string& filename) {
-  app->filename  = filename;
-  app->imagename = replace_extension(filename, ".png");
-  app->outname   = replace_extension(filename, ".edited.obj");
-  app->name      = path_filename(app->filename);
-  auto error     = ""s;
+  app->filename = filename;
+  app->name     = path_filename(app->filename);
+  auto error    = ""s;
   if (!load_shape(app->filename, *app->ioshape, error)) {
     printf("Error loading shape: %s\n", error.c_str());
     return;
@@ -269,8 +265,6 @@ void draw_widgets(app_state* app, const gui_input& input) {
   if (begin_header(widgets, "inspect")) {
     draw_label(widgets, "shape", app->name);
     draw_label(widgets, "filename", app->filename);
-    draw_label(widgets, "outname", app->outname);
-    draw_label(widgets, "imagename", app->imagename);
     auto ioshape = app->ioshape;
     draw_label(widgets, "points", std::to_string(ioshape->points.size()));
     draw_label(widgets, "lines", std::to_string(ioshape->lines.size()));
