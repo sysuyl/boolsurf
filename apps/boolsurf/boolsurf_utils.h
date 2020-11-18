@@ -5,7 +5,7 @@
 
 using namespace yocto;
 
-struct bezier_mesh {
+struct bool_mesh {
   vector<vec3i>        triangles   = {};
   vector<vec3i>        adjacencies = {};
   vector<vec3f>        positions   = {};
@@ -22,8 +22,8 @@ inline bool is_updated(const mesh_polygon& polygon) {
   return (polygon.points.size() - 1) == polygon.paths.size();
 }
 
-inline bezier_mesh init_bezier_mesh(const generic_shape* shape) {
-  auto mesh = bezier_mesh{};
+inline bool_mesh init_mesh(const generic_shape* shape) {
+  auto mesh = bool_mesh{};
 
   mesh.triangles   = shape->triangles;
   mesh.positions   = shape->positions;
@@ -41,7 +41,7 @@ inline bezier_mesh init_bezier_mesh(const generic_shape* shape) {
 }
 
 inline geodesic_path compute_geodesic_path(
-    const bezier_mesh& mesh, const mesh_point& start, const mesh_point& end) {
+    const bool_mesh& mesh, const mesh_point& start, const mesh_point& end) {
   auto path = geodesic_path{};
   if (start.face == end.face) {
     path.start = start;
