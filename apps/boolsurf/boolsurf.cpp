@@ -57,10 +57,8 @@ void print_obj_camera(sceneio_camera* camera);
 // Application state
 struct app_state {
   // loading parameters
-  string filename  = "shape.obj";
-  string imagename = "out.png";
-  string outname   = "out.obj";
-  string name      = "";
+  string filename = "shape.obj";
+  string name     = "";
 
   // options
   shade_params drawgl_prms = {};
@@ -70,8 +68,8 @@ struct app_state {
   shape_bvh      bvh     = {};
 
   // bezier info
-  bezier_mesh     mesh     = bezier_mesh{};
-  vector<polygon> polygons = {};
+  bool_mesh     mesh     = bool_mesh{};
+  vector<mesh_polygon> polygons = {};
 
   // rendering state
   shade_scene*    glscene         = new shade_scene{};
@@ -90,11 +88,9 @@ struct app_state {
 };
 
 void load_shape(app_state* app, const string& filename) {
-  app->filename  = filename;
-  app->imagename = replace_extension(filename, ".png");
-  app->outname   = replace_extension(filename, ".edited.obj");
-  app->name      = path_filename(app->filename);
-  auto error     = ""s;
+  app->filename = filename;
+  app->name     = path_filename(app->filename);
+  auto error    = ""s;
   if (!load_shape(app->filename, *app->ioshape, error)) {
     printf("Error loading shape: %s\n", error.c_str());
     return;
@@ -106,7 +102,8 @@ void load_shape(app_state* app, const string& filename) {
     app->ioshape->quads     = {};
   }
 
-  app->mesh = init_bezier_mesh(app->ioshape);
+  app->mesh = init_mesh(app->ioshape);
+  app->bvh  = make_triangles_bvh(app->mesh.triangles, app->mesh.positions, {});
 }
 
 // TODO(fabio): move this function to math
@@ -117,7 +114,7 @@ frame3f camera_frame(float lens, float aspect, float film = 0.036) {
   return lookat_frame(camera_dir * camera_dist, {0, 0, 0}, {0, 1, 0});
 }
 
-void update_path_shape(shade_shape* shape, const bezier_mesh& mesh,
+void update_path_shape(shade_shape* shape, const bool_mesh& mesh,
     const geodesic_path& path, bool thin = false) {
   auto positions = path_positions(
       path, mesh.triangles, mesh.positions, mesh.adjacencies);
@@ -153,7 +150,7 @@ void update_path_shape(shade_shape* shape, const bezier_mesh& mesh,
   set_instances(shape, froms, tos);
 }
 
-void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
+void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh,
     progress_callback progress_cb) {
   // handle progress
   auto progress = vec2i{0, 4};
@@ -161,18 +158,11 @@ void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
   // init scene
   init_scene(glscene, true);
 
-  // compute bounding box
-  auto bbox = invalidb3f;
-  for (auto& pos : ioshape->positions) bbox = merge(bbox, pos);
-  for (auto& pos : ioshape->positions)
-    pos = (pos - center(bbox)) / max(size(bbox));
-  // TODO(fabio): this should be a math function
-
   // camera
   if (progress_cb) progress_cb("convert camera", progress.x++, progress.y);
   app->glcamera = add_camera(glscene, camera_frame(0.050, 16.0f / 9.0f, 0.036),
       0.050, 16.0f / 9.0f, 0.036);
-  app->glcamera->focus = length(app->glcamera->frame.o - center(bbox));
+  app->glcamera->focus = length(app->glcamera->frame.o);
 
   // material
   if (progress_cb) progress_cb("convert material", progress.x++, progress.y);
@@ -185,28 +175,22 @@ void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
 
   // shapes
   if (progress_cb) progress_cb("convert shape", progress.x++, progress.y);
-  auto mesh_shape = add_shape(glscene, ioshape->points, ioshape->lines,
-      ioshape->triangles, ioshape->quads, ioshape->positions, ioshape->normals,
-      ioshape->texcoords, ioshape->colors, true);
+  auto mesh_shape = add_shape(glscene, {}, {}, app->mesh.triangles, {},
+      app->mesh.positions, app->mesh.normals, {}, {}, true);
   if (!is_initialized(get_normals(mesh_shape))) {
     app->drawgl_prms.faceted = true;
   }
   set_instances(mesh_shape, {}, {});
 
-  app->bvh = make_triangles_bvh(
-      ioshape->triangles, ioshape->positions, ioshape->radius);
-
-  app->mesh = init_bezier_mesh(ioshape);
-
-  auto edges = get_edges(ioshape->triangles, ioshape->quads);
+  auto edges = get_edges(app->mesh.triangles, {});
   auto froms = vector<vec3f>();
   auto tos   = vector<vec3f>();
   froms.reserve(edges.size());
   tos.reserve(edges.size());
   float avg_edge_length = 0;
   for (auto& edge : edges) {
-    auto from = ioshape->positions[edge.x];
-    auto to   = ioshape->positions[edge.y];
+    auto from = app->mesh.positions[edge.x];
+    auto to   = app->mesh.positions[edge.y];
     froms.push_back(from);
     tos.push_back(to);
     avg_edge_length += length(from - to);
@@ -225,7 +209,7 @@ void init_glscene(app_state* app, shade_scene* glscene, generic_shape* ioshape,
   auto vertices        = make_sphere(3, vertices_radius);
   auto vertices_shape  = add_shape(glscene, {}, {}, {}, vertices.quads,
       vertices.positions, vertices.normals, vertices.texcoords, {});
-  set_instances(vertices_shape, ioshape->positions);
+  set_instances(vertices_shape, app->mesh.positions);
 
   // shapes
   if (progress_cb) progress_cb("convert instance", progress.x++, progress.y);
@@ -267,8 +251,6 @@ void draw_widgets(app_state* app, const gui_input& input) {
   if (begin_header(widgets, "inspect")) {
     draw_label(widgets, "shape", app->name);
     draw_label(widgets, "filename", app->filename);
-    draw_label(widgets, "outname", app->outname);
-    draw_label(widgets, "imagename", app->imagename);
     auto ioshape = app->ioshape;
     draw_label(widgets, "points", std::to_string(ioshape->points.size()));
     draw_label(widgets, "lines", std::to_string(ioshape->lines.size()));
@@ -291,7 +273,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
 }
 
 // draw with shape
-void draw_scene(app_state* app, const gui_input& input) {
+void draw_scene(const app_state* app, const gui_input& input) {
   draw_scene(app->glscene, app->glcamera, input.framebuffer_viewport,
       app->drawgl_prms);
 }
@@ -322,27 +304,28 @@ void drop(app_state* app, const gui_input& input) {
   if (input.dropped.size()) {
     load_shape(app, input.dropped[0]);
     clear_scene(app->glscene);
-    init_glscene(app, app->glscene, app->ioshape, {});
+    init_glscene(app, app->glscene, app->mesh, {});
 
     return;
   }
 }
 
-shape_intersection intersect_shape(app_state* app, const gui_input& input) {
+shape_intersection intersect_shape(
+    const app_state* app, const gui_input& input) {
   auto mouse_uv = vec2f{input.mouse_pos.x / float(input.window_size.x),
       input.mouse_pos.y / float(input.window_size.y)};
   auto ray      = camera_ray(app->glcamera->frame, app->glcamera->lens,
       app->glcamera->aspect, app->glcamera->film, mouse_uv);
 
   auto isec = intersect_triangles_bvh(
-      app->bvh, app->ioshape->triangles, app->ioshape->positions, ray);
+      app->bvh, app->mesh.triangles, app->mesh.positions, ray);
 
   return isec;
 }
 
-void draw_mesh_point(shade_scene* glscene, generic_shape* ioshape,
-    shade_material* material, mesh_point& point) {
-  auto pos = eval_position(ioshape->triangles, ioshape->positions, point);
+void draw_mesh_point(shade_scene* glscene, const bool_mesh& mesh,
+    shade_material* material, const mesh_point& point) {
+  auto pos = eval_position(mesh.triangles, mesh.positions, point);
 
   auto sphere = make_sphere(4, 0.0015f);
   auto frame  = frame3f{};
@@ -354,16 +337,16 @@ void draw_mesh_point(shade_scene* glscene, generic_shape* ioshape,
   add_instance(glscene, frame, shape, material, false);
 }
 
-geodesic_path compute_path(polygon& polyg, bezier_mesh& mesh) {
-  auto size  = polyg.points.size();
-  auto start = polyg.points[size - 2];
-  auto end   = polyg.points[size - 1];
+geodesic_path compute_path(const mesh_polygon& polygon, const bool_mesh& mesh) {
+  auto size  = polygon.points.size();
+  auto start = polygon.points[size - 2];
+  auto end   = polygon.points[size - 1];
   auto path  = compute_geodesic_path(mesh, start, end);
   return path;
 }
 
-void draw_path(shade_scene* scene, shade_material* material, bezier_mesh& mesh,
-    geodesic_path& path) {
+void draw_path(shade_scene* scene, shade_material* material,
+    const bool_mesh& mesh, const geodesic_path& path) {
   auto shape = add_shape(scene);
   update_path_shape(shape, mesh, path);
   add_instance(scene, identity3x4f, shape, material, false);
@@ -376,14 +359,14 @@ void mouse_input(app_state* app, const gui_input& input) {
       input.mouse_left.state == gui_button::state::releasing) {
     auto isec = intersect_shape(app, input);
     if (isec.hit) {
-      if (!app->polygons.size()) app->polygons.push_back(polygon{});
-      if (is_closed(app->polygons.back())) app->polygons.push_back(polygon{});
+      if (!app->polygons.size()) app->polygons.push_back(mesh_polygon{});
+      if (is_closed(app->polygons.back())) app->polygons.push_back(mesh_polygon{});
 
       auto& polyg = app->polygons.back();
       auto  point = mesh_point{isec.element, isec.uv};
       polyg.points.push_back(point);
 
-      draw_mesh_point(app->glscene, app->ioshape, app->paths_material, point);
+      draw_mesh_point(app->glscene, app->mesh, app->paths_material, point);
 
       if (polyg.points.size() > 1) {
         auto path = compute_path(polyg, app->mesh);
@@ -454,7 +437,7 @@ int main(int argc, const char* argv[]) {
 
   load_shape(app, filename);
 
-  init_glscene(app, app->glscene, app->ioshape, {});
+  init_glscene(app, app->glscene, app->mesh, {});
   set_ogl_blending(true);
   app->widgets = create_imgui(window);
 

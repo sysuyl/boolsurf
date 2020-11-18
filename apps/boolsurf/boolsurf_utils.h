@@ -5,7 +5,7 @@
 
 using namespace yocto;
 
-struct bezier_mesh {
+struct bool_mesh {
   vector<vec3i>        triangles   = {};
   vector<vec3i>        adjacencies = {};
   vector<vec3f>        positions   = {};
@@ -13,24 +13,24 @@ struct bezier_mesh {
   dual_geodesic_solver dual_solver = {};
 };
 
-struct polygon {
+struct mesh_polygon {
   vector<mesh_point>    points = {};
   vector<geodesic_path> paths  = {};
 };
 
-inline bool is_updated(const polygon& polyg) {
-  return (polyg.points.size() - 1) == polyg.paths.size();
+inline bool is_updated(const mesh_polygon& polygon) {
+  return (polygon.points.size() - 1) == polygon.paths.size();
 }
 
-inline bool is_closed(const polygon& polyg) {
-  if (polyg.points.size() < 3) return false;
-  return (polyg.points.front().face == polyg.points.back().face) &&
-         (polyg.points.front().uv == polyg.points.back().uv);
+inline bool is_closed(const mesh_polygon& polygon) {
+  if (polygon.points.size() < 3) return false;
+  return (polygon.points.front().face == polygon.points.back().face) &&
+         (polygon.points.front().uv == polygon.points.back().uv);
 }
 
-inline vector<int> get_crossed_faces(const polygon& polyg) {
+inline vector<int> get_crossed_faces(const mesh_polygon& polygon) {
   auto faces = vector<int>();
-  for (auto path : polyg.paths) {
+  for (auto path : polygon.paths) {
     for (auto f : path.strip) {
       if (faces.size() && faces.back() == f) continue;
       faces.push_back(f);
@@ -39,19 +39,25 @@ inline vector<int> get_crossed_faces(const polygon& polyg) {
   return faces;
 }
 
-inline bezier_mesh init_bezier_mesh(const generic_shape* shape) {
-  auto mesh        = bezier_mesh{};
+inline bool_mesh init_mesh(const generic_shape* shape) {
+  auto mesh = bool_mesh{};
   mesh.triangles   = shape->triangles;
-  mesh.normals     = shape->normals;
   mesh.positions   = shape->positions;
+  mesh.normals     = shape->normals;
   mesh.adjacencies = face_adjacencies(mesh.triangles);
+
+  // Fit shaphe in [-1, 1]^3
+  auto bbox = invalidb3f;
+  for (auto& pos : mesh.positions) bbox = merge(bbox, pos);
+  for (auto& pos : mesh.positions) pos = (pos - center(bbox)) / max(size(bbox));
+
   mesh.dual_solver = make_dual_geodesic_solver(
       mesh.triangles, mesh.positions, mesh.adjacencies);
   return mesh;
 }
 
 inline geodesic_path compute_geodesic_path(
-    const bezier_mesh& mesh, const mesh_point& start, const mesh_point& end) {
+    const bool_mesh& mesh, const mesh_point& start, const mesh_point& end) {
   auto path = geodesic_path{};
   if (start.face == end.face) {
     path.start = start;
