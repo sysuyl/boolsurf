@@ -68,7 +68,7 @@ struct app_state {
   shape_bvh      bvh     = {};
 
   // bezier info
-  bool_mesh     mesh     = bool_mesh{};
+  bool_mesh            mesh     = bool_mesh{};
   vector<mesh_polygon> polygons = {};
 
   // rendering state
@@ -78,6 +78,7 @@ struct app_state {
   shade_material* edges_material  = nullptr;
   shade_material* points_material = nullptr;
   shade_material* paths_material  = nullptr;
+  shade_material* isecs_material  = nullptr;
 
   gui_widgets widgets = {};
 
@@ -172,6 +173,7 @@ void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh,
       glscene, {0, 0, 0}, {0.4, 0.4, 1}, 1, 0, 0.4);
   app->points_material = add_material(glscene, {0, 0, 0}, {0, 0, 1}, 1, 0, 0.4);
   app->paths_material  = add_material(glscene, {0, 0, 0}, {1, 0, 0}, 1, 0, 0.4);
+  app->isecs_material  = add_material(glscene, {0, 0, 0}, {0, 1, 0}, 1, 0, 0.4);
 
   // shapes
   if (progress_cb) progress_cb("convert shape", progress.x++, progress.y);
@@ -352,6 +354,22 @@ void draw_path(shade_scene* scene, shade_material* material,
   add_instance(scene, identity3x4f, shape, material, false);
 }
 
+void draw_intersections(shade_scene* scene, shade_material* material,
+    const bool_mesh& mesh, const vector<int>& isecs) {
+  auto pos = vector<vec3f>(isecs.size());
+  for (auto i = 0; i < isecs.size(); i++) {
+    auto v = mesh.triangles[isecs[i]];
+    pos[i] = (mesh.positions[v.x] + mesh.positions[v.y] + mesh.positions[v.z]) /
+             3.0f;
+  }
+
+  auto sphere = make_sphere(4, 0.0015f);
+  auto shape  = add_shape(scene, {}, {}, {}, sphere.quads, sphere.positions,
+      sphere.normals, sphere.texcoords, {});
+  set_instances(shape, pos);
+  add_instance(scene, identity3x4f, shape, material, false);
+}
+
 void mouse_input(app_state* app, const gui_input& input) {
   if (is_active(&app->widgets)) return;
 
@@ -360,7 +378,8 @@ void mouse_input(app_state* app, const gui_input& input) {
     auto isec = intersect_shape(app, input);
     if (isec.hit) {
       if (!app->polygons.size()) app->polygons.push_back(mesh_polygon{});
-      if (is_closed(app->polygons.back())) app->polygons.push_back(mesh_polygon{});
+      if (is_closed(app->polygons.back()))
+        app->polygons.push_back(mesh_polygon{});
 
       auto& polyg = app->polygons.back();
       auto  point = mesh_point{isec.element, isec.uv};
@@ -383,6 +402,20 @@ void key_input(app_state* app, const gui_input& input) {
     if (button.state != gui_button::state::pressing) continue;
 
     switch (idx) {
+      case (int)gui_key('I'): {
+        if (app->polygons.size() >= 2) {
+          for (auto i = 0; i < app->polygons.size(); i++) {
+            for (auto j = i + 1; j < app->polygons.size(); j++) {
+              auto isecs = intersect_polygons(
+                  app->polygons[i], app->polygons[j]);
+              for (auto i : isecs) printf("Intersection: %d\n", i);
+              draw_intersections(
+                  app->glscene, app->isecs_material, app->mesh, isecs);
+            }
+          }
+        }
+        break;
+      }
       case (int)gui_key::enter: {
         auto& polyg = app->polygons.back();
         if (polyg.points.size() < 3 || is_closed(polyg)) return;
@@ -395,8 +428,6 @@ void key_input(app_state* app, const gui_input& input) {
 
         draw_path(app->glscene, app->paths_material, app->mesh, path);
 
-        // auto faces = get_crossed_faces(polyg);
-        // for (auto f : faces) printf("Crossed face: %d\n", f);
         break;
       }
     }

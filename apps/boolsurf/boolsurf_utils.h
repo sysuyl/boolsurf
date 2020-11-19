@@ -3,7 +3,10 @@
 #include <yocto/yocto_mesh.h>
 #include <yocto/yocto_shape.h>
 
+#include <unordered_set>
+
 using namespace yocto;
+using std::unordered_set;
 
 struct bool_mesh {
   vector<vec3i>        triangles   = {};
@@ -18,9 +21,9 @@ struct mesh_polygon {
   vector<geodesic_path> paths  = {};
 };
 
-inline bool is_updated(const mesh_polygon& polygon) {
-  return (polygon.points.size() - 1) == polygon.paths.size();
-}
+struct polygon_intersection {
+  mesh_point point = {};
+};
 
 inline bool is_closed(const mesh_polygon& polygon) {
   if (polygon.points.size() < 3) return false;
@@ -28,25 +31,58 @@ inline bool is_closed(const mesh_polygon& polygon) {
          (polygon.points.front().uv == polygon.points.back().uv);
 }
 
+// inline vector<int> get_crossed_faces(const mesh_polygon& polygon) {
+//   auto faces = vector<int>();
+//   for (auto path : polygon.paths) {
+//     for (auto f : path.strip) {
+//       if (faces.size() && faces.back() == f) continue;
+//       faces.push_back(f);
+//     }
+//   }
+//   return faces;
+// }
+
 inline vector<int> get_crossed_faces(const mesh_polygon& polygon) {
   auto faces = vector<int>();
-  for (auto path : polygon.paths) {
-    for (auto f : path.strip) {
-      if (faces.size() && faces.back() == f) continue;
-      faces.push_back(f);
-    }
-  }
+  for (auto path : polygon.paths)
+    faces.insert(faces.end(), path.strip.begin(), path.strip.end());
   return faces;
 }
 
+inline vector<int> intersect_polygons(
+    const mesh_polygon& left, const mesh_polygon right) {
+  auto left_faces  = get_crossed_faces(left);
+  auto right_faces = get_crossed_faces(right);
+
+  std::sort(left_faces.begin(), left_faces.end());
+  std::sort(right_faces.begin(), right_faces.end());
+
+  auto intersections = vector<int>();
+
+  auto i = 0;
+  auto j = 0;
+  while (i < left_faces.size() && j < right_faces.size()) {
+    if (left_faces[i] == right_faces[j]) {
+      intersections.push_back(left_faces[i]);
+      i++;
+      j++;
+    } else if (left_faces[i] < right_faces[j])
+      i++;
+    else
+      j++;
+  }
+
+  return intersections;
+}
+
 inline bool_mesh init_mesh(const generic_shape* shape) {
-  auto mesh = bool_mesh{};
+  auto mesh        = bool_mesh{};
   mesh.triangles   = shape->triangles;
   mesh.positions   = shape->positions;
   mesh.normals     = shape->normals;
   mesh.adjacencies = face_adjacencies(mesh.triangles);
 
-  // Fit shaphe in [-1, 1]^3
+  // Fit shape in [-1, 1]^3
   auto bbox = invalidb3f;
   for (auto& pos : mesh.positions) bbox = merge(bbox, pos);
   for (auto& pos : mesh.positions) pos = (pos - center(bbox)) / max(size(bbox));
