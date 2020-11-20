@@ -16,14 +16,15 @@ struct bool_mesh {
   dual_geodesic_solver dual_solver = {};
 };
 
-struct mesh_polygon {
-  vector<mesh_point> points = {};
-  mesh_path          path   = {};
+struct mesh_segment {
+  vec2f start = {};
+  vec2f end   = {};
+  int   face  = -1;
 };
 
-struct isec_polygon {
-  mesh_point point    = {};
-  vec2i      polygons = {};
+struct mesh_polygon {
+  vector<mesh_point>   points   = {};
+  vector<mesh_segment> segments = {};
 };
 
 inline bool is_closed(const mesh_polygon& polygon) {
@@ -32,36 +33,25 @@ inline bool is_closed(const mesh_polygon& polygon) {
          (polygon.points.front().uv == polygon.points.back().uv);
 }
 
-// inline void update_mesh_polygon(mesh_polygon& polygon, const mesh_path& path)
-// {
-//   if (!polygon.path.points.size())
-//     polygon.path.points.push_back(polygon.points.front());
-
-//   polygon.path.points.insert(
-//       polygon.path.points.end(), path.points.begin() + 1, path.points.end());
-// }
-
-inline void update_mesh_polygon(mesh_polygon& polygon, const mesh_path& path) {
-  if (!polygon.path.points.size())
-    polygon.path.points.push_back(polygon.points.front());
-
-  polygon.path.points.insert(
-      polygon.path.points.end(), path.points.begin(), path.points.end());
+inline void update_mesh_polygon(
+    mesh_polygon& polygon, const vector<mesh_segment>& segments) {
+  polygon.segments.insert(
+      polygon.segments.end(), segments.begin(), segments.end());
 }
 
 inline vector<int> polygon_strip(const mesh_polygon& polygon) {
-  auto strip = vector<int>(polygon.path.points.size());
-  for (auto i = 0; i < polygon.path.points.size(); i++)
-    strip[i] = polygon.path.points[i].face;
+  auto strip = vector<int>(polygon.segments.size());
+  for (auto i = 0; i < polygon.segments.size(); i++)
+    strip[i] = polygon.segments[i].face;
   return strip;
 }
 
-inline vector<vec2i> polygon_segments_from_face(
-    const mesh_polygon& polygon, const bool_mesh& mesh, int face) {
-  auto segments = vector<vec2i>();
-  for (auto i = 1; i < polygon.path.points.size(); i++)
-    if (polygon.path.points[i].face == face)
-      segments.push_back(vec2i{i - 1, i});
+inline vector<mesh_segment> segments_from_face(
+    const mesh_polygon& polygon, int face) {
+  auto segments = vector<mesh_segment>();
+  for (auto i = 0; i < polygon.segments.size(); i++)
+    if (polygon.segments[i].face == face)
+      segments.push_back(polygon.segments[i]);
   return segments;
 }
 
@@ -135,6 +125,7 @@ static int find_in_vec(const vec3i& vec, int x) {
     if (vec[i] == x) return i;
   return -1;
 }
+
 // TODO(giacomo): Expose this function in yocto_mesh.h
 inline int find_adjacent_triangle(
     const vec3i& triangle, const vec3i& adjacent) {
@@ -152,11 +143,20 @@ inline int find_adjacent_triangle(
   return -1;
 }
 
-struct mesh_segment {
-  vec2f start = {};
-  vec2f end   = {};
-  int   face  = -1;
-};
+// From yocto_mesh.h
+inline float intersect_segments(const vec2f& start1, const vec2f& end1,
+    const vec2f& start2, const vec2f& end2) {
+  if (end1 == start2) return 0;
+  if (end2 == start1) return 1;
+  if (start2 == start1) return 0;
+  if (end2 == end1) return 1;
+  auto a   = end1 - start1;    // direction of line a
+  auto b   = start2 - end2;    // direction of line b, reversed
+  auto d   = start2 - start1;  // right-hand side
+  auto det = a.x * b.y - a.y * b.x;
+  // assert(det);
+  return (a.x * d.y - a.y * d.x) / det;
+}
 
 inline vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
     const vector<int>& strip, const vector<float>& lerps,
