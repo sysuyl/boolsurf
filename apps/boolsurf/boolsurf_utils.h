@@ -171,7 +171,7 @@ inline vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
       vec2f uvw[3] = {{0, 0}, {1, 0}, {0, 1}};
       auto  k      = find_adjacent_triangle(
           triangles[strip[i]], triangles[strip[i - 1]]);
-      auto a   = uvw[k];
+      auto a   = uvw[mod3(k)];
       auto b   = uvw[mod3(k + 1)];
       start_uv = lerp(a, b, 1 - lerps[i - 1]);
     }
@@ -187,7 +187,6 @@ inline vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
       auto b   = uvw[mod3(k + 1)];
       start_uv = lerp(a, b, lerps[i]);
     }
-
     result[i] = {start_uv, end_uv, strip[i]};
   }
   return result;

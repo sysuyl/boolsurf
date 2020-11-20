@@ -376,7 +376,7 @@ void draw_segment(shade_scene* scene, const bool_mesh& mesh,
   auto end   = mesh_point{segment.face, segment.end};
 
   draw_mesh_point(scene, mesh, material, start, 0.0016f);
-  draw_mesh_point(scene, mesh, material, end, 0.0015f);
+  draw_mesh_point(scene, mesh, material, end, 0.0016f);
 
   auto pos_start = eval_position(mesh.triangles, mesh.positions, start);
   auto pos_end   = eval_position(mesh.triangles, mesh.positions, end);
@@ -386,7 +386,7 @@ void draw_segment(shade_scene* scene, const bool_mesh& mesh,
   auto tos = vector<vec3f>();
   tos.push_back(pos_end);
 
-  auto radius   = 0.0006f;
+  auto radius   = 0.0010f;
   auto cylinder = make_uvcylinder({4, 1, 1}, {radius, 1});
   for (auto& p : cylinder.positions) {
     p.z = p.z * 0.5 + 0.5;
@@ -425,6 +425,23 @@ void mouse_input(app_state* app, const gui_input& input) {
 
         auto segments = mesh_segments(app->mesh.triangles, geo_path.strip,
             geo_path.lerps, geo_path.start, geo_path.end);
+        for (auto& segment : segments) {
+          // auto start = mesh_point{segment.face, segment.start};
+          // auto end   = mesh_point{segment.face, segment.end};
+
+          // auto s = eval_position(
+          //     app->mesh.triangles, app->mesh.positions, start);
+          // auto e = eval_position(app->mesh.triangles, app->mesh.positions,
+          // end);
+
+          // // printf("Segment pos start x:%f y:%f z:%f - end x:%f y:%f
+          // z:%f\n",
+          // // s.x,
+          // //    s.y, s.z, e.x, e.y, e.z);
+
+          // draw_segment(app->glscene, app->mesh, app->points_material,
+          // segment);
+        }
         update_mesh_polygon(polygon, segments);
       }
     }
@@ -437,6 +454,22 @@ void key_input(app_state* app, const gui_input& input) {
     if (button.state != gui_button::state::pressing) continue;
 
     switch (idx) {
+      case (int)gui_key('S'): {
+        auto polygon = app->polygons[0];
+        auto strip   = polygon_strip(polygon);
+
+        auto isecs = vector<int>();
+        for (auto i = 0; i < strip.size(); i++) {
+          for (auto j = i + 2; j < strip.size(); j++) {
+            if (strip[i] == strip[j]) {
+              isecs.push_back(strip[i]);
+              printf("Strip: %d\n", strip[i]);
+            }
+          }
+        }
+        draw_intersections(app->glscene, app->isecs_material, app->mesh, isecs);
+        break;
+      }
       case (int)gui_key('I'): {
         // Intersections
         if (app->polygons.size() >= 2) {
@@ -453,10 +486,10 @@ void key_input(app_state* app, const gui_input& input) {
 
                 for (auto& fseg : first_segs) {
                   for (auto& sseg : second_segs) {
-                    draw_segment(
-                        app->glscene, app->mesh, app->points_material, fseg);
-                    draw_segment(
-                        app->glscene, app->mesh, app->points_material, sseg);
+                    // draw_segment(
+                    //     app->glscene, app->mesh, app->points_material, fseg);
+                    // draw_segment(
+                    //     app->glscene, app->mesh, app->points_material, sseg);
 
                     auto l = intersect_segments(
                         fseg.start, fseg.end, sseg.start, sseg.end);
@@ -469,8 +502,8 @@ void key_input(app_state* app, const gui_input& input) {
                         app->mesh.triangles, app->mesh.positions, isec_point);
                     printf("Isec position: %f %f %f\n", pos.x, pos.y, pos.z);
 
-                    // draw_mesh_point(app->glscene, app->mesh,
-                    //    app->isecs_material, isec_point, 0.0015f);
+                    draw_mesh_point(app->glscene, app->mesh,
+                        app->isecs_material, isec_point, 0.0016f);
                   }
                 }
 
@@ -501,8 +534,19 @@ void key_input(app_state* app, const gui_input& input) {
         update_mesh_polygon(polygon, segments);
 
         printf("Total segments: %d\n", polygon.segments.size());
-        for (auto& segment : polygon.segments)
-          draw_segment(app->glscene, app->mesh, app->points_material, segment);
+        // for (auto& segment : segments) {
+        //   auto start = mesh_point{segment.face, segment.start};
+        //   auto end   = mesh_point{segment.face, segment.end};
+
+        //   auto s = eval_position(
+        //       app->mesh.triangles, app->mesh.positions, start);
+        //   auto e = eval_position(app->mesh.triangles, app->mesh.positions,
+        //   end); printf("Segment pos start x:%f y:%f z:%f - end x:%f y:%f
+        //   z:%f\n", s.x,
+        //       s.y, s.z, e.x, e.y, e.z);
+        //   draw_segment(app->glscene, app->mesh, app->points_material,
+        //   segment);
+        // }
         break;
       }
     }
