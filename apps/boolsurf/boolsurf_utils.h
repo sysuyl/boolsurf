@@ -110,3 +110,67 @@ inline geodesic_path compute_geodesic_path(
       mesh.triangles, mesh.positions, mesh.adjacencies, start, end, strip);
   return path;
 }
+
+// TODO(giacomo): Expose this function in yocto_mesh.h
+static int find_in_vec(const vec3i& vec, int x) {
+  for (auto i = 0; i < 3; i++)
+    if (vec[i] == x) return i;
+  return -1;
+}
+// TODO(giacomo): Expose this function in yocto_mesh.h
+inline int find_adjacent_triangle(
+    const vec3i& triangle, const vec3i& adjacent) {
+  for (int i = 0; i < 3; i++) {
+    auto k = find_in_vec(adjacent, triangle[i]);
+    if (k != -1) {
+      if (find_in_vec(adjacent, triangle[mod3(i + 1)]) != -1) {
+        return i;
+      } else {
+        return mod3(i + 2);
+      }
+    }
+  }
+  // assert(0 && "input triangles are not adjacent");
+  return -1;
+}
+
+struct mesh_segment {
+  vec2f start = {};
+  vec2f end   = {};
+  int   face  = -1;
+};
+
+inline vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
+    const vector<int>& strip, const vector<float>& lerps,
+    const mesh_point& start, const mesh_point& end) {
+  auto result = vector<mesh_segment>(strip.size());
+  
+  for (int i = 0; i < strip.size(); ++i) {
+    vec2f start_uv;
+    if (i == 0) {
+      start_uv = start.uv;
+    } else {
+      vec2f uvw[3] = {{0, 0}, {1, 0}, {0, 1}};
+      auto  k      = find_adjacent_triangle(
+          triangles[strip[i]], triangles[strip[i - 1]]);
+      auto a   = uvw[k];
+      auto b   = uvw[mod3(k + 1)];
+      start_uv = lerp(a, b, lerps[i - 1]);
+    }
+
+    vec2f end_uv;
+    if (i == strip.size() - 1) {
+      end_uv = end.uv;
+    } else {
+      vec2f uvw[3] = {{0, 0}, {1, 0}, {0, 1}};
+      auto  k      = find_adjacent_triangle(
+          triangles[strip[i]], triangles[strip[i + 1]]);
+      auto a   = uvw[k];
+      auto b   = uvw[mod3(k + 1)];
+      start_uv = lerp(a, b, lerps[i]);
+    }
+
+    result[i] = {start_uv, end_uv, strip[i]};
+  }
+  return result;
+}
