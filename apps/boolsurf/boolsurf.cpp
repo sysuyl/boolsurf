@@ -233,9 +233,9 @@ void draw_widgets(app_state* app, const gui_input& input) {
     auto  glmaterial = app->mesh_material;
     auto& params     = app->drawgl_prms;
     draw_checkbox(widgets, "faceted", params.faceted);
-    continue_line(widgets);
+    // continue_line(widgets);
     draw_checkbox(widgets, "lines", app->glscene->instances[1]->hidden, true);
-    continue_line(widgets);
+    // continue_line(widgets);
     draw_checkbox(widgets, "points", app->glscene->instances[2]->hidden, true);
     draw_coloredit(widgets, "color", glmaterial->color);
     draw_slider(widgets, "resolution", params.resolution, 0, 4096);
@@ -244,10 +244,10 @@ void draw_widgets(app_state* app, const gui_input& input) {
     draw_checkbox(widgets, "wireframe", params.wireframe);
     continue_line(widgets);
     draw_checkbox(widgets, "double sided", params.double_sided);
-    draw_slider(widgets, "exposure", params.exposure, -10, 10);
-    draw_slider(widgets, "gamma", params.gamma, 0.1f, 4);
-    draw_slider(widgets, "near", params.near, 0.01f, 1.0f);
-    draw_slider(widgets, "far", params.far, 1000.0f, 10000.0f);
+    // draw_slider(widgets, "exposure", params.exposure, -10, 10);
+    // draw_slider(widgets, "gamma", params.gamma, 0.1f, 4);
+    // draw_slider(widgets, "near", params.near, 0.01f, 1.0f);
+    // draw_slider(widgets, "far", params.far, 1000.0f, 10000.0f);
     end_header(widgets);
   }
   if (begin_header(widgets, "inspect")) {
@@ -325,18 +325,22 @@ shape_intersection intersect_shape(
   return isec;
 }
 
-void draw_mesh_point(shade_scene* glscene, const bool_mesh& mesh,
-    shade_material* material, const mesh_point& point, float dim) {
-  auto pos = eval_position(mesh.triangles, mesh.positions, point);
-
+void draw_sphere(shade_scene* scene, const bool_mesh& mesh,
+    shade_material* material, const vector<vec3f>& pos, float dim) {
   auto sphere = make_sphere(4, dim);
-  auto frame  = frame3f{};
-  frame.o     = pos;
 
-  auto shape = add_shape(glscene, {}, {}, {}, sphere.quads, sphere.positions,
+  auto shape = add_shape(scene, {}, {}, {}, sphere.quads, sphere.positions,
       sphere.normals, sphere.texcoords, {});
-  set_instances(shape, {}, {});
-  add_instance(glscene, frame, shape, material, false);
+  set_instances(shape, pos);
+  add_instance(scene, identity3x4f, shape, material, false);
+}
+
+void draw_mesh_point(shade_scene* scene, const bool_mesh& mesh,
+    shade_material* material, const mesh_point& point, float dim) {
+  auto pos     = eval_position(mesh.triangles, mesh.positions, point);
+  auto vec_pos = vector<vec3f>();
+  vec_pos.push_back(pos);
+  draw_sphere(scene, mesh, material, vec_pos, dim);
 }
 
 geodesic_path compute_path(const mesh_polygon& polygon, const bool_mesh& mesh) {
@@ -347,15 +351,15 @@ geodesic_path compute_path(const mesh_polygon& polygon, const bool_mesh& mesh) {
   return path;
 }
 
-void draw_path(shade_scene* scene, shade_material* material,
-    const bool_mesh& mesh, const geodesic_path& path) {
+void draw_path(shade_scene* scene, const bool_mesh& mesh,
+    shade_material* material, const geodesic_path& path) {
   auto shape = add_shape(scene);
   update_path_shape(shape, mesh, path);
   add_instance(scene, identity3x4f, shape, material, false);
 }
 
-void draw_intersections(shade_scene* scene, shade_material* material,
-    const bool_mesh& mesh, const vector<int>& isecs) {
+void draw_intersections(shade_scene* scene, const bool_mesh& mesh,
+    shade_material* material, const vector<int>& isecs) {
   auto pos = vector<vec3f>(isecs.size());
   for (auto i = 0; i < isecs.size(); i++) {
     auto v = mesh.triangles[isecs[i]];
@@ -363,11 +367,7 @@ void draw_intersections(shade_scene* scene, shade_material* material,
              3.0f;
   }
 
-  auto sphere = make_sphere(4, 0.0015f);
-  auto shape  = add_shape(scene, {}, {}, {}, sphere.quads, sphere.positions,
-      sphere.normals, sphere.texcoords, {});
-  set_instances(shape, pos);
-  add_instance(scene, identity3x4f, shape, material, false);
+  draw_sphere(scene, mesh, material, pos, 0.0015f);
 }
 
 void draw_segment(shade_scene* scene, const bool_mesh& mesh,
@@ -421,7 +421,7 @@ void mouse_input(app_state* app, const gui_input& input) {
 
       if (polygon.points.size() > 1) {
         auto geo_path = compute_path(polygon, app->mesh);
-        draw_path(app->glscene, app->paths_material, app->mesh, geo_path);
+        draw_path(app->glscene, app->mesh, app->paths_material, geo_path);
 
         auto segments = mesh_segments(app->mesh.triangles, geo_path.strip,
             geo_path.lerps, geo_path.start, geo_path.end);
@@ -461,13 +461,10 @@ void key_input(app_state* app, const gui_input& input) {
         auto isecs = vector<int>();
         for (auto i = 0; i < strip.size(); i++) {
           for (auto j = i + 2; j < strip.size(); j++) {
-            if (strip[i] == strip[j]) {
-              isecs.push_back(strip[i]);
-              printf("Strip: %d\n", strip[i]);
-            }
+            if (strip[i] == strip[j]) isecs.push_back(strip[i]);
           }
         }
-        draw_intersections(app->glscene, app->isecs_material, app->mesh, isecs);
+        draw_intersections(app->glscene, app->mesh, app->isecs_material, isecs);
         break;
       }
       case (int)gui_key('I'): {
@@ -486,34 +483,21 @@ void key_input(app_state* app, const gui_input& input) {
 
                 for (auto& fseg : first_segs) {
                   for (auto& sseg : second_segs) {
-                    // draw_segment(
-                    //     app->glscene, app->mesh, app->points_material, fseg);
-                    // draw_segment(
-                    //     app->glscene, app->mesh, app->points_material, sseg);
-
                     auto l = intersect_segments(
                         fseg.start, fseg.end, sseg.start, sseg.end);
-                    printf("Lerp : %f\n", l);
+                    // printf("Lerp : %f\n", l);
                     if (l < 0.0f || l > 1.0f) continue;
                     auto isec_pos = lerp(sseg.start, sseg.end, l);
 
                     auto isec_point = mesh_point{isec, isec_pos};
                     auto pos        = eval_position(
                         app->mesh.triangles, app->mesh.positions, isec_point);
-                    printf("Isec position: %f %f %f\n", pos.x, pos.y, pos.z);
+                    // printf("Isec position: %f %f %f\n", pos.x, pos.y, pos.z);
 
                     draw_mesh_point(app->glscene, app->mesh,
                         app->isecs_material, isec_point, 0.0016f);
                   }
                 }
-
-                // for (auto& point : isec_polygons) {
-                //   printf("Intersection at face: %d - x:%f y:%f\n", isec,
-                //       point.uv.x, point.uv.y);
-                //   draw_mesh_point(app->glscene, app->mesh,
-                //   app->isecs_material,
-                //       point, 0.0015f);
-                // }
               }
             }
           }
@@ -527,7 +511,7 @@ void key_input(app_state* app, const gui_input& input) {
         auto point = polygon.points.front();
         polygon.points.push_back(point);
         auto geo_path = compute_path(polygon, app->mesh);
-        draw_path(app->glscene, app->paths_material, app->mesh, geo_path);
+        draw_path(app->glscene, app->mesh, app->paths_material, geo_path);
 
         auto segments = mesh_segments(app->mesh.triangles, geo_path.strip,
             geo_path.lerps, geo_path.start, geo_path.end);
