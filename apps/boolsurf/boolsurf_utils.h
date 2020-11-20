@@ -144,7 +144,7 @@ inline vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
     const vector<int>& strip, const vector<float>& lerps,
     const mesh_point& start, const mesh_point& end) {
   auto result = vector<mesh_segment>(strip.size());
-  
+
   for (int i = 0; i < strip.size(); ++i) {
     vec2f start_uv;
     if (i == 0) {
@@ -155,7 +155,7 @@ inline vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
           triangles[strip[i]], triangles[strip[i - 1]]);
       auto a   = uvw[k];
       auto b   = uvw[mod3(k + 1)];
-      start_uv = lerp(a, b, lerps[i - 1]);
+      start_uv = lerp(a, b, 1 - lerps[i - 1]);
     }
 
     vec2f end_uv;
