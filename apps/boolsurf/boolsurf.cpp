@@ -326,10 +326,10 @@ shape_intersection intersect_shape(
 }
 
 void draw_mesh_point(shade_scene* glscene, const bool_mesh& mesh,
-    shade_material* material, const mesh_point& point) {
+    shade_material* material, const mesh_point& point, float dim) {
   auto pos = eval_position(mesh.triangles, mesh.positions, point);
 
-  auto sphere = make_sphere(4, 0.0015f);
+  auto sphere = make_sphere(4, dim);
   auto frame  = frame3f{};
   frame.o     = pos;
 
@@ -385,7 +385,8 @@ void mouse_input(app_state* app, const gui_input& input) {
 
       auto point = mesh_point{isec.element, isec.uv};
       polygon.points.push_back(point);
-      draw_mesh_point(app->glscene, app->mesh, app->paths_material, point);
+      draw_mesh_point(
+          app->glscene, app->mesh, app->paths_material, point, 0.0015f);
 
       if (polygon.points.size() > 1) {
         auto geo_path = compute_path(polygon, app->mesh);
@@ -407,24 +408,81 @@ void key_input(app_state* app, const gui_input& input) {
     switch (idx) {
       case (int)gui_key('S'): {
         for (auto& polygon : app->polygons) {
-          auto strip = polygon_strip(polygon);
-
-          for (auto face : strip) {
-            auto segments = polygon_segments_from_face(polygon, face);
-            printf("Triangle: %zd has %zd segments\n", face, segments.size());
-          }
+          for (auto& point : polygon.path.points)
+            draw_mesh_point(
+                app->glscene, app->mesh, app->paths_material, point, 0.0015f);
         }
+        break;
       }
-
+      case (int)gui_key('A'): {
+        for (auto& polygon : app->polygons) {
+          // self_intersections(polygon);
+        }
+        break;
+      }
       case (int)gui_key('I'): {
+        // Intersections
         if (app->polygons.size() >= 2) {
           for (auto i = 0; i < app->polygons.size(); i++) {
+            auto first = app->polygons[i];
+
             for (auto j = i + 1; j < app->polygons.size(); j++) {
-              auto isecs = intersect_polygons(
-                  app->polygons[i], app->polygons[j]);
-              for (auto i : isecs) printf("Intersection: %d\n", i);
-              draw_intersections(
-                  app->glscene, app->isecs_material, app->mesh, isecs);
+              auto second = app->polygons[j];
+              auto isecs  = strip_intersection(first, second);
+
+              for (auto isec : isecs) {
+                auto first_segs    = polygon_segments_from_face(first, isec);
+                auto second_segs   = polygon_segments_from_face(second, isec);
+                auto isec_polygons = vector<mesh_point>();
+                for (auto& fseg : first_segs) {
+                  auto fstart = first.path.points[fseg.x];
+                  auto fend   = first.path.points[fseg.y];
+                  printf("First start face: %d uv: %f %f\n", fstart.face,
+                      fstart.uv.x, fstart.uv.y);
+
+                  printf("Firse end face: %d uv: %f %f\n", fend.face, fend.uv.x,
+                      fend.uv.y);
+
+                  draw_mesh_point(app->glscene, app->mesh, app->points_material,
+                      fstart, 0.0016f);
+                  draw_mesh_point(app->glscene, app->mesh, app->points_material,
+                      fend, 0.0016f);
+
+                  for (auto& sseg : second_segs) {
+                    auto sstart = second.path.points[sseg.x];
+                    auto send   = second.path.points[sseg.y];
+                    printf("Second start face: %d uv: %f %f\n", sstart.face,
+                        sstart.uv.x, sstart.uv.y);
+
+                    printf("Second end face: %d uv: %f %f\n", send.face,
+                        send.uv.x, send.uv.y);
+                    draw_mesh_point(app->glscene, app->mesh,
+                        app->points_material, sstart, 0.0016f);
+                    draw_mesh_point(app->glscene, app->mesh,
+                        app->points_material, send, 0.0016f);
+
+                    auto l = intersect_segments(
+                        fstart.uv, fend.uv, sstart.uv, send.uv);
+                    printf("Lerp : %f\n", l);
+                    if (l < 0.0f || l > 1.0f) continue;
+                    auto isec_pos = lerp(sstart.uv, send.uv, l);
+
+                    auto isec_point = mesh_point{isec, isec_pos};
+                    auto pos        = eval_position(
+                        app->mesh.triangles, app->mesh.positions, isec_point);
+                    printf("Isec position: %f %f %f\n", pos.x, pos.y, pos.z);
+
+                    isec_polygons.push_back(isec_point);
+                  }
+                }
+
+                for (auto& point : isec_polygons) {
+                  printf("Intersection at face: %d - x:%f y:%f\n", isec,
+                      point.uv.x, point.uv.y);
+                  draw_mesh_point(app->glscene, app->mesh, app->isecs_material,
+                      point, 0.0015f);
+                }
+              }
             }
           }
         }
@@ -443,11 +501,9 @@ void key_input(app_state* app, const gui_input& input) {
             app->mesh.triangles, app->mesh.adjacencies, geo_path);
         update_mesh_polygon(polygon, path);
 
-        auto strip = polygon_strip(polygon);
-        for (auto s : strip) {
-          printf("Face: %d\n", s);
+        for (auto& mp : polygon.path.points) {
+          printf("Face: %d u: %f v:%f\n", mp.face, mp.uv.x, mp.uv.y);
         }
-
         break;
       }
     }

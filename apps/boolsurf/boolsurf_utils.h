@@ -21,18 +21,32 @@ struct mesh_polygon {
   mesh_path          path   = {};
 };
 
+struct isec_polygon {
+  mesh_point point    = {};
+  vec2i      polygons = {};
+};
+
 inline bool is_closed(const mesh_polygon& polygon) {
   if (polygon.points.size() < 3) return false;
   return (polygon.points.front().face == polygon.points.back().face) &&
          (polygon.points.front().uv == polygon.points.back().uv);
 }
 
+// inline void update_mesh_polygon(mesh_polygon& polygon, const mesh_path& path)
+// {
+//   if (!polygon.path.points.size())
+//     polygon.path.points.push_back(polygon.points.front());
+
+//   polygon.path.points.insert(
+//       polygon.path.points.end(), path.points.begin() + 1, path.points.end());
+// }
+
 inline void update_mesh_polygon(mesh_polygon& polygon, const mesh_path& path) {
   if (!polygon.path.points.size())
     polygon.path.points.push_back(polygon.points.front());
 
   polygon.path.points.insert(
-      polygon.path.points.end(), path.points.begin() + 1, path.points.end());
+      polygon.path.points.end(), path.points.begin(), path.points.end());
 }
 
 inline vector<int> polygon_strip(const mesh_polygon& polygon) {
@@ -43,7 +57,7 @@ inline vector<int> polygon_strip(const mesh_polygon& polygon) {
 }
 
 inline vector<vec2i> polygon_segments_from_face(
-    const mesh_polygon& polygon, int face) {
+    const mesh_polygon& polygon, const bool_mesh& mesh, int face) {
   auto segments = vector<vec2i>();
   for (auto i = 1; i < polygon.path.points.size(); i++)
     if (polygon.path.points[i].face == face)
@@ -51,7 +65,7 @@ inline vector<vec2i> polygon_segments_from_face(
   return segments;
 }
 
-inline vector<int> intersect_polygons(
+inline vector<int> strip_intersection(
     const mesh_polygon& left, const mesh_polygon right) {
   auto left_faces  = polygon_strip(left);
   auto right_faces = polygon_strip(right);
@@ -73,6 +87,10 @@ inline vector<int> intersect_polygons(
     else
       j++;
   }
+
+  std::sort(intersections.begin(), intersections.end());
+  intersections.erase(std::unique(intersections.begin(), intersections.end()),
+      intersections.end());
 
   return intersections;
 }
