@@ -42,6 +42,15 @@ inline vector<int> polygon_strip(const mesh_polygon& polygon) {
   return strip;
 }
 
+inline vector<vec2i> polygon_segments_from_face(
+    const mesh_polygon& polygon, int face) {
+  auto segments = vector<vec2i>();
+  for (auto i = 1; i < polygon.path.points.size(); i++)
+    if (polygon.path.points[i].face == face)
+      segments.push_back(vec2i{i - 1, i});
+  return segments;
+}
+
 inline vector<int> intersect_polygons(
     const mesh_polygon& left, const mesh_polygon right) {
   auto left_faces  = polygon_strip(left);

@@ -405,6 +405,17 @@ void key_input(app_state* app, const gui_input& input) {
     if (button.state != gui_button::state::pressing) continue;
 
     switch (idx) {
+      case (int)gui_key('S'): {
+        for (auto& polygon : app->polygons) {
+          auto strip = polygon_strip(polygon);
+
+          for (auto face : strip) {
+            auto segments = polygon_segments_from_face(polygon, face);
+            printf("Triangle: %zd has %zd segments\n", face, segments.size());
+          }
+        }
+      }
+
       case (int)gui_key('I'): {
         if (app->polygons.size() >= 2) {
           for (auto i = 0; i < app->polygons.size(); i++) {
