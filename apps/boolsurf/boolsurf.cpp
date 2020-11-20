@@ -381,16 +381,19 @@ void mouse_input(app_state* app, const gui_input& input) {
       if (is_closed(app->polygons.back()))
         app->polygons.push_back(mesh_polygon{});
 
-      auto& polyg = app->polygons.back();
-      auto  point = mesh_point{isec.element, isec.uv};
-      polyg.points.push_back(point);
+      auto& polygon = app->polygons.back();
 
+      auto point = mesh_point{isec.element, isec.uv};
+      polygon.points.push_back(point);
       draw_mesh_point(app->glscene, app->mesh, app->paths_material, point);
 
-      if (polyg.points.size() > 1) {
-        auto path = compute_path(polyg, app->mesh);
-        polyg.paths.push_back(path);
-        draw_path(app->glscene, app->paths_material, app->mesh, path);
+      if (polygon.points.size() > 1) {
+        auto geo_path = compute_path(polygon, app->mesh);
+        draw_path(app->glscene, app->paths_material, app->mesh, geo_path);
+
+        auto path = convert_mesh_path(
+            app->mesh.triangles, app->mesh.adjacencies, geo_path);
+        update_mesh_polygon(polygon, path);
       }
     }
   }
@@ -417,16 +420,22 @@ void key_input(app_state* app, const gui_input& input) {
         break;
       }
       case (int)gui_key::enter: {
-        auto& polyg = app->polygons.back();
-        if (polyg.points.size() < 3 || is_closed(polyg)) return;
+        auto& polygon = app->polygons.back();
+        if (polygon.points.size() < 3 || is_closed(polygon)) return;
 
-        auto end = polyg.points.front();
-        polyg.points.push_back(end);
+        auto point = polygon.points.front();
+        polygon.points.push_back(point);
+        auto geo_path = compute_path(polygon, app->mesh);
+        draw_path(app->glscene, app->paths_material, app->mesh, geo_path);
 
-        auto path = compute_path(polyg, app->mesh);
-        polyg.paths.push_back(path);
+        auto path = convert_mesh_path(
+            app->mesh.triangles, app->mesh.adjacencies, geo_path);
+        update_mesh_polygon(polygon, path);
 
-        draw_path(app->glscene, app->paths_material, app->mesh, path);
+        auto strip = polygon_strip(polygon);
+        for (auto s : strip) {
+          printf("Face: %d\n", s);
+        }
 
         break;
       }

@@ -17,12 +17,8 @@ struct bool_mesh {
 };
 
 struct mesh_polygon {
-  vector<mesh_point>    points = {};
-  vector<geodesic_path> paths  = {};
-};
-
-struct polygon_intersection {
-  mesh_point point = {};
+  vector<mesh_point> points = {};
+  mesh_path          path   = {};
 };
 
 inline bool is_closed(const mesh_polygon& polygon) {
@@ -31,28 +27,25 @@ inline bool is_closed(const mesh_polygon& polygon) {
          (polygon.points.front().uv == polygon.points.back().uv);
 }
 
-// inline vector<int> get_crossed_faces(const mesh_polygon& polygon) {
-//   auto faces = vector<int>();
-//   for (auto path : polygon.paths) {
-//     for (auto f : path.strip) {
-//       if (faces.size() && faces.back() == f) continue;
-//       faces.push_back(f);
-//     }
-//   }
-//   return faces;
-// }
+inline void update_mesh_polygon(mesh_polygon& polygon, const mesh_path& path) {
+  if (!polygon.path.points.size())
+    polygon.path.points.push_back(polygon.points.front());
 
-inline vector<int> get_crossed_faces(const mesh_polygon& polygon) {
-  auto faces = vector<int>();
-  for (auto path : polygon.paths)
-    faces.insert(faces.end(), path.strip.begin(), path.strip.end());
-  return faces;
+  polygon.path.points.insert(
+      polygon.path.points.end(), path.points.begin() + 1, path.points.end());
+}
+
+inline vector<int> polygon_strip(const mesh_polygon& polygon) {
+  auto strip = vector<int>(polygon.path.points.size());
+  for (auto i = 0; i < polygon.path.points.size(); i++)
+    strip[i] = polygon.path.points[i].face;
+  return strip;
 }
 
 inline vector<int> intersect_polygons(
     const mesh_polygon& left, const mesh_polygon right) {
-  auto left_faces  = get_crossed_faces(left);
-  auto right_faces = get_crossed_faces(right);
+  auto left_faces  = polygon_strip(left);
+  auto right_faces = polygon_strip(right);
 
   std::sort(left_faces.begin(), left_faces.end());
   std::sort(right_faces.begin(), right_faces.end());
