@@ -337,17 +337,15 @@ void draw_sphere(shade_scene* scene, const bool_mesh& mesh,
 
 void draw_mesh_point(shade_scene* scene, const bool_mesh& mesh,
     shade_material* material, const mesh_point& point, float dim) {
-  auto pos     = eval_position(mesh.triangles, mesh.positions, point);
-  auto vec_pos = vector<vec3f>();
-  vec_pos.push_back(pos);
-  draw_sphere(scene, mesh, material, vec_pos, dim);
+  auto pos = eval_position(mesh.triangles, mesh.positions, point);
+  draw_sphere(scene, mesh, material, {pos}, dim);
 }
 
 geodesic_path compute_path(const mesh_polygon& polygon, const bool_mesh& mesh) {
-  auto size  = polygon.points.size();
-  auto start = polygon.points[size - 2];
-  auto end   = polygon.points[size - 1];
-  auto path  = compute_geodesic_path(mesh, start, end);
+  auto  size  = polygon.points.size();
+  auto& start = polygon.points[size - 2];
+  auto& end   = polygon.points[size - 1];
+  auto  path  = compute_geodesic_path(mesh, start, end);
   return path;
 }
 
@@ -470,12 +468,12 @@ void key_input(app_state* app, const gui_input& input) {
       case (int)gui_key('I'): {
         // Intersections
         if (app->polygons.size() >= 2) {
-          for (auto i = 0; i < app->polygons.size(); i++) {
-            auto first = app->polygons[i];
+          for (auto i = 0; i < app->polygons.size() - 1; i++) {
+            auto& first = app->polygons[i];
 
             for (auto j = i + 1; j < app->polygons.size(); j++) {
-              auto second = app->polygons[j];
-              auto isecs  = strip_intersection(first, second);
+              auto& second = app->polygons[j];
+              auto  isecs  = strip_intersection(first, second);
 
               for (auto isec : isecs) {
                 auto first_segs  = segments_from_face(first, isec);

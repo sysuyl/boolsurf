@@ -56,7 +56,7 @@ inline vector<mesh_segment> segments_from_face(
 }
 
 inline vector<int> strip_intersection(
-    const mesh_polygon& left, const mesh_polygon right) {
+    const mesh_polygon& left, const mesh_polygon& right) {
   auto left_faces  = polygon_strip(left);
   auto right_faces = polygon_strip(right);
 
@@ -183,9 +183,9 @@ inline vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
       vec2f uvw[3] = {{0, 0}, {1, 0}, {0, 1}};
       auto  k      = find_adjacent_triangle(
           triangles[strip[i]], triangles[strip[i + 1]]);
-      auto a   = uvw[k];
-      auto b   = uvw[mod3(k + 1)];
-      start_uv = lerp(a, b, lerps[i]);
+      auto a = uvw[k];
+      auto b = uvw[mod3(k + 1)];
+      end_uv = lerp(a, b, lerps[i]);  // i'm sorry
     }
     result[i] = {start_uv, end_uv, strip[i]};
   }
