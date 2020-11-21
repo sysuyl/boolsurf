@@ -446,7 +446,8 @@ void key_input(app_state* app, const gui_input& input) {
             if (strip[i] == strip[j]) isecs.push_back(strip[i]);
           }
         }
-        draw_intersections(app->glscene, app->mesh, app->isecs_material, isecs);
+        // draw_intersections(app->glscene, app->mesh, app->isecs_material,
+        // isecs);
 
         for (auto isec : isecs) {
           auto segs = segments_from_face(polygon, isec);
