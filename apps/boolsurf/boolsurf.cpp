@@ -423,23 +423,7 @@ void mouse_input(app_state* app, const gui_input& input) {
 
         auto segments = mesh_segments(app->mesh.triangles, geo_path.strip,
             geo_path.lerps, geo_path.start, geo_path.end);
-        for (auto& segment : segments) {
-          // auto start = mesh_point{segment.face, segment.start};
-          // auto end   = mesh_point{segment.face, segment.end};
 
-          // auto s = eval_position(
-          //     app->mesh.triangles, app->mesh.positions, start);
-          // auto e = eval_position(app->mesh.triangles, app->mesh.positions,
-          // end);
-
-          // // printf("Segment pos start x:%f y:%f z:%f - end x:%f y:%f
-          // z:%f\n",
-          // // s.x,
-          // //    s.y, s.z, e.x, e.y, e.z);
-
-          // draw_segment(app->glscene, app->mesh, app->points_material,
-          // segment);
-        }
         update_mesh_polygon(polygon, segments);
       }
     }
@@ -463,6 +447,29 @@ void key_input(app_state* app, const gui_input& input) {
           }
         }
         draw_intersections(app->glscene, app->mesh, app->isecs_material, isecs);
+
+        for (auto isec : isecs) {
+          auto segs = segments_from_face(polygon, isec);
+          for (auto k = 0; k < segs.size(); k++) {
+            for (auto w = k + 1; w < segs.size(); w++) {
+              auto& fseg = segs[k];
+              auto& sseg = segs[w];
+
+              auto l = intersect_segments(
+                  fseg.start, fseg.end, sseg.start, sseg.end);
+              if (l < 0.0f || l > 1.0f) continue;
+              auto isec_pos = lerp(sseg.start, sseg.end, l);
+
+              auto isec_point = mesh_point{isec, isec_pos};
+              auto pos        = eval_position(
+                  app->mesh.triangles, app->mesh.positions, isec_point);
+              // printf("Isec position: %f %f %f\n", pos.x, pos.y, pos.z);
+
+              draw_mesh_point(app->glscene, app->mesh, app->isecs_material,
+                  isec_point, 0.0016f);
+            }
+          }
+        }
         break;
       }
       case (int)gui_key('I'): {
@@ -490,7 +497,8 @@ void key_input(app_state* app, const gui_input& input) {
                     auto isec_point = mesh_point{isec, isec_pos};
                     auto pos        = eval_position(
                         app->mesh.triangles, app->mesh.positions, isec_point);
-                    // printf("Isec position: %f %f %f\n", pos.x, pos.y, pos.z);
+                    // printf("Isec position: %f %f %f\n", pos.x, pos.y,
+                    // pos.z);
 
                     draw_mesh_point(app->glscene, app->mesh,
                         app->isecs_material, isec_point, 0.0016f);
@@ -522,9 +530,9 @@ void key_input(app_state* app, const gui_input& input) {
 
         //   auto s = eval_position(
         //       app->mesh.triangles, app->mesh.positions, start);
-        //   auto e = eval_position(app->mesh.triangles, app->mesh.positions,
-        //   end); printf("Segment pos start x:%f y:%f z:%f - end x:%f y:%f
-        //   z:%f\n", s.x,
+        //   auto e = eval_position(app->mesh.triangles,
+        //   app->mesh.positions, end); printf("Segment pos start x:%f
+        //   y:%f z:%f - end x:%f y:%f z:%f\n", s.x,
         //       s.y, s.z, e.x, e.y, e.z);
         //   draw_segment(app->glscene, app->mesh, app->points_material,
         //   segment);
