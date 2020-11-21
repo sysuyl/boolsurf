@@ -143,19 +143,24 @@ inline int find_adjacent_triangle(
   return -1;
 }
 
-// From yocto_mesh.h
-inline float intersect_segments(const vec2f& start1, const vec2f& end1,
+// From yocto_mesh.h + small update
+inline vec2f intersect_segments(const vec2f& start1, const vec2f& end1,
     const vec2f& start2, const vec2f& end2) {
-  if (end1 == start2) return 0;
-  if (end2 == start1) return 1;
-  if (start2 == start1) return 0;
-  if (end2 == end1) return 1;
-  auto a   = end1 - start1;    // direction of line a
-  auto b   = start2 - end2;    // direction of line b, reversed
-  auto d   = start2 - start1;  // right-hand side
+  if (end1 == start2) return zero2f;
+  if (end2 == start1) return one2f;
+  if (start2 == start1) return zero2f;
+  if (end2 == end1) return one2f;
+
+  auto a = end1 - start1;    // direction of line a
+  auto b = start2 - end2;    // direction of line b, reversed
+  auto d = start2 - start1;  // right-hand side
+
   auto det = a.x * b.y - a.y * b.x;
-  // assert(det);
-  return (a.x * d.y - a.y * d.x) / det;
+  if (det == 0) return {-1, -1};
+
+  auto r = (d.x * b.y - d.y * b.x) / det;
+  auto s = (a.x * d.y - a.y * d.x) / det;
+  return {r, s};
 }
 
 inline vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
