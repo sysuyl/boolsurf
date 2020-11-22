@@ -437,7 +437,9 @@ void key_input(app_state* app, const gui_input& input) {
 
     switch (idx) {
       case (int)gui_key('S'): {
-        for (auto& polygon : app->polygons) {
+        auto isecs_polygon = vector<isec_polygon>();
+        for (auto p = 0; p < app->polygons.size(); p++) {
+          auto& polygon = app->polygons[p];
           for (auto i = 0; i < polygon.segments.size(); i++) {
             auto& fseg = polygon.segments[i];
             auto  end  = polygon.segments.size();
@@ -453,12 +455,12 @@ void key_input(app_state* app, const gui_input& input) {
                   continue;
                 auto isec_pos = lerp(sseg.start, sseg.end, l.y);
 
-                auto isec_point = mesh_point{fseg.face, isec_pos};
-                auto pos        = eval_position(
-                    app->mesh.triangles, app->mesh.positions, isec_point);
+                auto isec = isec_polygon{
+                    mesh_point{fseg.face, isec_pos}, vec2i{p, p}};
+                isecs_polygon.push_back(isec);
 
                 draw_mesh_point(app->glscene, app->mesh, app->isecs_material,
-                    isec_point, 0.0016f);
+                    isec.point, 0.0016f);
               }
             }
           }
@@ -467,6 +469,8 @@ void key_input(app_state* app, const gui_input& input) {
       }
       case (int)gui_key('I'): {
         // Intersections
+        auto isecs_polygon = vector<isec_polygon>();
+
         if (app->polygons.size() >= 2) {
           for (auto i = 0; i < app->polygons.size() - 1; i++) {
             auto& first = app->polygons[i];
@@ -475,9 +479,9 @@ void key_input(app_state* app, const gui_input& input) {
               auto& second = app->polygons[j];
               auto  isecs  = strip_intersection(first, second);
 
-              for (auto isec : isecs) {
-                auto first_segs  = segments_from_face(first, isec);
-                auto second_segs = segments_from_face(second, isec);
+              for (auto face : isecs) {
+                auto first_segs  = segments_from_face(first, face);
+                auto second_segs = segments_from_face(second, face);
 
                 for (auto& fseg : first_segs) {
                   for (auto& sseg : second_segs) {
@@ -487,12 +491,12 @@ void key_input(app_state* app, const gui_input& input) {
                       continue;
                     auto isec_pos = lerp(sseg.start, sseg.end, l.y);
 
-                    auto isec_point = mesh_point{isec, isec_pos};
-                    auto pos        = eval_position(
-                        app->mesh.triangles, app->mesh.positions, isec_point);
+                    auto isec = isec_polygon{
+                        mesh_point{face, isec_pos}, vec2i{i, j}};
+                    isecs_polygon.push_back(isec);
 
                     draw_mesh_point(app->glscene, app->mesh,
-                        app->isecs_material, isec_point, 0.0016f);
+                        app->isecs_material, isec.point, 0.0016f);
                   }
                 }
               }
@@ -514,7 +518,6 @@ void key_input(app_state* app, const gui_input& input) {
             geo_path.lerps, geo_path.start, geo_path.end);
         update_mesh_polygon(polygon, segments);
 
-        printf("Total segments: %d\n", polygon.segments.size());
         // for (auto& segment : polygon.segments) {
         //   auto start = mesh_point{segment.face, segment.start};
         //   auto end   = mesh_point{segment.face, segment.end};

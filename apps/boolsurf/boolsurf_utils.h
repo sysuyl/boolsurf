@@ -27,6 +27,11 @@ struct mesh_polygon {
   vector<mesh_segment> segments = {};
 };
 
+struct isec_polygon {
+  mesh_point point;
+  vec2i      polygons = {};
+};
+
 inline bool is_closed(const mesh_polygon& polygon) {
   if (polygon.points.size() < 3) return false;
   return (polygon.points.front().face == polygon.points.back().face) &&
