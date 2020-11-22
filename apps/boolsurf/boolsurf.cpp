@@ -437,25 +437,29 @@ void key_input(app_state* app, const gui_input& input) {
 
     switch (idx) {
       case (int)gui_key('S'): {
-        auto& segments = app->polygons[0].segments;
+        for (auto& polygon : app->polygons) {
+          for (auto i = 0; i < polygon.segments.size(); i++) {
+            auto& fseg = polygon.segments[i];
+            auto  end  = polygon.segments.size();
+            if (i == 0) end -= 1;
 
-        for (auto i = 0; i < segments.size(); i++) {
-          auto& fseg = segments[i];
-          for (auto j = i + 2; j < segments.size(); j++) {
-            auto& sseg = segments[j];
-            if (fseg.face == sseg.face) {
-              auto l = intersect_segments(
-                  fseg.start, fseg.end, sseg.start, sseg.end);
-              if (l.x < 0.0f || l.x > 1.0f || l.y < 0.0f || l.y > 1.0f)
-                continue;
-              auto isec_pos = lerp(sseg.start, sseg.end, l.y);
+            for (auto j = i + 2; j < end; j++) {
+              auto& sseg = polygon.segments[j];
 
-              auto isec_point = mesh_point{fseg.face, isec_pos};
-              auto pos        = eval_position(
-                  app->mesh.triangles, app->mesh.positions, isec_point);
+              if (fseg.face == sseg.face) {
+                auto l = intersect_segments(
+                    fseg.start, fseg.end, sseg.start, sseg.end);
+                if (l.x < 0.0f || l.x > 1.0f || l.y < 0.0f || l.y > 1.0f)
+                  continue;
+                auto isec_pos = lerp(sseg.start, sseg.end, l.y);
 
-              draw_mesh_point(app->glscene, app->mesh, app->isecs_material,
-                  isec_point, 0.0016f);
+                auto isec_point = mesh_point{fseg.face, isec_pos};
+                auto pos        = eval_position(
+                    app->mesh.triangles, app->mesh.positions, isec_point);
+
+                draw_mesh_point(app->glscene, app->mesh, app->isecs_material,
+                    isec_point, 0.0016f);
+              }
             }
           }
         }
