@@ -68,8 +68,10 @@ struct app_state {
   shape_bvh      bvh     = {};
 
   // bezier info
-  bool_mesh            mesh     = bool_mesh{};
+  bool_mesh mesh = bool_mesh{};
+
   vector<mesh_polygon> polygons = {};
+  vector<mesh_point>   points   = {};  // Click inserted points
 
   // rendering state
   shade_scene*    glscene         = new shade_scene{};
@@ -341,11 +343,12 @@ void draw_mesh_point(shade_scene* scene, const bool_mesh& mesh,
   draw_sphere(scene, mesh, material, {pos}, dim);
 }
 
-geodesic_path compute_path(const mesh_polygon& polygon, const bool_mesh& mesh) {
-  auto  size  = polygon.points.size();
-  auto& start = polygon.points[size - 2];
-  auto& end   = polygon.points[size - 1];
-  auto  path  = compute_geodesic_path(mesh, start, end);
+geodesic_path compute_path(const mesh_polygon& polygon,
+    const vector<mesh_point> points, const bool_mesh& mesh) {
+  auto size  = polygon.points.size();
+  auto start = polygon.points[size - 2];
+  auto end   = polygon.points[size - 1];
+  auto path = compute_geodesic_path(mesh, points[start], points[end]);  // check
   return path;
 }
 
@@ -411,14 +414,16 @@ void mouse_input(app_state* app, const gui_input& input) {
         app->polygons.push_back(mesh_polygon{});
 
       auto& polygon = app->polygons.back();
+      auto  point   = mesh_point{isec.element, isec.uv};
 
-      auto point = mesh_point{isec.element, isec.uv};
-      polygon.points.push_back(point);
+      app->points.push_back(point);
+      polygon.points.push_back(app->points.size() - 1);
+
       draw_mesh_point(
-          app->glscene, app->mesh, app->paths_material, point, 0.0015f);
+          app->glscene, app->mesh, app->paths_material, point, 0.0010f);
 
       if (polygon.points.size() > 1) {
-        auto geo_path = compute_path(polygon, app->mesh);
+        auto geo_path = compute_path(polygon, app->points, app->mesh);
         draw_path(app->glscene, app->mesh, app->paths_material, geo_path);
 
         auto segments = mesh_segments(app->mesh.triangles, geo_path.strip,
@@ -469,6 +474,7 @@ void key_input(app_state* app, const gui_input& input) {
       }
       case (int)gui_key('I'): {
         // Intersections
+
         auto isecs_polygon = vector<isec_polygon>();
 
         if (app->polygons.size() >= 2) {
@@ -477,7 +483,8 @@ void key_input(app_state* app, const gui_input& input) {
 
             for (auto j = i + 1; j < app->polygons.size(); j++) {
               auto& second = app->polygons[j];
-              auto  isecs  = strip_intersection(first, second);
+
+              auto isecs = strip_intersection(first, second);
 
               for (auto face : isecs) {
                 auto first_segs  = segments_from_face(first, face);
@@ -511,11 +518,13 @@ void key_input(app_state* app, const gui_input& input) {
 
         auto point = polygon.points.front();
         polygon.points.push_back(point);
-        auto geo_path = compute_path(polygon, app->mesh);
+
+        auto geo_path = compute_path(polygon, app->points, app->mesh);
         draw_path(app->glscene, app->mesh, app->paths_material, geo_path);
 
         auto segments = mesh_segments(app->mesh.triangles, geo_path.strip,
             geo_path.lerps, geo_path.start, geo_path.end);
+
         update_mesh_polygon(polygon, segments);
 
         // for (auto& segment : polygon.segments) {

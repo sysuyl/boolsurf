@@ -23,7 +23,7 @@ struct mesh_segment {
 };
 
 struct mesh_polygon {
-  vector<mesh_point>   points   = {};
+  vector<int>          points   = {};
   vector<mesh_segment> segments = {};
 };
 
@@ -34,8 +34,7 @@ struct isec_polygon {
 
 inline bool is_closed(const mesh_polygon& polygon) {
   if (polygon.points.size() < 3) return false;
-  return (polygon.points.front().face == polygon.points.back().face) &&
-         (polygon.points.front().uv == polygon.points.back().uv);
+  return (polygon.points.front() == polygon.points.back());
 }
 
 inline void update_mesh_polygon(
