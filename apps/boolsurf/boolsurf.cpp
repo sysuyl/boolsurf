@@ -39,6 +39,8 @@
 #include <yocto_gui/yocto_shade.h>
 #include <yocto_gui/yocto_window.h>
 
+#include <unordered_map>
+
 #include "boolsurf_utils.h"
 
 using namespace yocto;
@@ -442,71 +444,36 @@ void key_input(app_state* app, const gui_input& input) {
 
     switch (idx) {
       case (int)gui_key('S'): {
-        auto isecs_polygon = vector<isec_polygon>();
+        // Hashgrid from triangle idx to <polygon idx, segment start uv, segment
+        // end uv> to handle intersections and self-intersections
+        // Use tuple(?)
+        // Compute during segments creation (?)
+        auto hashgrid =
+            unordered_map<int, vector<std::tuple<int, vec2f, vec2f>>>();
         for (auto p = 0; p < app->polygons.size(); p++) {
           auto& polygon = app->polygons[p];
-          for (auto i = 0; i < polygon.segments.size(); i++) {
-            auto& fseg = polygon.segments[i];
-            auto  end  = polygon.segments.size();
-            if (i == 0) end -= 1;
-
-            for (auto j = i + 2; j < end; j++) {
-              auto& sseg = polygon.segments[j];
-
-              if (fseg.face == sseg.face) {
-                auto l = intersect_segments(
-                    fseg.start, fseg.end, sseg.start, sseg.end);
-                if (l.x < 0.0f || l.x > 1.0f || l.y < 0.0f || l.y > 1.0f)
-                  continue;
-                auto isec_pos = lerp(sseg.start, sseg.end, l.y);
-
-                auto isec = isec_polygon{
-                    mesh_point{fseg.face, isec_pos}, vec2i{p, p}};
-                isecs_polygon.push_back(isec);
-
-                draw_mesh_point(app->glscene, app->mesh, app->isecs_material,
-                    isec.point, 0.0016f);
-              }
-            }
+          for (auto& segment : polygon.segments) {
+            hashgrid[segment.face].push_back({p, segment.start, segment.end});
           }
         }
-        break;
-      }
-      case (int)gui_key('I'): {
-        // Intersections
 
-        auto isecs_polygon = vector<isec_polygon>();
+        for (auto& entry : hashgrid) {
+          if (entry.second.size() < 2) continue;
+          for (auto i = 0; i < entry.second.size(); i++) {
+            auto& [fcurve, fstart, fend] = entry.second[i];
+            for (auto j = i + 1; j < entry.second.size(); j++) {
+              auto& [scurve, sstart, send] = entry.second[j];
 
-        if (app->polygons.size() >= 2) {
-          for (auto i = 0; i < app->polygons.size() - 1; i++) {
-            auto& first = app->polygons[i];
+              auto l = intersect_segments(fstart, fend, sstart, send);
+              if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f)
+                continue;
+              auto isec = lerp(sstart, send, l.y);
 
-            for (auto j = i + 1; j < app->polygons.size(); j++) {
-              auto& second = app->polygons[j];
+              auto point = mesh_point{entry.first, isec};
+              app->points.push_back(point);
 
-              auto isecs = strip_intersection(first, second);
-
-              for (auto face : isecs) {
-                auto first_segs  = segments_from_face(first, face);
-                auto second_segs = segments_from_face(second, face);
-
-                for (auto& fseg : first_segs) {
-                  for (auto& sseg : second_segs) {
-                    auto l = intersect_segments(
-                        fseg.start, fseg.end, sseg.start, sseg.end);
-                    if (l.x < 0.0f || l.x > 1.0f || l.y < 0.0f || l.y > 1.0f)
-                      continue;
-                    auto isec_pos = lerp(sseg.start, sseg.end, l.y);
-
-                    auto isec = isec_polygon{
-                        mesh_point{face, isec_pos}, vec2i{i, j}};
-                    isecs_polygon.push_back(isec);
-
-                    draw_mesh_point(app->glscene, app->mesh,
-                        app->isecs_material, isec.point, 0.0016f);
-                  }
-                }
-              }
+              draw_mesh_point(
+                  app->glscene, app->mesh, app->isecs_material, point, 0.0020f);
             }
           }
         }
@@ -526,7 +493,6 @@ void key_input(app_state* app, const gui_input& input) {
             geo_path.lerps, geo_path.start, geo_path.end);
 
         update_mesh_polygon(polygon, segments);
-
         // for (auto& segment : polygon.segments) {
         //   auto start = mesh_point{segment.face, segment.start};
         //   auto end   = mesh_point{segment.face, segment.end};

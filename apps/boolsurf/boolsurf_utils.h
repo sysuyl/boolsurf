@@ -28,8 +28,9 @@ struct mesh_polygon {
 };
 
 struct isec_polygon {
-  mesh_point point;
-  vec2i      polygons = {};
+  int   point;        // Mesh_point id
+  vec2i first  = {};  // First polygon and segment ids
+  vec2i second = {};  // Second polygon and segment ids
 };
 
 inline bool is_closed(const mesh_polygon& polygon) {
