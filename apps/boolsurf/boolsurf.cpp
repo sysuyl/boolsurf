@@ -136,7 +136,7 @@ frame3f camera_frame(float lens, float aspect, float film = 0.036) {
 
 void update_path_shape(shade_shape* shape, const bool_mesh& mesh,
     const geodesic_path& path, float radius, float offset = 0,
-    bool thin = false) {
+    bool thin = true) {
   auto positions = path_positions(
       path, mesh.triangles, mesh.positions, mesh.adjacencies);
 
@@ -236,7 +236,7 @@ void update_path_shape(shade_shape* shape, const bool_mesh& mesh,
 }
 
 void init_edges_and_vertices_shapes_and_points(
-    app_state* app, bool thin = false) {
+    app_state* app, bool thin = true) {
   auto edges = get_edges(app->mesh.triangles, {});
   auto froms = vector<vec3f>();
   auto tos   = vector<vec3f>();
@@ -255,10 +255,13 @@ void init_edges_and_vertices_shapes_and_points(
 
   if (thin) {
     set_quads(app->edges_shape, {});
-    set_positions(app->edges_shape, {{0, 0, -0.5}, {0, 0, 0.5}});
-    set_lines(app->edges_shape, {{0, 1}});
+    set_positions(app->edges_shape, app->mesh.positions);
+    set_lines(app->edges_shape, edges);
     set_normals(app->edges_shape, {});
     set_texcoords(app->edges_shape, {});
+    set_instances(app->edges_shape, {});
+    // app->edges_shape->shape->elements = ogl_element_type::line_strip;
+    set_unlit(app->edges_material, true);
   } else {
     auto cylinder = make_uvcylinder({8, 1, 1}, {cylinder_radius, 1});
     for (auto& p : cylinder.positions) {
@@ -268,8 +271,8 @@ void init_edges_and_vertices_shapes_and_points(
     set_positions(app->edges_shape, cylinder.positions);
     set_normals(app->edges_shape, cylinder.normals);
     set_texcoords(app->edges_shape, cylinder.texcoords);
+    set_instances(app->edges_shape, froms, tos);
   }
-  set_instances(app->edges_shape, froms, tos);
 
   auto vertices_radius = 3.0f * cylinder_radius;
   auto vertices        = make_sphere(3, vertices_radius);
@@ -967,6 +970,8 @@ int main(int argc, const char* argv[]) {
   auto filename    = "tests/_data/shapes/bunny.obj"s;
   auto camera_name = ""s;
 
+  auto window = new gui_window{};
+
   // parse command line
   auto cli = make_cli("yboolsurf", "views shapes inteactively");
   add_option(cli, "--camera", camera_name, "Camera name.");
@@ -975,9 +980,9 @@ int main(int argc, const char* argv[]) {
   add_option(cli, "--lighting", app->drawgl_prms.lighting, "Lighting type.",
       shade_lighting_names);
   add_option(cli, "shape", filename, "Shape filename", true);
+  add_option(cli, "--msaa", window->msaa, "Multisample anti-aliasing.");
   parse_cli(cli, argc, argv);
 
-  auto window = new gui_window{};
   init_window(window, {1280 + 320, 720}, "boolsurf", true);
   window->user_data = app;
 
@@ -985,7 +990,9 @@ int main(int argc, const char* argv[]) {
   load_shape(app, filename);
 
   init_glscene(app, app->glscene, app->mesh, {});
+  if (window->msaa > 1) set_ogl_msaa();
   set_ogl_blending(true);
+
   app->widgets = create_imgui(window);
 
   run_ui(window, update_app);

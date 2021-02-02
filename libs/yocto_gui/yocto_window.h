@@ -186,6 +186,7 @@ struct gui_window {
   bool        widgets_left  = true;
   gui_input   input         = {};
   vec4f       background    = {0.15f, 0.15f, 0.15f, 1.0f};
+  int         msaa          = 1;
   void*       user_data     = nullptr;
 };
 
