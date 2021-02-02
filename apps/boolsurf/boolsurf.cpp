@@ -8,10 +8,52 @@ using namespace yocto;
 #undef far
 #endif
 
+void save_test(app_state* app, const string& filename) {
+  auto polygons = vector<vector<int>>{};
+  for (auto& mesh_polygon : app->polygons) {
+    polygons.push_back(mesh_polygon.points);
+  }
+  save_polygons(filename, app->points, polygons);
+}
+
+void load_test(app_state* app, const string& filename) {
+  auto [points, polygons] = load_polygons(filename);
+  app->points             = points;
+  for (auto& polygon : polygons) {
+    // Add new polygon to state.
+    auto& mesh_polygon  = app->polygons.emplace_back();
+    mesh_polygon.points = polygon;
+    if (polygon.empty()) continue;
+
+    // Draw polygon.
+    for (int i = 0; i < polygon.size(); i++) {
+      auto start = polygon[i];
+      auto end   = polygon[(i + 1) % polygon.size()];
+      auto path  = compute_geodesic_path(app->mesh, points[start], points[end]);
+      draw_path(app->glscene, app->mesh, app->paths_material, path, 0.0005f);
+      auto segments = mesh_segments(
+          app->mesh.triangles, path.strip, path.lerps, path.start, path.end);
+      update_mesh_polygon(mesh_polygon, segments);
+    }
+  }
+}
+
 // draw with shading
 void draw_widgets(app_state* app, const gui_input& input) {
   auto widgets = &app->widgets;
   begin_imgui(widgets, "boolsurf", {0, 0}, {320, 720});
+
+  if (draw_filedialog_button(widgets, "load test", true, "load file",
+          app->test_filename, false, "data/", "test.json", "*.json")) {
+    load_test(app, app->test_filename);
+  }
+  continue_line(widgets);
+
+  static auto filename = ""s;
+  if (draw_filedialog_button(widgets, "save test", true, "save file", filename,
+          true, "data/", "test.json", "*.json")) {
+    save_test(app, filename);
+  }
 
   if (begin_header(widgets, "view")) {
     auto  glmaterial = app->mesh_material;
@@ -35,7 +77,6 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
   if (begin_header(widgets, "inspect")) {
-    draw_label(widgets, "shape", app->name);
     draw_label(widgets, "filename", app->filename);
     auto ioshape = app->ioshape;
     draw_label(widgets, "points", std::to_string(ioshape->points.size()));
@@ -403,36 +444,6 @@ void key_input(app_state* app, const gui_input& input) {
         //                          app->polygons.size();
         // } break;
 
-      case (int)gui_key('S'): {
-        auto polygons = vector<vector<int>>{};
-        for (auto& mesh_polygon : app->polygons) {
-          polygons.push_back(mesh_polygon.points);
-		}
-        save_polygons("test.json", app->points, polygons);
-      } break;
-      case (int)gui_key('L'): {
-        auto [points, polygons] = load_polygons("test.json");
-        app->points             = points;
-        for (auto& polygon : polygons) {
-          // Add new polygon to state.
-          auto& mesh_polygon  = app->polygons.emplace_back();
-          mesh_polygon.points = polygon;
-          if (polygon.empty()) continue;
-
-          // Draw polygon.
-          for (int i = 0; i < polygon.size(); i++) {
-            auto start = polygon[i];
-            auto end   = polygon[(i + 1) % polygon.size()];
-            auto path  = compute_geodesic_path(
-                app->mesh, points[start], points[end]);
-            draw_path(app->glscene, app->mesh, app->paths_material, path,
-                0.0005f);
-            auto segments = mesh_segments(app->mesh.triangles, path.strip,
-                path.lerps, path.start, path.end);
-            update_mesh_polygon(mesh_polygon, segments);
-          }
-        }
-      } break;
       case (int)gui_key('C'): {
         auto old_camera = app->glcamera;
         app->points.clear();
@@ -495,6 +506,7 @@ int main(int argc, const char* argv[]) {
       shade_lighting_names);
   add_option(cli, "shape", filename, "Shape filename", true);
   add_option(cli, "--msaa", window->msaa, "Multisample anti-aliasing.");
+  add_option(cli, "--test", app->test_filename, "Test filename.");
   parse_cli(cli, argc, argv);
 
   init_window(window, {1280 + 320, 720}, "boolsurf", true);
