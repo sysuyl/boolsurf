@@ -45,4 +45,16 @@ inline bool load_json(const string& filename, json& js) {
   }
 }
 
-void xxx(const vector<mesh_point>&, const vector<vector<int>>& polygons) {}
+inline bool save_polygons(const string& filename,
+    const vector<mesh_point>& points, const vector<vector<int>>& polygons) {
+  auto js                  = json{};
+  js["points"]             = points;
+  js["params"]["polygons"] = polygons;
+
+  auto error = ""s;
+  if (!save_text(filename, js.dump(2), error)) {
+    printf("[%s]: %s\n", __FUNCTION__, error.c_str());
+    return false;
+  }
+  return true;
+}

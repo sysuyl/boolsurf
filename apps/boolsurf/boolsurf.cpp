@@ -403,6 +403,9 @@ void key_input(app_state* app, const gui_input& input) {
         //                          app->polygons.size();
         // } break;
 
+      case (int)gui_key('S'): {
+        save_polygons("test.json", app->points, {{0, 1}, {1, 2, 0}});
+      }
       case (int)gui_key('C'): {
         auto old_camera = app->glcamera;
         app->points.clear();
