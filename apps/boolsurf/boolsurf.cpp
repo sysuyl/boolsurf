@@ -9,17 +9,19 @@ using namespace yocto;
 #endif
 
 void save_test(app_state* app, const string& filename) {
-  auto polygons = vector<vector<int>>{};
+  app->test        = {};
+  app->test.model  = app->filename;
+  app->test.points = app->points;
   for (auto& mesh_polygon : app->polygons) {
-    polygons.push_back(mesh_polygon.points);
+    app->test.polygons.push_back(mesh_polygon.points);
   }
-  save_polygons(filename, app->points, polygons);
+  save_test(app->test, filename);
 }
 
-void load_test(app_state* app, const string& filename) {
-  auto [points, polygons] = load_polygons(filename);
-  app->points             = points;
-  for (auto& polygon : polygons) {
+void init_from_test(app_state* app) {
+  auto& points = app->points;
+  points       = app->test.points;
+  for (auto& polygon : app->test.polygons) {
     // Add new polygon to state.
     auto& mesh_polygon  = app->polygons.emplace_back();
     mesh_polygon.points = polygon;
@@ -45,7 +47,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
   if (draw_filedialog_button(widgets, "load test", true, "load file",
           app->test_filename, false, "data/", "test.json", "*.json")) {
-    load_test(app, app->test_filename);
+    load_test(app->test, app->test_filename);
+    init_from_test(app);
   }
   continue_line(widgets);
 
@@ -494,8 +497,8 @@ int main(int argc, const char* argv[]) {
   auto app         = new app_state{};
   auto filename    = "tests/_data/shapes/bunny.obj"s;
   auto camera_name = ""s;
-
-  auto window = new gui_window{};
+  auto input       = ""s;
+  auto window      = new gui_window{};
 
   // parse command line
   auto cli = make_cli("yboolsurf", "views shapes inteactively");
@@ -504,7 +507,8 @@ int main(int argc, const char* argv[]) {
       cli, "--resolution,-r", app->drawgl_prms.resolution, "Image resolution.");
   add_option(cli, "--lighting", app->drawgl_prms.lighting, "Lighting type.",
       shade_lighting_names);
-  add_option(cli, "shape", filename, "Shape filename", true);
+  add_option(cli, "input", input,
+      "Input filename. Either a model or a json test file", true);
   add_option(cli, "--msaa", window->msaa, "Multisample anti-aliasing.");
   add_option(cli, "--test", app->test_filename, "Test filename.");
   parse_cli(cli, argc, argv);
@@ -512,14 +516,26 @@ int main(int argc, const char* argv[]) {
   init_window(window, {1280 + 320, 720}, "boolsurf", true);
   window->user_data = app;
 
-  app->filename = filename;
-  load_shape(app, filename);
+  auto extension = path_extension(input);
+  if (extension == ".json") {
+    app->test_filename = input;
+    load_test(app->test, input);
+    app->filename = app->test.model;
+  } else {
+    app->filename = input;
+  }
+
+  load_shape(app, app->filename);
 
   init_glscene(app, app->glscene, app->mesh, {});
   if (window->msaa > 1) set_ogl_msaa();
   set_ogl_blending(true);
 
   app->widgets = create_imgui(window);
+
+  if (app->test_filename != "") {
+    init_from_test(app);
+  }
 
   run_ui(window, update_app);
 
