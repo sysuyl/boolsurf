@@ -4,6 +4,7 @@
 #include <yocto/yocto_shape.h>
 
 #include <cassert>
+#include <deque>
 #include <unordered_set>
 
 #include "ext/delaunator.cpp"

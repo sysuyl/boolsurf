@@ -6,7 +6,6 @@
 #include <yocto/yocto_image.h>
 #include <yocto/yocto_math.h>
 #include <yocto/yocto_mesh.h>
-#include <yocto/yocto_parallel.h>
 #include <yocto/yocto_sceneio.h>
 #include <yocto/yocto_shape.h>
 #include <yocto_gui/yocto_imgui.h>
@@ -18,6 +17,7 @@
 
 #include "boolsurf_utils.h"
 #include "ext/earcut.hpp"
+#include "io.h"
 #include "render.h"
 
 using namespace yocto;
