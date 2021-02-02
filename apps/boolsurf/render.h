@@ -1,7 +1,8 @@
 #include <yocto_gui/yocto_shade.h>
 
-shade_instance* draw_sphere(shade_scene* scene, const bool_mesh& mesh,
-    shade_material* material, const vector<vec3f>& pos, float dim) {
+[[nodiscard]] shade_instance* draw_sphere(shade_scene* scene,
+    const bool_mesh& mesh, shade_material* material, const vector<vec3f>& pos,
+    float dim) {
   auto sphere = make_sphere(4, dim);
 
   auto shape = add_shape(scene, {}, {}, {}, sphere.quads, sphere.positions,
@@ -10,22 +11,24 @@ shade_instance* draw_sphere(shade_scene* scene, const bool_mesh& mesh,
   return add_instance(scene, identity3x4f, shape, material, false);
 }
 
-shade_instance* draw_mesh_point(shade_scene* scene, const bool_mesh& mesh,
-    shade_material* material, const mesh_point& point, float dim) {
+[[nodiscard]] shade_instance* draw_mesh_point(shade_scene* scene,
+    const bool_mesh& mesh, shade_material* material, const mesh_point& point,
+    float dim) {
   auto pos = eval_position(mesh.triangles, mesh.positions, point);
   return draw_sphere(scene, mesh, material, {pos}, dim);
 }
 
-shade_instance* draw_path(shade_scene* scene, const bool_mesh& mesh,
-    shade_material* material, const geodesic_path& path, float radius) {
+[[nodiscard]] shade_instance* draw_path(shade_scene* scene,
+    const bool_mesh& mesh, shade_material* material, const geodesic_path& path,
+    float radius) {
   auto shape = add_shape(scene);
   update_path_shape(shape, mesh, path, radius);
   add_instance(scene, identity3x4f, shape, material, false);
   return add_instance(scene, identity3x4f, shape, material, false);
 }
 
-shade_instance* draw_intersections(shade_scene* scene, const bool_mesh& mesh,
-    shade_material* material, const vector<int>& isecs) {
+[[nodiscard]] shade_instance* draw_intersections(shade_scene* scene,
+    const bool_mesh& mesh, shade_material* material, const vector<int>& isecs) {
   auto pos = vector<vec3f>(isecs.size());
   for (auto i = 0; i < isecs.size(); i++) {
     auto v = mesh.triangles[isecs[i]];
@@ -36,9 +39,9 @@ shade_instance* draw_intersections(shade_scene* scene, const bool_mesh& mesh,
   return draw_sphere(scene, mesh, material, pos, 0.0015f);
 }
 
-shade_instance* draw_segment(shade_scene* scene, const bool_mesh& mesh,
-    shade_material* material, const vec3f& start, const vec3f& end,
-    float radius = 0.0006f) {
+[[nodiscard]] shade_instance* draw_segment(shade_scene* scene,
+    const bool_mesh& mesh, shade_material* material, const vec3f& start,
+    const vec3f& end, float radius = 0.0006f) {
   auto cylinder = make_uvcylinder({4, 1, 1}, {radius, 1});
   for (auto& p : cylinder.positions) {
     p.z = p.z * 0.5 + 0.5;
@@ -53,9 +56,9 @@ shade_instance* draw_segment(shade_scene* scene, const bool_mesh& mesh,
   return add_instance(scene, identity3x4f, shape, material, false);
 }
 
-shade_instance* draw_mesh_segment(shade_scene* scene, const bool_mesh& mesh,
-    shade_material* material, const mesh_segment& segment,
-    float radius = 0.0012f) {
+[[nodiscard]] shade_instance* draw_mesh_segment(shade_scene* scene,
+    const bool_mesh& mesh, shade_material* material,
+    const mesh_segment& segment, float radius = 0.0012f) {
   auto start = mesh_point{segment.face, segment.start};
   auto end   = mesh_point{segment.face, segment.end};
 
@@ -68,7 +71,7 @@ shade_instance* draw_mesh_segment(shade_scene* scene, const bool_mesh& mesh,
   return draw_segment(scene, mesh, material, pos_start, pos_end, radius / 2);
 }
 
-vector<shade_instance*> draw_arrangement(shade_scene* scene,
+[[nodiscard]] vector<shade_instance*> draw_arrangement(shade_scene* scene,
     const bool_mesh& mesh, const vector<shade_material*>& material,
     const vector<mesh_point>& points, vector<cell_polygon>& cells) {
   auto instances = vector<shade_instance*>{};
@@ -99,7 +102,7 @@ vector<shade_instance*> draw_arrangement(shade_scene* scene,
   return instances;
 }
 
-void set_patch_shape(shade_shape* shape, const bool_mesh& mesh,
+[[nodiscard]] void set_patch_shape(shade_shape* shape, const bool_mesh& mesh,
     const vector<int>& faces, const float distance) {
   auto positions = vector<vec3f>(faces.size() * 3);
   for (int i = 0; i < faces.size(); i++) {
