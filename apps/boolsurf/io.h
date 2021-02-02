@@ -40,16 +40,16 @@ inline bool load_json(const string& filename, json& js) {
     js = json::parse(text);
     return true;
   } catch (std::exception& e) {
-    printf("[%s]: %s\n", __FUNCTION__, error.c_str());
+    printf("[%s]: %s\n", __FUNCTION__, e.what());
     return false;
   }
 }
 
 inline bool save_polygons(const string& filename,
     const vector<mesh_point>& points, const vector<vector<int>>& polygons) {
-  auto js                  = json{};
-  js["points"]             = points;
-  js["params"]["polygons"] = polygons;
+  auto js        = json{};
+  js["points"]   = points;
+  js["polygons"] = polygons;
 
   auto error = ""s;
   if (!save_text(filename, js.dump(2), error)) {
@@ -57,4 +57,23 @@ inline bool save_polygons(const string& filename,
     return false;
   }
   return true;
+}
+
+inline std::pair<vector<mesh_point>, vector<vector<int>>> load_polygons(
+    const string& filename) {
+  auto js = json{};
+  if (!load_json(filename, js)) {
+    return {};
+  }
+
+  auto points   = vector<mesh_point>{};
+  auto polygons = vector<vector<int>>{};
+  try {
+    points   = js["points"].get<vector<mesh_point>>();
+    polygons = js["polygons"].get<vector<vector<int>>>();
+  } catch (std::exception& e) {
+    printf("[%s]: %s\n", __FUNCTION__, e.what());
+    return {};
+  }
+  return {points, polygons};
 }

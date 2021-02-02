@@ -404,8 +404,35 @@ void key_input(app_state* app, const gui_input& input) {
         // } break;
 
       case (int)gui_key('S'): {
-        save_polygons("test.json", app->points, {{0, 1}, {1, 2, 0}});
-      }
+        auto polygons = vector<vector<int>>{};
+        for (auto& mesh_polygon : app->polygons) {
+          polygons.push_back(mesh_polygon.points);
+		}
+        save_polygons("test.json", app->points, polygons);
+      } break;
+      case (int)gui_key('L'): {
+        auto [points, polygons] = load_polygons("test.json");
+        app->points             = points;
+        for (auto& polygon : polygons) {
+          // Add new polygon to state.
+          auto& mesh_polygon  = app->polygons.emplace_back();
+          mesh_polygon.points = polygon;
+          if (polygon.empty()) continue;
+
+          // Draw polygon.
+          for (int i = 0; i < polygon.size(); i++) {
+            auto start = polygon[i];
+            auto end   = polygon[(i + 1) % polygon.size()];
+            auto path  = compute_geodesic_path(
+                app->mesh, points[start], points[end]);
+            draw_path(app->glscene, app->mesh, app->paths_material, path,
+                0.0005f);
+            auto segments = mesh_segments(app->mesh.triangles, path.strip,
+                path.lerps, path.start, path.end);
+            update_mesh_polygon(mesh_polygon, segments);
+          }
+        }
+      } break;
       case (int)gui_key('C'): {
         auto old_camera = app->glcamera;
         app->points.clear();
