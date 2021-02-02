@@ -499,6 +499,7 @@ int main(int argc, const char* argv[]) {
   auto camera_name = ""s;
   auto input       = ""s;
   auto window      = new gui_window{};
+  window->msaa     = 8;
 
   // parse command line
   auto cli = make_cli("yboolsurf", "views shapes inteactively");
