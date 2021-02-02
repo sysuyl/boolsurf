@@ -1,5 +1,4 @@
 #include "app.h"
-#include "render.h"
 using namespace yocto;
 
 #include <deque>
@@ -107,17 +106,6 @@ void mouse_input(app_state* app, const gui_input& input) {
       }
     }
   }
-}
-
-auto add_patch_shape(app_state* app, const vector<int>& faces,
-    const vec3f& color, const float distance) {
-  auto patch_shape    = add_shape(app->glscene, {}, {}, {}, {}, {}, {}, {}, {});
-  auto patch_material = add_material(
-      app->glscene, {0, 0, 0}, color, 1, 0, 0.4);  // @Leak
-  patch_material->opacity = 0.3;
-  add_instance(app->glscene, identity3x4f, patch_shape, patch_material);
-  set_patch_shape(patch_shape, app->mesh, faces, distance);
-  return patch_shape;
 }
 
 void do_the_thing(app_state* app) {

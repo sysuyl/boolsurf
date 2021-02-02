@@ -18,6 +18,107 @@
   return draw_sphere(scene, mesh, material, {pos}, dim);
 }
 
+void update_path_shape(shade_shape* shape, const bool_mesh& mesh,
+    const geodesic_path& path, float radius, float offset = 0,
+    bool thin = true) {
+  auto positions = path_positions(
+      path, mesh.triangles, mesh.positions, mesh.adjacencies);
+
+  if (thin) {
+    set_positions(shape, positions);
+    shape->shape->elements = ogl_element_type::line_strip;
+    set_instances(shape, {}, {});
+    return;
+  }
+
+  auto froms = vector<vec3f>();
+  auto tos   = vector<vec3f>();
+  froms.reserve(positions.size() - 1);
+  tos.reserve(positions.size() - 1);
+  for (int i = 0; i < positions.size() - 1; i++) {
+    auto from = positions[i];
+    auto to   = positions[i + 1];
+    if (from == to) continue;
+    froms.push_back(from);
+    tos.push_back(to);
+  }
+
+  auto cylinder = make_uvcylinder({4, 1, 1}, {radius, 1});
+  for (auto& p : cylinder.positions) {
+    p.z = p.z * 0.5 + 0.5;
+  }
+
+  set_quads(shape, cylinder.quads);
+  set_positions(shape, cylinder.positions);
+  set_normals(shape, cylinder.normals);
+  set_texcoords(shape, cylinder.texcoords);
+  set_instances(shape, froms, tos);
+}
+
+void update_path_shape(shade_shape* shape, const bool_mesh& mesh,
+    const mesh_path& path, float radius, float offset = 0, bool thin = false) {
+  auto positions = vector<vec3f>(path.points.size());
+  for (int i = 0; i < positions.size(); i++) {
+    positions[i] = eval_position(
+        mesh.triangles, mesh.positions, path.points[i]);
+  }
+
+  if (offset > 0) {
+    // auto mesh_points = convert_mesh_path(mesh.triangles, mesh.adjacencies,
+    // path.strip, path.lerps, path.start, path.end);
+    auto pos              = positions;
+    int  num_subdivisions = 8;
+    for (int i = 0; i < num_subdivisions; i++) {
+      auto pos = positions;
+      for (int i = 0; i < pos.size(); i++) {
+        auto a       = (i - 1 + (int)pos.size()) % pos.size();
+        auto c       = (i + 1) % pos.size();
+        positions[i] = (positions[a] + positions[c]) / 2;
+      }
+    }
+    for (int i = 0; i < pos.size(); i++) {
+      auto a  = (i - 1 + (int)pos.size()) % pos.size();
+      auto b  = i;
+      auto c  = (i + 1) % pos.size();
+      auto n0 = eval_normal(mesh.triangles, mesh.normals, path.points[b]);
+      auto v  = pos[b] - pos[a];
+      auto w  = pos[c] - pos[b];
+      positions[i] += offset * normalize(cross(n0, v)) / 2;
+      positions[i] += offset * normalize(cross(n0, w)) / 2;
+    }
+  }
+
+  if (thin) {
+    set_positions(shape, positions);
+    shape->shape->elements = ogl_element_type::line_strip;
+    set_instances(shape, {}, {});
+    return;
+  }
+
+  auto froms = vector<vec3f>();
+  auto tos   = vector<vec3f>();
+  froms.reserve(positions.size() - 1);
+  tos.reserve(positions.size() - 1);
+  for (int i = 0; i < positions.size() - 1; i++) {
+    auto from = positions[i];
+    auto to   = positions[i + 1];
+    if (from == to) continue;
+    froms.push_back(from);
+    tos.push_back(to);
+  }
+
+  auto cylinder = make_uvcylinder({4, 1, 1}, {radius, 1});
+  for (auto& p : cylinder.positions) {
+    p.z = p.z * 0.5 + 0.5;
+  }
+
+  set_quads(shape, cylinder.quads);
+  set_positions(shape, cylinder.positions);
+  set_normals(shape, cylinder.normals);
+  set_texcoords(shape, cylinder.texcoords);
+  set_instances(shape, froms, tos);
+}
+
 [[nodiscard]] shade_instance* draw_path(shade_scene* scene,
     const bool_mesh& mesh, shade_material* material, const geodesic_path& path,
     float radius) {
@@ -102,7 +203,7 @@
   return instances;
 }
 
-[[nodiscard]] void set_patch_shape(shade_shape* shape, const bool_mesh& mesh,
+void set_patch_shape(shade_shape* shape, const bool_mesh& mesh,
     const vector<int>& faces, const float distance) {
   auto positions = vector<vec3f>(faces.size() * 3);
   for (int i = 0; i < faces.size(); i++) {
