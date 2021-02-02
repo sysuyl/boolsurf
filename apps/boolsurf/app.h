@@ -115,7 +115,6 @@ void init_edges_and_vertices_shapes_and_points(
     set_texcoords(app->edges_shape, {});
     set_instances(app->edges_shape, {});
     // app->edges_shape->shape->elements = ogl_element_type::line_strip;
-    set_unlit(app->edges_material, true);
   } else {
     auto cylinder = make_uvcylinder({8, 1, 1}, {cylinder_radius, 1});
     for (auto& p : cylinder.positions) {
@@ -172,7 +171,11 @@ void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh,
   app->points_material = add_material(glscene, {0, 0, 0}, {0, 0, 1}, 1, 0, 0.4);
   app->paths_material  = add_material(glscene, {0, 0, 0}, {1, 1, 1}, 1, 0, 0.4);
   app->isecs_material  = add_material(glscene, {0, 0, 0}, {0, 1, 0}, 1, 0, 0.4);
-  auto colors          = vector<vec3f>{
+
+  set_unlit(app->edges_material, true);
+  set_unlit(app->paths_material, true);
+
+  auto colors = vector<vec3f>{
       {0, 0, 0},  // REMEMBER IT
       {1, 0, 0},
       {0, 1, 0},
