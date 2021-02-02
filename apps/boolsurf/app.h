@@ -25,8 +25,9 @@ using namespace yocto;
 // Application state
 struct app_state {
   // loading parameters
-  string filename = "shape.obj";
-  string name     = "";
+  string    filename      = "";
+  string    test_filename = "";
+  bool_test test          = {};
 
   // options
   shade_params drawgl_prms = {};
@@ -72,7 +73,6 @@ struct app_state {
 
 void load_shape(app_state* app, const string& filename) {
   app->filename = filename;
-  app->name     = path_filename(app->filename);
   auto error    = ""s;
   if (!load_shape(app->filename, *app->ioshape, error)) {
     printf("Error loading shape: %s\n", error.c_str());
