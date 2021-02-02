@@ -283,7 +283,7 @@ bool draw_filedialog(gui_widgets* widgets, const char* lbl, string& path,
     }
     auto ok = false, exit = false;
     if (ImGui::Button("Ok")) {
-      path = state.dirname + state.filename;
+      path = path_join(state.dirname, state.filename);
       ok   = true;
       exit = true;
     }
