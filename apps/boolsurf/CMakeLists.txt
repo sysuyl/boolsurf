@@ -1,3 +1,5 @@
+add_subdirectory(ext/CDT/CDT)
+
 add_executable(boolsurf  boolsurf.cpp)
 
 set_target_properties(boolsurf  PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES)

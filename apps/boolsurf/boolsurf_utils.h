@@ -7,6 +7,7 @@
 #include <deque>
 #include <unordered_set>
 
+#include "ext/CDT/CDT/include/CDT.h"
 #include "ext/delaunator.cpp"
 
 using namespace yocto;
