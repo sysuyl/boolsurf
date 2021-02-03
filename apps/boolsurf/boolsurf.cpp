@@ -157,10 +157,23 @@ void do_the_thing(app_state* app) {
   // segment start uv, segment end uv> to handle intersections and
   // self-intersections
 
-  auto hashgrid          = unordered_map<int, vector<hashgrid_entry>>();
-  auto intersections     = unordered_map<vec2i, vector<intersection>>();
-  auto triangle_segments = unordered_map<int, vector<triangle_segment>>{};
+  struct hashgrid_segment {
+    int polygon = -1;
+    int segment = -1;
 
+    vec2f start = {};
+    vec2f end   = {};
+  };
+
+  struct intersection {
+    int   vertex_id = -1;
+    float lerp      = -1.0f;
+  };
+
+  auto hashgrid      = unordered_map<int, vector<hashgrid_segment>>{};
+  auto intersections = unordered_map<vec2i, vector<intersection>>{};
+
+  // Riempiamo l'hashgrid con i segmenti per triangolo.
   for (auto p = 0; p < app->polygons.size(); p++) {
     auto& polygon = app->polygons[p];
     for (auto s = 0; s < polygon.segments.size(); s++) {
@@ -169,6 +182,8 @@ void do_the_thing(app_state* app) {
     }
   }
 
+  // Per ogni faccia dell'hashgrid, calcoliamo le intersezioni fra i segmenti
+  // contenuti.
   for (auto& [face, entries] : hashgrid) {
     for (auto i = 0; i < entries.size() - 1; i++) {
       auto& AB = entries[i];
@@ -189,108 +204,167 @@ void do_the_thing(app_state* app) {
         auto point_id = (int)app->points.size();
         app->points.push_back(point);
 
-        auto idx = (int)app->mesh.positions.size();
-        auto pos = eval_position(
+        auto vertex_id = (int)app->mesh.positions.size();
+        auto pos       = eval_position(
             app->mesh.triangles, app->mesh.positions, point);
         app->mesh.positions.push_back(pos);
 
-        intersections[{AB.polygon, AB.segment}].push_back({idx, l.x});
-        intersections[{CD.polygon, CD.segment}].push_back({idx, l.y});
+        intersections[{AB.polygon, AB.segment}].push_back({vertex_id, l.x});
+        intersections[{CD.polygon, CD.segment}].push_back({vertex_id, l.y});
       }
     }
   }
 
-  for (auto pid = 0; pid < app->polygons.size(); pid++) {
-    auto& segments = app->polygons[pid].segments;
+  for (auto& [key, isecs] : intersections) {
+    // Ordiniamo le intersezioni sulla lunghezza del segmento.
+    sort(isecs.begin(), isecs.end(),
+        [](auto& a, auto& b) { return a.lerp < b.lerp; });
+  }
+
+  // Rappresentazione di un segmento all'interno di una faccia. Serivra' per la
+  // triangolazione. Teniamo sia la rapprezentazione discreta (come coppia di
+  // vertici della mesh) che la rapprezentazione in coordiate baricentriche.
+  struct triangle_segment {
+    int polygon      = -1;
+    int start_vertex = -1;
+    int end_vertex   = -1;
+
+    vec2f start = {};
+    vec2f end   = {};
+  };
+
+  // Mappa ogni faccia alla lista di triangle_segments di quella faccia.
+  auto triangle_segments = unordered_map<int, vector<triangle_segment>>{};
+
+  // Aggiungiamo gli estremi dei segmenti come vertici della mesh.
+  // Dobbiamo inserire nei punti giusti anche i punti di intersezione che
+  // spezzano i segmenti.
+  // Inoltre popoliamo triangle_segments.
+  for (auto polygon_id = 0; polygon_id < app->polygons.size(); polygon_id++) {
+    auto& segments = app->polygons[polygon_id].segments;
     auto  first_id = (int)app->mesh.positions.size();
-    auto  id       = first_id;
-    for (auto s = 0; s < segments.size(); s++) {
-      auto& segment = segments[s];
-      auto  uv      = segment.start;
-      auto  pos     = eval_position(
-          app->mesh.triangles, app->mesh.positions, {segment.face, uv});
+
+    // Per ogni segmento del poligono.
+    for (auto segment_id = 0; segment_id < segments.size(); segment_id++) {
+      auto& segment  = segments[segment_id];
+      auto  start_uv = segment.start;
+      auto  pos      = eval_position(
+          app->mesh.triangles, app->mesh.positions, {segment.face, start_uv});
+
+      // Aggiungiamo nuovo vertice alla mesh.
+      auto start_vertex = (int)app->mesh.positions.size();
       app->mesh.positions.push_back(pos);
 
-      if (intersections.find({pid, s}) != intersections.end()) {
-        auto& isecs = intersections[{pid, s}];
-        sort(isecs.begin(), isecs.end(),
-            [](auto& a, auto& b) { return a.lerp < b.lerp; });
+      // Se questo segmento aveva una o piu' interesezioni con altri segmenti...
+      if (intersections.find({polygon_id, segment_id}) != intersections.end()) {
+        auto& isecs = intersections[{polygon_id, segment_id}];
 
-        for (auto& [id1, l] : isecs) {
-          auto uv1 = lerp(segment.start, segment.end, l);
-          triangle_segments[segment.face].push_back({pid, id, id1, uv, uv1});
-          uv = uv1;
-          id = id1;
+        // Popoliamo triangle_segments.
+        for (auto& [end_vertex, l] : isecs) {
+          auto end_uv = lerp(segment.start, segment.end, l);
+          triangle_segments[segment.face].push_back(
+              {polygon_id, start_vertex, end_vertex, start_uv, end_uv});
+
+          // Accorcio il segmento corrente.
+          start_uv     = end_uv;
+          start_vertex = end_vertex;
         };
       }
 
-      auto id1 = (int)app->mesh.positions.size();
-      if (s == segments.size() - 1) id1 = first_id;
+      // L'indice del prossimo vertice che aggiungeremo al prossimo giro.
+      auto end_vertex = (int)app->mesh.positions.size();
+
+      // Se e' l'ultimo vertice del poligono, non aggingero' niente, ma gia' ce
+      // l'ho: e' il primo.
+      if (segment_id == segments.size() - 1) {
+        end_vertex = first_id;
+      }
 
       triangle_segments[segment.face].push_back(
-          {pid, id, id1, uv, segment.end});
-      id = id1;
+          {polygon_id, start_vertex, end_vertex, start_uv, segment.end});
+      start_vertex = end_vertex;
     }
   }
 
+  // Adesso possiamo triangolare ogni faccia.
+
   //(marzia) collapse the triangle_segments iterations
   // Not now, they're useful while debugging
+
+  // Mappa a ogni edge generato le due facce generate adiacenti.
   auto face_edgemap = unordered_map<vec2i, vec2i>{};
   for (auto& [face, segments] : triangle_segments) {
     auto [a, b, c] = app->mesh.triangles[face];
     auto nodes     = vector<vec2f>{{0, 0}, {1, 0}, {0, 1}};
-    auto indices   = vector<int>{a, b, c};
 
+    // Mappa i nodi locali ai vertici della mesh.
+    auto indices = vector<int>{a, b, c};
+
+    // Per ogni segmento della faccia.
     for (auto s = 0; s < segments.size(); s++) {
-      auto& [p, id, id1, uv, uv1] = segments[s];
-      if (find_idx(indices, id) == -1) {
-        nodes.push_back(uv);
-        indices.push_back(id);
+      auto& [polygon_id, start_vertex, end_vertex, start_uv, end_uv] =
+          segments[s];
+
+      // Aggiungi senza duplicati. Aggiornando indices insieme a nodes,
+      // manteniamo la corrispondenza.
+      if (find_idx(indices, start_vertex) == -1) {
+        nodes.push_back(start_uv);
+        indices.push_back(start_vertex);
+      }
+      if (find_idx(indices, end_vertex) == -1) {
+        nodes.push_back(end_uv);
+        indices.push_back(end_vertex);
       }
 
-      if (find_idx(indices, id1) == -1) {
-        nodes.push_back(uv1);
-        indices.push_back(id1);
-      }
-
-      auto edge          = make_edge_key({id, id1});
+      // Per adesso, ad ogni nuovo edge associamo due facce adiacenti nulle.
+      // Ora serve per debugging.
+      auto edge          = make_edge_key({start_vertex, end_vertex});
       face_edgemap[edge] = {-1, -1};
     }
 
     auto triangles = triangulate(nodes);
 
+    // Aggiungiamo i nuovi triangoli e aggiorniamo la face_edgemap.
     for (auto i = 0; i < triangles.size(); i++) {
       auto& [x, y, z] = triangles[i];
-      auto i0         = indices[x];
-      auto i1         = indices[y];
-      auto i2         = indices[z];
+      auto v0         = indices[x];
+      auto v1         = indices[y];
+      auto v2         = indices[z];
 
       auto triangle_idx = app->mesh.triangles.size();
-      app->mesh.triangles.push_back({i0, i1, i2});
+      app->mesh.triangles.push_back({v0, v1, v2});
 
-      update_face_edgemap(face_edgemap, {i0, i1}, triangle_idx);
-      update_face_edgemap(face_edgemap, {i1, i2}, triangle_idx);
-      update_face_edgemap(face_edgemap, {i2, i0}, triangle_idx);
+      update_face_edgemap(face_edgemap, {v0, v1}, triangle_idx);
+      update_face_edgemap(face_edgemap, {v1, v2}, triangle_idx);
+      update_face_edgemap(face_edgemap, {v2, v0}, triangle_idx);
     }
 
+    // Rendi triangolo originale degenere per farlo sparire.
     app->mesh.triangles[face] = {0, 0, 0};
   }
 
+  // Creaiamo inner_faces e outer_faces di ogni poligono.
   for (auto& [face, segments] : triangle_segments) {
     for (auto i = 0; i < segments.size(); i++) {
-      auto& [p, id, id1, uv, uv1] = segments[i];
-      auto edge                   = vec2i{id, id1};
-      auto edge_key               = make_edge_key(edge);
+      auto& [polygon, start_vertex, end_vertex, start_vu, end_uv] = segments[i];
+      auto edge     = vec2i{start_vertex, end_vertex};
+      auto edge_key = make_edge_key(edge);
 
-      auto faces      = face_edgemap[edge_key];
+      auto faces = face_edgemap.at(edge_key);
+      // if (faces.x == -1) continue;
+
+      // Il triangolo di sinistra ha lo stesso orientamento del poligono.
       auto& [a, b, c] = app->mesh.triangles[faces.x];
+
+      // Controlliamo che l'edge si nello stesso verso del poligono. Se non e'
+      // cosi, invertiamo.
       if ((edge == vec2i{b, a}) || (edge == vec2i{c, b}) ||
           (edge == vec2i{a, c})) {
         swap(faces.x, faces.y);
       }
 
-      if (faces.x != -1) app->polygons[p].inner_faces.push_back(faces.x);
-      if (faces.y != -1) app->polygons[p].outer_faces.push_back(faces.y);
+      if (faces.x != -1) app->polygons[polygon].inner_faces.push_back(faces.x);
+      if (faces.y != -1) app->polygons[polygon].outer_faces.push_back(faces.y);
     }
   }
 
@@ -306,7 +380,7 @@ void do_the_thing(app_state* app) {
     outer.erase(unique(outer.begin(), outer.end()), outer.end());
   }
 
-  //(marzia) Why do we need this?
+  // (marzia) Why do we need this?
   for (auto& ist : app->instances) ist->hidden = true;
 
   app->mesh.normals = compute_normals(app->mesh.triangles, app->mesh.positions);

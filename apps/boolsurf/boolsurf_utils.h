@@ -20,27 +20,10 @@ struct bool_mesh {
   dual_geodesic_solver dual_solver = {};
 };
 
-struct hashgrid_entry {
-  int polygon = -1;
-  int segment = -1;
-
-  vec2f start = {};
-  vec2f end   = {};
-};
-
 struct mesh_segment {
   vec2f start = {};
   vec2f end   = {};
   int   face  = -1;
-};
-
-struct triangle_segment {
-  int polygon   = -1;
-  int start_idx = -1;
-  int end_idx   = -1;
-
-  vec2f start = {};
-  vec2f end   = {};
 };
 
 struct mesh_polygon {
@@ -68,11 +51,6 @@ struct intersection_node {
   int   polygon = -1;
   int   segment = -1;
   float t       = -1;
-};
-
-struct intersection {
-  int   idx  = -1;
-  float lerp = -1.0f;
 };
 
 inline bool is_closed(const mesh_polygon& polygon) {
@@ -306,7 +284,7 @@ inline vector<vec3i> triangulate(const vector<vec2f>& nodes) {
     auto& b           = nodes[verts.y];
     auto& c           = nodes[verts.z];
     auto  orientation = cross(b - a, c - b);
-    if (fabs(orientation) < 0.001) {
+    if (fabs(orientation) < 0.00001) {
       continue;
     }
 
