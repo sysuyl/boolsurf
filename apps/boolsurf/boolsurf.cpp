@@ -300,6 +300,9 @@ void do_the_thing(app_state* app) {
     // Mappa i nodi locali ai vertici della mesh.
     auto indices = vector<int>{a, b, c};
 
+    // Lista di archi-vincolo locali
+    auto edges = vector<vec2i>();
+
     // Per ogni segmento della faccia.
     for (auto s = 0; s < segments.size(); s++) {
       auto& [polygon_id, start_vertex, end_vertex, start_uv, end_uv] =
@@ -307,11 +310,15 @@ void do_the_thing(app_state* app) {
 
       // Aggiungi senza duplicati. Aggiornando indices insieme a nodes,
       // manteniamo la corrispondenza.
-      if (find_idx(indices, start_vertex) == -1) {
+      auto edge_start = find_idx(indices, start_vertex);
+      auto edge_end   = find_idx(indices, end_vertex);
+
+      if (edge_start == -1) {
         nodes.push_back(start_uv);
         indices.push_back(start_vertex);
       }
-      if (find_idx(indices, end_vertex) == -1) {
+
+      if (edge_end == -1) {
         nodes.push_back(end_uv);
         indices.push_back(end_vertex);
       }
@@ -322,7 +329,7 @@ void do_the_thing(app_state* app) {
       face_edgemap[edge] = {-1, -1};
     }
 
-    auto triangles = triangulate(nodes);
+    auto triangles = constrained_triangulation(nodes, edges);
 
     // Aggiungiamo i nuovi triangoli e aggiorniamo la face_edgemap.
     for (auto i = 0; i < triangles.size(); i++) {
@@ -344,43 +351,50 @@ void do_the_thing(app_state* app) {
   }
 
   // Creaiamo inner_faces e outer_faces di ogni poligono.
-  for (auto& [face, segments] : triangle_segments) {
-    for (auto i = 0; i < segments.size(); i++) {
-      auto& [polygon, start_vertex, end_vertex, start_vu, end_uv] = segments[i];
-      auto edge     = vec2i{start_vertex, end_vertex};
-      auto edge_key = make_edge_key(edge);
+  // for (auto& [face, segments] : triangle_segments) {
+  //   for (auto i = 0; i < segments.size(); i++) {
+  //     auto& [polygon, start_vertex, end_vertex, start_vu, end_uv] =
+  //     segments[i]; auto edge     = vec2i{start_vertex, end_vertex}; auto
+  //     edge_key = make_edge_key(edge);
 
-      auto faces = face_edgemap.at(edge_key);
-      // if (faces.x == -1) continue;
+  //     auto faces = face_edgemap.at(edge_key);
+  //     if (faces.y == -1) {
+  //       if (faces.x != -1)
+  //         draw_intersections(
+  //             app->glscene, app->mesh, app->isecs_material, {faces.x});
+  //       printf("Saving test\n");
+  //       save_test(app, "data/tests/crash2.json");
+  //     }
 
-      // Il triangolo di sinistra ha lo stesso orientamento del poligono.
-      auto& [a, b, c] = app->mesh.triangles[faces.x];
+  //     // Il triangolo di sinistra ha lo stesso orientamento del poligono.
+  //     auto& [a, b, c] = app->mesh.triangles[faces.x];
 
-      // Controlliamo che l'edge si nello stesso verso del poligono. Se non e'
-      // cosi, invertiamo.
-      if ((edge == vec2i{b, a}) || (edge == vec2i{c, b}) ||
-          (edge == vec2i{a, c})) {
-        swap(faces.x, faces.y);
-      }
+  //     // Controlliamo che l'edge si nello stesso verso del poligono. Se non
+  //     // e' cosi, invertiamo.
+  //     if ((edge == vec2i{b, a}) || (edge == vec2i{c, b}) ||
+  //         (edge == vec2i{a, c})) {
+  //       swap(faces.x, faces.y);
+  //     }
 
-      if (faces.x != -1) app->polygons[polygon].inner_faces.push_back(faces.x);
-      if (faces.y != -1) app->polygons[polygon].outer_faces.push_back(faces.y);
-    }
-  }
+  //     if (faces.x != -1)
+  //     app->polygons[polygon].inner_faces.push_back(faces.x); if (faces.y !=
+  //     -1) app->polygons[polygon].outer_faces.push_back(faces.y);
+  //   }
+  // }
 
   // Removing face duplicates
-  for (auto i = 1; i < app->polygons.size(); i++) {
-    auto& inner = app->polygons[i].inner_faces;
-    auto& outer = app->polygons[i].outer_faces;
+  // for (auto i = 1; i < app->polygons.size(); i++) {
+  //   auto& inner = app->polygons[i].inner_faces;
+  //   auto& outer = app->polygons[i].outer_faces;
 
-    sort(inner.begin(), inner.end());
-    inner.erase(unique(inner.begin(), inner.end()), inner.end());
+  //   sort(inner.begin(), inner.end());
+  //   inner.erase(unique(inner.begin(), inner.end()), inner.end());
 
-    sort(outer.begin(), outer.end());
-    outer.erase(unique(outer.begin(), outer.end()), outer.end());
-  }
+  //   sort(outer.begin(), outer.end());
+  //   outer.erase(unique(outer.begin(), outer.end()), outer.end());
+  // }
 
-  // (marzia) Why do we need this?
+  // // (marzia) Why do we need this?
   for (auto& ist : app->instances) ist->hidden = true;
 
   app->mesh.normals = compute_normals(app->mesh.triangles, app->mesh.positions);
@@ -436,7 +450,7 @@ void do_the_thing(app_state* app) {
     printf("\n\t Faces: %d \n", cell_faces[i].size());
 
     auto color = app->cell_materials[i + 1]->color;
-    add_patch_shape(app, cell_faces[i], color, 0.00025f * (i + 1));
+    // add_patch_shape(app, cell_faces[i], color, 0.00025f * (i + 1));
   }
 
   // Previous Implementation

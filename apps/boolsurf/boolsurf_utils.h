@@ -198,7 +198,6 @@ inline vec2i make_edge_key(const vec2i& edge) {
   return edge;
 };
 
-//(marzia) Not used
 inline tuple<vec2i, float> get_mesh_edge(
     const vec3i& triangle, const vec2f& uv) {
   if (uv.y == 0)
@@ -291,6 +290,40 @@ inline vector<vec3i> triangulate(const vector<vec2f>& nodes) {
 
     triangles.push_back(verts);
   }
+  return triangles;
+}
+
+inline vector<vec3i> constrained_triangulation(
+    const vector<vec2f>& nodes, const vector<vec2i>& edges) {
+  auto cdt = CDT::Triangulation<float>(CDT::FindingClosestPoint::ClosestRandom);
+  cdt.insertVertices(
+      nodes.begin(), nodes.end(), [](const vec2f& point) { return point.x; },
+      [](const vec2f& point) { return point.y; });
+  cdt.insertEdges(
+      edges.begin(), edges.end(), [](const vec2i& edge) { return edge.x; },
+      [](const vec2i& edge) { return edge.y; });
+
+  cdt.eraseSuperTriangle();
+  auto triangles = vector<vec3i>();
+  triangles.reserve(cdt.triangles.size());
+
+  for (auto& tri : cdt.triangles) {
+    auto verts = vec3i{
+        (int)tri.vertices[0], (int)tri.vertices[1], (int)tri.vertices[2]};
+
+    // Check collinearity
+    auto& a           = nodes[verts.x];
+    auto& b           = nodes[verts.y];
+    auto& c           = nodes[verts.z];
+    auto  orientation = cross(b - a, c - b);
+    if (fabs(orientation) < 0.00001) {
+      printf("Detected collinearity\n");
+      continue;
+    }
+
+    triangles.push_back(verts);
+  }
+
   return triangles;
 }
 
