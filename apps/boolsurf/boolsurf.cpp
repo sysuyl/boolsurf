@@ -314,11 +314,13 @@ void do_the_thing(app_state* app) {
       auto edge_end   = find_idx(indices, end_vertex);
 
       if (edge_start == -1) {
+        edge_start = (int)indices.size();
         nodes.push_back(start_uv);
         indices.push_back(start_vertex);
       }
 
       if (edge_end == -1) {
+        edge_end = (int)indices.size();
         nodes.push_back(end_uv);
         indices.push_back(end_vertex);
       }
@@ -327,7 +329,12 @@ void do_the_thing(app_state* app) {
       // Ora serve per debugging.
       auto edge          = make_edge_key({start_vertex, end_vertex});
       face_edgemap[edge] = {-1, -1};
+
+      edges.push_back({edge_start, edge_end});
     }
+
+    printf("Segments size: %d\n", segments.size());
+    printf("Edges size: %d\n", edges.size());
 
     auto triangles = constrained_triangulation(nodes, edges);
 
