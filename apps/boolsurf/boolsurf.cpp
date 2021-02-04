@@ -331,7 +331,7 @@ void do_the_thing(app_state* app) {
       auto v1         = indices[y];
       auto v2         = indices[z];
 
-      auto triangle_idx = app->mesh.triangles.size();
+      auto triangle_idx = (int)app->mesh.triangles.size();
       app->mesh.triangles.push_back({v0, v1, v2});
 
       update_face_edgemap(face_edgemap, {v0, v1}, triangle_idx);
@@ -351,7 +351,10 @@ void do_the_thing(app_state* app) {
       auto edge_key = make_edge_key(edge);
 
       auto faces = face_edgemap.at(edge_key);
-      // if (faces.x == -1) continue;
+      if (faces.x == -1) {
+        save_test(app, "data/tests/crash.json");
+        assert(0);
+      }
 
       // Il triangolo di sinistra ha lo stesso orientamento del poligono.
       auto& [a, b, c] = app->mesh.triangles[faces.x];
