@@ -80,6 +80,7 @@ bool init_ogl(string& error) {
     error = "Cannot initialize OpenGL context.";
     return false;
   }
+  glDepthFunc(GL_LEQUAL);
   return true;
 }
 
@@ -293,6 +294,15 @@ void set_texture(ogl_texture* texture, const image<float>& img, bool as_float,
     bool linear, bool mipmap) {
   set_texture(texture, img.imsize(), 1, (const float*)img.data(), as_float,
       linear, mipmap);
+}
+
+image<vec4b> get_texture(const ogl_texture* texture) {
+  auto result = image<vec4b>{texture->size};
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, texture->texture_id);
+
+  glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, result.data());
+  return result;
 }
 
 void set_cubemap(ogl_cubemap* cubemap, int size, int num_channels,

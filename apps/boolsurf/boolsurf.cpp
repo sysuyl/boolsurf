@@ -170,8 +170,14 @@ void do_the_thing(app_state* app) {
     float lerp      = -1.0f;
   };
 
-  auto hashgrid      = unordered_map<int, vector<hashgrid_segment>>{};
+  auto hashgrid = unordered_map<int, vector<hashgrid_segment>>{};
+
+  // Mappa segmento (polygon_id, segment_id) a lista di intersezioni.
   auto intersections = unordered_map<vec2i, vector<intersection>>{};
+
+  for (auto p = 0; p < app->polygons.size(); p++) {
+    if (app->polygons[p].segments.size()) app->polygons[p].segments.pop_back();
+  }
 
   // Riempiamo l'hashgrid con i segmenti per triangolo.
   for (auto p = 0; p < app->polygons.size(); p++) {
@@ -189,6 +195,10 @@ void do_the_thing(app_state* app) {
       auto& AB = entries[i];
       for (auto j = i + 1; j < entries.size(); j++) {
         auto& CD = entries[j];
+        if (AB.polygon == CD.polygon &&
+            yocto::abs(AB.segment - CD.segment) <= 1) {
+          continue;
+        }
 
         auto l = intersect_segments(AB.start, AB.end, CD.start, CD.end);
         if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) continue;
@@ -268,21 +278,21 @@ void do_the_thing(app_state* app) {
           // Accorcio il segmento corrente.
           start_uv     = end_uv;
           start_vertex = end_vertex;
-        };
+        }
       }
 
-      // L'indice del prossimo vertice che aggiungeremo al prossimo giro.
-      auto end_vertex = (int)app->mesh.positions.size();
+      auto end_vertex = -1;
 
-      // Se e' l'ultimo vertice del poligono, non aggingero' niente, ma gia' ce
-      // l'ho: e' il primo.
       if (segment_id == segments.size() - 1) {
+        // Se e' l'ultimo vertice del poligono, gia' ce l'ho: e' il primo.
         end_vertex = first_id;
+      } else {
+        // L'indice del prossimo vertice che aggiungeremo al prossimo giro.
+        end_vertex = (int)app->mesh.positions.size();
       }
 
       triangle_segments[segment.face].push_back(
           {polygon_id, start_vertex, end_vertex, start_uv, segment.end});
-      start_vertex = end_vertex;
     }
   }
 
@@ -290,6 +300,10 @@ void do_the_thing(app_state* app) {
 
   //(marzia) collapse the triangle_segments iterations
   // Not now, they're useful while debugging
+
+  auto debug_triangles = unordered_map<int, vector<vec3i>>{};
+  auto debug_nodes     = unordered_map<int, vector<vec2f>>{};
+  auto debug_indices   = unordered_map<int, vector<int>>{};
 
   // Mappa a ogni edge generato le due facce generate adiacenti.
   auto face_edgemap = unordered_map<vec2i, vec2i>{};
@@ -322,7 +336,7 @@ void do_the_thing(app_state* app) {
         nodes.push_back(start_uv);
         indices.push_back(start_vertex);
 
-        auto& [tri_edge, l] = get_mesh_edge({0, 1, 2}, start_uv);
+        auto [tri_edge, l] = get_mesh_edge({0, 1, 2}, start_uv);
         if (tri_edge != zero2i) {
           auto tri_edge_key = make_edge_key(tri_edge);
           if (tri_edge_key != tri_edge) l = 1.0f - l;
@@ -335,7 +349,7 @@ void do_the_thing(app_state* app) {
         nodes.push_back(end_uv);
         indices.push_back(end_vertex);
 
-        auto& [tri_edge, l] = get_mesh_edge({0, 1, 2}, end_uv);
+        auto [tri_edge, l] = get_mesh_edge({0, 1, 2}, end_uv);
         if (tri_edge != zero2i) {
           auto tri_edge_key = make_edge_key(tri_edge);
           if (tri_edge_key != tri_edge) l = 1.0f - l;
@@ -380,7 +394,10 @@ void do_the_thing(app_state* app) {
       }
     }
 
-    auto triangles = constrained_triangulation(nodes, edges);
+    debug_nodes[face]     = nodes;
+    debug_indices[face]   = indices;
+    debug_triangles[face] = constrained_triangulation(nodes, edges);
+    auto& triangles       = debug_triangles[face];
 
     // Aggiungiamo i nuovi triangoli e aggiorniamo la face_edgemap.
     for (auto i = 0; i < triangles.size(); i++) {
@@ -389,7 +406,7 @@ void do_the_thing(app_state* app) {
       auto v1         = indices[y];
       auto v2         = indices[z];
 
-      auto triangle_idx = app->mesh.triangles.size();
+      auto triangle_idx = (int)app->mesh.triangles.size();
       app->mesh.triangles.push_back({v0, v1, v2});
 
       update_face_edgemap(face_edgemap, {v0, v1}, triangle_idx);
@@ -409,9 +426,24 @@ void do_the_thing(app_state* app) {
       auto edge_key = make_edge_key(edge);
 
       auto faces = face_edgemap.at(edge_key);
-      if (faces.y == -1 || faces.x == -1) {
-        printf("Saving test\n");
-        save_test(app, "data/tests/crash_cdt.json");
+
+      if (faces.x == -1 || faces.y == -1) {
+        auto t  = debug_triangles[face];
+        auto n  = debug_nodes[face];
+        auto is = debug_indices[face];
+        auto e  = vec2i{find_idx(is, edge_key.x), find_idx(is, edge_key.y)};
+
+        draw_triangulation("triangulation.png", t, n);
+        auto edges = vector<vec3i>{};
+        for (auto& s : segments) {
+          auto e = vec2i{
+              find_idx(is, s.start_vertex), find_idx(is, s.end_vertex)};
+          edges.push_back({e.x, e.y, e.y});
+        }
+        draw_triangulation("edges.png", edges, n);
+
+        save_test(app, "data/tests/crash.json");
+        assert(0);
       }
 
       // Il triangolo di sinistra ha lo stesso orientamento del poligono.

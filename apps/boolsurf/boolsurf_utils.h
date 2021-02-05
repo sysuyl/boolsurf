@@ -280,16 +280,32 @@ inline vector<vec3i> triangulate(const vector<vec2f>& nodes) {
         (int)dt.triangles[i + 1]};
 
     // Check collinearity
-    auto& a           = nodes[verts.x];
-    auto& b           = nodes[verts.y];
-    auto& c           = nodes[verts.z];
-    auto  orientation = cross(b - a, c - b);
-    if (fabs(orientation) < 0.00001) {
+    auto& a    = nodes[verts.x];
+    auto& b    = nodes[verts.y];
+    auto& c    = nodes[verts.z];
+    auto  area = cross(b - a, c - a);
+    if (fabs(area) < 0.00001) {
+      printf("heyyyy\n");
       continue;
     }
+    // if (fabs(orientation) < 0.00001) {
+    //   continue;
+    // }
 
     triangles.push_back(verts);
   }
+
+  // Area of whole triangle must be 1.
+  auto real_area = cross(nodes[1] - nodes[0], nodes[2] - nodes[0]);
+  assert(fabs(real_area - 1) < 0.001);
+
+  // Check total area.
+  auto area = 0.0f;
+  for (auto& tr : triangles) {
+    area += cross(nodes[tr.y] - nodes[tr.x], nodes[tr.z] - nodes[tr.x]);
+  }
+  assert(fabs(area - real_area) < 0.001);
+
   return triangles;
 }
 
