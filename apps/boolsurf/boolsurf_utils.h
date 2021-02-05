@@ -310,7 +310,9 @@ inline vector<vec3i> triangulate(const vector<vec2f>& nodes) {
 }
 
 inline vector<vec3i> constrained_triangulation(
-    const vector<vec2f>& nodes, const vector<vec2i>& edges) {
+    vector<vec2f> nodes, const vector<vec2i>& edges) {
+  for (auto& n : nodes) n *= 1e6;
+
   auto cdt = CDT::Triangulation<float>(CDT::FindingClosestPoint::ClosestRandom);
   cdt.insertVertices(
       nodes.begin(), nodes.end(), [](const vec2f& point) { return point.x; },
@@ -339,6 +341,17 @@ inline vector<vec3i> constrained_triangulation(
 
     triangles.push_back(verts);
   }
+
+  // Area of whole triangle must be 1.
+//  auto real_area = cross(nodes[1] - nodes[0], nodes[2] - nodes[0]);
+//  assert(fabs(real_area - 1) < 0.001);
+//
+//  // Check total area.
+//  auto area = 0.0f;
+//  for (auto& tr : triangles) {
+//    area += cross(nodes[tr.y] - nodes[tr.x], nodes[tr.z] - nodes[tr.x]);
+//  }
+//  assert(fabs(area - real_area) < 0.001);
 
   return triangles;
 }

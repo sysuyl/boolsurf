@@ -1,0 +1,5 @@
+# Todo
+- Fix: poligoni con vertici ripetuti.
+
+Giacomo:
+- Bordo dei poligoni sparisce quando vengono visualizzati i mesh edges.

@@ -40,6 +40,45 @@ void init_from_test(app_state* app) {
   }
 }
 
+// Rappresentazione di un segmento all'interno di una faccia. Serivra' per la
+// triangolazione. Teniamo sia la rapprezentazione discreta (come coppia di
+// vertici della mesh) che la rapprezentazione in coordiate baricentriche.
+struct triangle_segment {
+  int polygon      = -1;
+  int start_vertex = -1;
+  int end_vertex   = -1;
+
+  vec2f start = {};
+  vec2f end   = {};
+};
+
+void debug_draw(app_state* app, const vector<vec3i>& triangles,
+    const vector<vec2f>& nodes, const vector<int>& indices,
+    const vector<triangle_segment>& segments) {
+  static int count = 0;
+  auto&      t     = triangles;
+  auto       n     = nodes;
+  auto       is    = indices;
+  //  auto       e     = vec2i{find_idx(is, edge_key.x), find_idx(is,
+  //  edge_key.y)};
+
+  auto base = app->test_filename;
+  if (base == "") base = "data/tests/no-name.json";
+  auto ext0 = ".triangulation" + to_string(count) + ".png";
+  draw_triangulation(replace_extension(base, ext0), t, n);
+  auto edges = vector<vec3i>{};
+  for (auto& s : segments) {
+    auto e = vec2i{find_idx(is, s.start_vertex), find_idx(is, s.end_vertex)};
+    edges.push_back({e.x, e.y, e.y});
+  }
+  auto ext1 = ".edges" + to_string(count) + ".png";
+  draw_triangulation(replace_extension(base, ext1), edges, n);
+
+  save_test(app, "data/tests/crash.json");
+  count += 1;
+  assert(0);
+}
+
 // draw with shading
 void draw_widgets(app_state* app, const gui_input& input) {
   auto widgets = &app->widgets;
@@ -175,9 +214,10 @@ void do_the_thing(app_state* app) {
   // Mappa segmento (polygon_id, segment_id) a lista di intersezioni.
   auto intersections = unordered_map<vec2i, vector<intersection>>{};
 
-  for (auto p = 0; p < app->polygons.size(); p++) {
-    if (app->polygons[p].segments.size()) app->polygons[p].segments.pop_back();
-  }
+  // for (auto p = 0; p < app->polygons.size(); p++) {
+  //   if (app->polygons[p].segments.size())
+  //   app->polygons[p].segments.pop_back();
+  // }
 
   // Riempiamo l'hashgrid con i segmenti per triangolo.
   for (auto p = 0; p < app->polygons.size(); p++) {
@@ -230,18 +270,6 @@ void do_the_thing(app_state* app) {
     sort(isecs.begin(), isecs.end(),
         [](auto& a, auto& b) { return a.lerp < b.lerp; });
   }
-
-  // Rappresentazione di un segmento all'interno di una faccia. Serivra' per la
-  // triangolazione. Teniamo sia la rapprezentazione discreta (come coppia di
-  // vertici della mesh) che la rapprezentazione in coordiate baricentriche.
-  struct triangle_segment {
-    int polygon      = -1;
-    int start_vertex = -1;
-    int end_vertex   = -1;
-
-    vec2f start = {};
-    vec2f end   = {};
-  };
 
   // Mappa ogni faccia alla lista di triangle_segments di quella faccia.
   auto triangle_segments = unordered_map<int, vector<triangle_segment>>{};
@@ -412,7 +440,8 @@ void do_the_thing(app_state* app) {
         }
       }
       if (!found) {
-        draw_triangulation("data/tests/debugging.png", triangles, nodes);
+        // draw_triangulation("data/tests/debugging.png", triangles, nodes);
+        debug_draw(app, triangles, nodes, indices, segments);
         assert(0);
       }
     }
@@ -446,27 +475,10 @@ void do_the_thing(app_state* app) {
       auto faces = face_edgemap.at(edge_key);
 
       if (faces.x == -1 || faces.y == -1) {
-        static int count = 0;
-        auto       t     = debug_triangles[face];
-        auto       n     = debug_nodes[face];
-        auto       is    = debug_indices[face];
-        auto e = vec2i{find_idx(is, edge_key.x), find_idx(is, edge_key.y)};
-
-        auto ext0 = ".triangulation" + to_string(count) + ".png";
-        draw_triangulation(replace_extension(app->test_filename, ext0), t, n);
-        auto edges = vector<vec3i>{};
-        for (auto& s : segments) {
-          auto e = vec2i{
-              find_idx(is, s.start_vertex), find_idx(is, s.end_vertex)};
-          edges.push_back({e.x, e.y, e.y});
-        }
-        auto ext1 = ".edges" + to_string(count) + ".png";
-        draw_triangulation(
-            replace_extension(app->test_filename, ext1), edges, n);
-
-        save_test(app, "data/tests/crash.json");
-        count += 1;
-        assert(0);
+        auto t  = debug_triangles[face];
+        auto n  = debug_nodes[face];
+        auto is = debug_indices[face];
+        debug_draw(app, t, n, is, segments);
       }
 
       // Il triangolo di sinistra ha lo stesso orientamento del poligono.
