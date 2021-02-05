@@ -301,7 +301,11 @@ void do_the_thing(app_state* app) {
     auto indices = vector<int>{a, b, c};
 
     // Lista di archi-vincolo locali
-    auto edges = vector<vec2i>();
+    auto edges      = vector<vec2i>();
+    auto edgemap    = unordered_map<vec2i, vector<tuple<int, float>>>();
+    edgemap[{0, 1}] = {};
+    edgemap[{1, 2}] = {};
+    edgemap[{0, 2}] = {};
 
     // Per ogni segmento della faccia.
     for (auto s = 0; s < segments.size(); s++) {
@@ -317,12 +321,26 @@ void do_the_thing(app_state* app) {
         edge_start = (int)indices.size();
         nodes.push_back(start_uv);
         indices.push_back(start_vertex);
+
+        auto& [tri_edge, l] = get_mesh_edge({0, 1, 2}, start_uv);
+        if (tri_edge != zero2i) {
+          auto tri_edge_key = make_edge_key(tri_edge);
+          if (tri_edge_key != tri_edge) l = 1.0f - l;
+          edgemap[tri_edge_key].push_back({edge_start, l});
+        }
       }
 
       if (edge_end == -1) {
         edge_end = (int)indices.size();
         nodes.push_back(end_uv);
         indices.push_back(end_vertex);
+
+        auto& [tri_edge, l] = get_mesh_edge({0, 1, 2}, end_uv);
+        if (tri_edge != zero2i) {
+          auto tri_edge_key = make_edge_key(tri_edge);
+          if (tri_edge_key != tri_edge) l = 1.0f - l;
+          edgemap[tri_edge_key].push_back({edge_end, l});
+        }
       }
 
       // Per adesso, ad ogni nuovo edge associamo due facce adiacenti nulle.
@@ -333,8 +351,34 @@ void do_the_thing(app_state* app) {
       edges.push_back({edge_start, edge_end});
     }
 
-    printf("Segments size: %d\n", segments.size());
-    printf("Edges size: %d\n", edges.size());
+    printf("Segments: %d\n", segments.size());
+    printf("Edges: %d\n", edges.size());
+
+    for (auto& [tri_edge, points] : edgemap) {
+      if (points.size() == 0) {
+        edges.push_back(tri_edge);
+        continue;
+      }
+
+      if (points.size() > 1) {
+        sort(points.begin(), points.end(), [](auto& a, auto& b) {
+          auto& [node_a, l_a] = a;
+          auto& [node_b, l_b] = b;
+          return l_a < l_b;
+        });
+      }
+
+      auto& [first, l] = points.front();
+      auto& [last, l1] = points.back();
+      edges.push_back({tri_edge.x, first});
+      edges.push_back({last, tri_edge.x});
+
+      for (auto i = 0; i < points.size() - 1; i++) {
+        auto& [start, l] = points[i];
+        auto& [end, l1]  = points[i + 1];
+        edges.push_back({start, end});
+      }
+    }
 
     auto triangles = constrained_triangulation(nodes, edges);
 
@@ -358,48 +402,44 @@ void do_the_thing(app_state* app) {
   }
 
   // Creaiamo inner_faces e outer_faces di ogni poligono.
-  // for (auto& [face, segments] : triangle_segments) {
-  //   for (auto i = 0; i < segments.size(); i++) {
-  //     auto& [polygon, start_vertex, end_vertex, start_vu, end_uv] =
-  //     segments[i]; auto edge     = vec2i{start_vertex, end_vertex}; auto
-  //     edge_key = make_edge_key(edge);
+  for (auto& [face, segments] : triangle_segments) {
+    for (auto i = 0; i < segments.size(); i++) {
+      auto& [polygon, start_vertex, end_vertex, start_vu, end_uv] = segments[i];
+      auto edge     = vec2i{start_vertex, end_vertex};
+      auto edge_key = make_edge_key(edge);
 
-  //     auto faces = face_edgemap.at(edge_key);
-  //     if (faces.y == -1) {
-  //       if (faces.x != -1)
-  //         draw_intersections(
-  //             app->glscene, app->mesh, app->isecs_material, {faces.x});
-  //       printf("Saving test\n");
-  //       save_test(app, "data/tests/crash2.json");
-  //     }
+      auto faces = face_edgemap.at(edge_key);
+      if (faces.y == -1 || faces.x == -1) {
+        printf("Saving test\n");
+        save_test(app, "data/tests/crash_cdt.json");
+      }
 
-  //     // Il triangolo di sinistra ha lo stesso orientamento del poligono.
-  //     auto& [a, b, c] = app->mesh.triangles[faces.x];
+      // Il triangolo di sinistra ha lo stesso orientamento del poligono.
+      auto& [a, b, c] = app->mesh.triangles[faces.x];
 
-  //     // Controlliamo che l'edge si nello stesso verso del poligono. Se non
-  //     // e' cosi, invertiamo.
-  //     if ((edge == vec2i{b, a}) || (edge == vec2i{c, b}) ||
-  //         (edge == vec2i{a, c})) {
-  //       swap(faces.x, faces.y);
-  //     }
+      // Controlliamo che l'edge si nello stesso verso del poligono. Se non
+      // e' cosi, invertiamo.
+      if ((edge == vec2i{b, a}) || (edge == vec2i{c, b}) ||
+          (edge == vec2i{a, c})) {
+        swap(faces.x, faces.y);
+      }
 
-  //     if (faces.x != -1)
-  //     app->polygons[polygon].inner_faces.push_back(faces.x); if (faces.y !=
-  //     -1) app->polygons[polygon].outer_faces.push_back(faces.y);
-  //   }
-  // }
+      if (faces.x != -1) app->polygons[polygon].inner_faces.push_back(faces.x);
+      if (faces.y != -1) app->polygons[polygon].outer_faces.push_back(faces.y);
+    }
+  }
 
   // Removing face duplicates
-  // for (auto i = 1; i < app->polygons.size(); i++) {
-  //   auto& inner = app->polygons[i].inner_faces;
-  //   auto& outer = app->polygons[i].outer_faces;
+  for (auto i = 1; i < app->polygons.size(); i++) {
+    auto& inner = app->polygons[i].inner_faces;
+    auto& outer = app->polygons[i].outer_faces;
 
-  //   sort(inner.begin(), inner.end());
-  //   inner.erase(unique(inner.begin(), inner.end()), inner.end());
+    sort(inner.begin(), inner.end());
+    inner.erase(unique(inner.begin(), inner.end()), inner.end());
 
-  //   sort(outer.begin(), outer.end());
-  //   outer.erase(unique(outer.begin(), outer.end()), outer.end());
-  // }
+    sort(outer.begin(), outer.end());
+    outer.erase(unique(outer.begin(), outer.end()), outer.end());
+  }
 
   // // (marzia) Why do we need this?
   for (auto& ist : app->instances) ist->hidden = true;
@@ -429,15 +469,6 @@ void do_the_thing(app_state* app) {
     auto start_in   = app->polygons[p].inner_faces;
     auto visited_in = flood_fill(app->mesh, start_in, p, check);
     for (auto i : visited_in) face_polygons[i].push_back(p);
-
-    // auto color_out = app->cell_materials[(2 * p)]->color;
-    // auto color_in  = app->cell_materials[(2 * p) - 1]->color;
-
-    // app->patch_out[p].push_back(app->glscene->instances.size());
-    // add_patch_shape(app, visited_out, color_out, 0.0002f * p);
-
-    // app->patch_in[p].push_back(app->glscene->instances.size());
-    // add_patch_shape(app, visited_in, color_in, 0.00025f * p);
   }
 
   // Inverting face_polygons map
@@ -457,7 +488,7 @@ void do_the_thing(app_state* app) {
     printf("\n\t Faces: %d \n", cell_faces[i].size());
 
     auto color = app->cell_materials[i + 1]->color;
-    // add_patch_shape(app, cell_faces[i], color, 0.00025f * (i + 1));
+    add_patch_shape(app, cell_faces[i], color, 0.00025f * (i + 1));
   }
 
   // Previous Implementation
