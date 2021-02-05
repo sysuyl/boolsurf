@@ -428,27 +428,26 @@ void do_the_thing(app_state* app) {
       auto faces = face_edgemap.at(edge_key);
 
       if (faces.x == -1 || faces.y == -1) {
-          static int count = 0;
-        auto t  = debug_triangles[face];
-        auto n  = debug_nodes[face];
-        auto is = debug_indices[face];
-        auto e  = vec2i{find_idx(is, edge_key.x), find_idx(is, edge_key.y)};
-          
-          auto ext0 = ".triangulation" + to_string(count) + ".png";
-        draw_triangulation(
-            replace_extension(app->test_filename, ext0), t, n);
+        static int count = 0;
+        auto       t     = debug_triangles[face];
+        auto       n     = debug_nodes[face];
+        auto       is    = debug_indices[face];
+        auto e = vec2i{find_idx(is, edge_key.x), find_idx(is, edge_key.y)};
+
+        auto ext0 = ".triangulation" + to_string(count) + ".png";
+        draw_triangulation(replace_extension(app->test_filename, ext0), t, n);
         auto edges = vector<vec3i>{};
         for (auto& s : segments) {
           auto e = vec2i{
               find_idx(is, s.start_vertex), find_idx(is, s.end_vertex)};
           edges.push_back({e.x, e.y, e.y});
         }
-          auto ext1 = ".edges" + to_string(count) + ".png";
+        auto ext1 = ".edges" + to_string(count) + ".png";
         draw_triangulation(
             replace_extension(app->test_filename, ext1), edges, n);
 
         save_test(app, "data/tests/crash.json");
-          count += 1;
+        count += 1;
         assert(0);
       }
 
