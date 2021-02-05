@@ -365,8 +365,8 @@ void do_the_thing(app_state* app) {
       edges.push_back({edge_start, edge_end});
     }
 
-    printf("Segments: %d\n", segments.size());
-    printf("Edges: %d\n", edges.size());
+    // printf("Segments: %d\n", segments.size());
+    // printf("Edges: %d\n", edges.size());
 
     for (auto& [tri_edge, points] : edgemap) {
       if (points.size() == 0) {
@@ -385,7 +385,7 @@ void do_the_thing(app_state* app) {
       auto& [first, l] = points.front();
       auto& [last, l1] = points.back();
       edges.push_back({tri_edge.x, first});
-      edges.push_back({last, tri_edge.x});
+      edges.push_back({last, tri_edge.y});
 
       for (auto i = 0; i < points.size() - 1; i++) {
         auto& [start, l] = points[i];
@@ -398,6 +398,24 @@ void do_the_thing(app_state* app) {
     debug_indices[face]   = indices;
     debug_triangles[face] = constrained_triangulation(nodes, edges);
     auto& triangles       = debug_triangles[face];
+
+    for (auto ee : edges) {
+      auto found = false;
+      for (auto& tr : triangles) {
+        int k = 0;
+        for (k = 0; k < 3; k++) {
+          auto edge = vec2i{tr[k], tr[(k + 1) % 3]};
+          if (make_edge_key(edge) == make_edge_key(ee)) {
+            found = true;
+            break;
+          }
+        }
+      }
+      if (!found) {
+        draw_triangulation("data/tests/debugging.png", triangles, nodes);
+        assert(0);
+      }
+    }
 
     // Aggiungiamo i nuovi triangoli e aggiorniamo la face_edgemap.
     for (auto i = 0; i < triangles.size(); i++) {
