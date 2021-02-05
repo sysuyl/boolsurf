@@ -23,8 +23,4 @@ struct opengl_font {
 void init_glfont(opengl_font& font, const string& filename, float size);
 
 void draw_glfont(const opengl_font& font, const string& text, float x, float y,
-    float scale, const vec3f& color);
-
-void draw_glfont(const opengl_font& font, const string& text,
-    const frame2f& frame, float scale, float ratio, const vec3f& color,
-    float alpha);
+    float scale, const vec3f& color, float alpha = 1);

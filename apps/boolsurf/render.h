@@ -45,8 +45,9 @@ inline void draw_triangulation(const string& filename,
     #version 330
     out vec4 frag_color;
     uniform vec3 color = vec3(1,1,1);
+    uniform float alpha = 1;
     void main() {
-      frag_color = vec4(color, 1);
+      frag_color = vec4(color, alpha);
     })";
 
   set_program(program, vertex_code, fragment_code, true);
@@ -59,26 +60,26 @@ inline void draw_triangulation(const string& filename,
   set_framebuffer_texture(framebuffer, texture, 0);
 
   bind_framebuffer(framebuffer);
-  bind_program(program);
-
   set_ogl_viewport(size);
   clear_ogl_framebuffer({0, 0, 0.1, 1}, true);
-
-  // set_uniform(program, "color", vec3f{1, 1, 1});
-  // draw_shape(faces);
-
-  set_uniform(program, "color", vec3f{0.5, 0.5, 0.5});
-  draw_shape(edges);
-
-  set_uniform(program, "color", vec3f{1, 0, 0});
-  draw_shape(points);
-  unbind_program();
 
   for (int i = 0; i < positions.size(); i++) {
     auto text   = to_string(i);
     auto coords = (positions[i] - vec2f{0.5f, 0.5f}) * 1.5f;
-    draw_glfont(font, text, coords.x, -coords.y, 0.0002, {1, 1, 1});
+    draw_glfont(font, text, coords.x, -coords.y, 0.0004, {0.8, 0.4, 0.1});
   }
+  bind_program(program);
+
+  set_uniform(program, "alpha", 1.0f);
+  set_uniform(program, "color", vec3f{1, 1, 1});
+  draw_shape(edges);
+
+  set_uniform(program, "color", vec3f{1, 0, 0});
+  draw_shape(points);
+
+  set_uniform(program, "alpha", 0.5f);
+  set_uniform(program, "color", vec3f{0.5, 0.5, 0.5});
+  draw_shape(faces);
 
   unbind_framebuffer();
   auto img   = get_texture(texture);
