@@ -123,6 +123,8 @@ void set_texture(ogl_texture* texture, const image<byte>& img,
 void set_texture(ogl_texture* texture, const image<float>& img,
     bool as_float = false, bool linear = true, bool mipmap = true);
 
+image<vec4b> get_texture(const ogl_texture* texture);
+
 // OpenGL cubemap
 struct ogl_cubemap {
   // Cubemap properties

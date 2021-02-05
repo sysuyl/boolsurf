@@ -1,4 +1,110 @@
+#include <yocto_gui/yocto_font.h>
 #include <yocto_gui/yocto_shade.h>
+
+inline void draw_triangulation(const string& filename,
+    const vector<vec3i>& triangles, const vector<vec2f>& positions) {
+  auto font = opengl_font{};
+  init_glfont(font, "data/Menlo-Regular.ttf", 100);
+
+  auto size = vec2i{2048, 2048};
+
+  auto faces = new ogl_shape{};
+  set_vertex_buffer(faces, positions, 0);
+  set_index_buffer(faces, triangles);
+  faces->elements = ogl_element_type::triangles;
+
+  auto edges = new ogl_shape{};
+  set_vertex_buffer(edges, positions, 0);
+  auto lines = vector<vec2i>();
+  for (auto& t : triangles) {
+    lines.push_back({t.x, t.y});
+    lines.push_back({t.y, t.z});
+    lines.push_back({t.z, t.x});
+  }
+  set_index_buffer(edges, lines);
+  edges->elements = ogl_element_type::lines;
+
+  auto points = new ogl_shape{};
+  set_vertex_buffer(points, positions, 0);
+  points->elements   = ogl_element_type::points;
+  points->point_size = 5;
+
+  auto program     = new ogl_program{};
+  auto vertex_code = R"(
+    #version 330
+    layout(location = 0) in vec2 positions;
+
+    void main() {
+      vec2 position = (positions - vec2(0.5)) * 1.5;
+      gl_Position = vec4(position, 0, 1);
+    }
+  )";
+
+  auto fragment_code = R"(
+    #version 330
+    out vec4 frag_color;
+    uniform vec3 color = vec3(1,1,1);
+    uniform float alpha = 1;
+    void main() {
+      frag_color = vec4(color, alpha);
+    })";
+
+  set_program(program, vertex_code, fragment_code, true);
+
+  auto texture = new ogl_texture{};
+  set_texture(texture, size, 4, (float*)nullptr, true, true, false, false);
+
+  auto framebuffer = new ogl_framebuffer{};
+  set_framebuffer(framebuffer, size);
+  set_framebuffer_texture(framebuffer, texture, 0);
+
+  bind_framebuffer(framebuffer);
+  set_ogl_viewport(size);
+  clear_ogl_framebuffer({0, 0, 0.1, 1}, true);
+
+  auto text_size = 0.0004;
+  for (int i = 0; i < positions.size(); i++) {
+    auto text   = to_string(i);
+    auto coords = (positions[i] - vec2f{0.5f, 0.5f}) * 1.5f;
+    draw_glfont(font, text, coords.x, coords.y, text_size, {0.8, 0.4, 0.1});
+  }
+
+  draw_glfont(font, "triangles", 0.49, 0.9, text_size, {0.8, 0.4, 0.1});
+  for (int i = 0; i < triangles.size(); i++) {
+    auto [a, b, c] = triangles[i];
+    auto text = "(" + to_string(a) + ", " + to_string(b) + ", " + to_string(c) +
+                ")";
+    auto coords = vec2f{0.5, 0.9};
+    coords.y -= (i + 1) * 2 * font.characters.at('I').size.y * text_size;
+    draw_glfont(font, text, coords.x, coords.y, text_size, {0.8, 0.4, 0.1});
+  }
+
+  bind_program(program);
+
+  set_uniform(program, "alpha", 1.0f);
+  set_uniform(program, "color", vec3f{1, 1, 1});
+  draw_shape(edges);
+
+  set_uniform(program, "color", vec3f{1, 0, 0});
+  draw_shape(points);
+
+  set_uniform(program, "alpha", 0.5f);
+  set_uniform(program, "color", vec3f{0.5, 0.5, 0.5});
+  draw_shape(faces);
+
+  unbind_framebuffer();
+  auto img = get_texture(texture);
+
+  // flip verticllay
+  for (int y = 0; y < img.imsize().y / 2; y++)
+    for (int x = 0; x < img.imsize().x; x++)
+      std::swap(img[{x, y}], img[{x, img.imsize().y - y}]);
+
+  auto error = ""s;
+  if (!save_image(filename, img, error)) {
+    printf("%s: %s\n", __FUNCTION__, error.c_str());
+  }
+}
 
 [[nodiscard]] shade_instance* draw_sphere(shade_scene* scene,
     const bool_mesh& mesh, shade_material* material, const vector<vec3f>& pos,

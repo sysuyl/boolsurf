@@ -40,6 +40,45 @@ void init_from_test(app_state* app) {
   }
 }
 
+// Rappresentazione di un segmento all'interno di una faccia. Serivra' per la
+// triangolazione. Teniamo sia la rapprezentazione discreta (come coppia di
+// vertici della mesh) che la rapprezentazione in coordiate baricentriche.
+struct triangle_segment {
+  int polygon      = -1;
+  int start_vertex = -1;
+  int end_vertex   = -1;
+
+  vec2f start = {};
+  vec2f end   = {};
+};
+
+void debug_draw(app_state* app, const vector<vec3i>& triangles,
+    const vector<vec2f>& nodes, const vector<int>& indices,
+    const vector<triangle_segment>& segments) {
+  static int count = 0;
+  auto&      t     = triangles;
+  auto       n     = nodes;
+  auto       is    = indices;
+  //  auto       e     = vec2i{find_idx(is, edge_key.x), find_idx(is,
+  //  edge_key.y)};
+
+  auto base = app->test_filename;
+  if (base == "") base = "data/tests/no-name.json";
+  auto ext0 = ".triangulation" + to_string(count) + ".png";
+  draw_triangulation(replace_extension(base, ext0), t, n);
+  auto edges = vector<vec3i>{};
+  for (auto& s : segments) {
+    auto e = vec2i{find_idx(is, s.start_vertex), find_idx(is, s.end_vertex)};
+    edges.push_back({e.x, e.y, e.y});
+  }
+  auto ext1 = ".edges" + to_string(count) + ".png";
+  draw_triangulation(replace_extension(base, ext1), edges, n);
+
+  save_test(app, "data/tests/crash.json");
+  count += 1;
+  assert(0);
+}
+
 // draw with shading
 void draw_widgets(app_state* app, const gui_input& input) {
   auto widgets = &app->widgets;
@@ -170,8 +209,15 @@ void do_the_thing(app_state* app) {
     float lerp      = -1.0f;
   };
 
-  auto hashgrid      = unordered_map<int, vector<hashgrid_segment>>{};
+  auto hashgrid = unordered_map<int, vector<hashgrid_segment>>{};
+
+  // Mappa segmento (polygon_id, segment_id) a lista di intersezioni.
   auto intersections = unordered_map<vec2i, vector<intersection>>{};
+
+  // for (auto p = 0; p < app->polygons.size(); p++) {
+  //   if (app->polygons[p].segments.size())
+  //   app->polygons[p].segments.pop_back();
+  // }
 
   // Riempiamo l'hashgrid con i segmenti per triangolo.
   for (auto p = 0; p < app->polygons.size(); p++) {
@@ -189,6 +235,10 @@ void do_the_thing(app_state* app) {
       auto& AB = entries[i];
       for (auto j = i + 1; j < entries.size(); j++) {
         auto& CD = entries[j];
+        if (AB.polygon == CD.polygon &&
+            yocto::abs(AB.segment - CD.segment) <= 1) {
+          continue;
+        }
 
         auto l = intersect_segments(AB.start, AB.end, CD.start, CD.end);
         if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) continue;
@@ -220,18 +270,6 @@ void do_the_thing(app_state* app) {
     sort(isecs.begin(), isecs.end(),
         [](auto& a, auto& b) { return a.lerp < b.lerp; });
   }
-
-  // Rappresentazione di un segmento all'interno di una faccia. Serivra' per la
-  // triangolazione. Teniamo sia la rapprezentazione discreta (come coppia di
-  // vertici della mesh) che la rapprezentazione in coordiate baricentriche.
-  struct triangle_segment {
-    int polygon      = -1;
-    int start_vertex = -1;
-    int end_vertex   = -1;
-
-    vec2f start = {};
-    vec2f end   = {};
-  };
 
   // Mappa ogni faccia alla lista di triangle_segments di quella faccia.
   auto triangle_segments = unordered_map<int, vector<triangle_segment>>{};
@@ -268,21 +306,21 @@ void do_the_thing(app_state* app) {
           // Accorcio il segmento corrente.
           start_uv     = end_uv;
           start_vertex = end_vertex;
-        };
+        }
       }
 
-      // L'indice del prossimo vertice che aggiungeremo al prossimo giro.
-      auto end_vertex = (int)app->mesh.positions.size();
+      auto end_vertex = -1;
 
-      // Se e' l'ultimo vertice del poligono, non aggingero' niente, ma gia' ce
-      // l'ho: e' il primo.
       if (segment_id == segments.size() - 1) {
+        // Se e' l'ultimo vertice del poligono, gia' ce l'ho: e' il primo.
         end_vertex = first_id;
+      } else {
+        // L'indice del prossimo vertice che aggiungeremo al prossimo giro.
+        end_vertex = (int)app->mesh.positions.size();
       }
 
       triangle_segments[segment.face].push_back(
           {polygon_id, start_vertex, end_vertex, start_uv, segment.end});
-      start_vertex = end_vertex;
     }
   }
 
@@ -290,6 +328,10 @@ void do_the_thing(app_state* app) {
 
   //(marzia) collapse the triangle_segments iterations
   // Not now, they're useful while debugging
+
+  auto debug_triangles = unordered_map<int, vector<vec3i>>{};
+  auto debug_nodes     = unordered_map<int, vector<vec2f>>{};
+  auto debug_indices   = unordered_map<int, vector<int>>{};
 
   // Mappa a ogni edge generato le due facce generate adiacenti.
   auto face_edgemap = unordered_map<vec2i, vec2i>{};
@@ -300,6 +342,13 @@ void do_the_thing(app_state* app) {
     // Mappa i nodi locali ai vertici della mesh.
     auto indices = vector<int>{a, b, c};
 
+    // Lista di archi-vincolo locali
+    auto edges      = vector<vec2i>();
+    auto edgemap    = unordered_map<vec2i, vector<tuple<int, float>>>();
+    edgemap[{0, 1}] = {};
+    edgemap[{1, 2}] = {};
+    edgemap[{0, 2}] = {};
+
     // Per ogni segmento della faccia.
     for (auto s = 0; s < segments.size(); s++) {
       auto& [polygon_id, start_vertex, end_vertex, start_uv, end_uv] =
@@ -307,22 +356,95 @@ void do_the_thing(app_state* app) {
 
       // Aggiungi senza duplicati. Aggiornando indices insieme a nodes,
       // manteniamo la corrispondenza.
-      if (find_idx(indices, start_vertex) == -1) {
+      auto edge_start = find_idx(indices, start_vertex);
+      auto edge_end   = find_idx(indices, end_vertex);
+
+      if (edge_start == -1) {
+        edge_start = (int)indices.size();
         nodes.push_back(start_uv);
         indices.push_back(start_vertex);
+
+        auto [tri_edge, l] = get_mesh_edge({0, 1, 2}, start_uv);
+        if (tri_edge != zero2i) {
+          auto tri_edge_key = make_edge_key(tri_edge);
+          if (tri_edge_key != tri_edge) l = 1.0f - l;
+          edgemap[tri_edge_key].push_back({edge_start, l});
+        }
       }
-      if (find_idx(indices, end_vertex) == -1) {
+
+      if (edge_end == -1) {
+        edge_end = (int)indices.size();
         nodes.push_back(end_uv);
         indices.push_back(end_vertex);
+
+        auto [tri_edge, l] = get_mesh_edge({0, 1, 2}, end_uv);
+        if (tri_edge != zero2i) {
+          auto tri_edge_key = make_edge_key(tri_edge);
+          if (tri_edge_key != tri_edge) l = 1.0f - l;
+          edgemap[tri_edge_key].push_back({edge_end, l});
+        }
       }
 
       // Per adesso, ad ogni nuovo edge associamo due facce adiacenti nulle.
       // Ora serve per debugging.
       auto edge          = make_edge_key({start_vertex, end_vertex});
       face_edgemap[edge] = {-1, -1};
+
+      edges.push_back({edge_start, edge_end});
     }
 
-    auto triangles = triangulate(nodes);
+    // printf("Segments: %d\n", segments.size());
+    // printf("Edges: %d\n", edges.size());
+
+    for (auto& [tri_edge, points] : edgemap) {
+      if (points.size() == 0) {
+        edges.push_back(tri_edge);
+        continue;
+      }
+
+      if (points.size() > 1) {
+        sort(points.begin(), points.end(), [](auto& a, auto& b) {
+          auto& [node_a, l_a] = a;
+          auto& [node_b, l_b] = b;
+          return l_a < l_b;
+        });
+      }
+
+      auto& [first, l] = points.front();
+      auto& [last, l1] = points.back();
+      edges.push_back({tri_edge.x, first});
+      edges.push_back({last, tri_edge.y});
+
+      for (auto i = 0; i < points.size() - 1; i++) {
+        auto& [start, l] = points[i];
+        auto& [end, l1]  = points[i + 1];
+        edges.push_back({start, end});
+      }
+    }
+
+    debug_nodes[face]     = nodes;
+    debug_indices[face]   = indices;
+    debug_triangles[face] = constrained_triangulation(nodes, edges);
+    auto& triangles       = debug_triangles[face];
+
+    for (auto ee : edges) {
+      auto found = false;
+      for (auto& tr : triangles) {
+        int k = 0;
+        for (k = 0; k < 3; k++) {
+          auto edge = vec2i{tr[k], tr[(k + 1) % 3]};
+          if (make_edge_key(edge) == make_edge_key(ee)) {
+            found = true;
+            break;
+          }
+        }
+      }
+      if (!found) {
+        // draw_triangulation("data/tests/debugging.png", triangles, nodes);
+        debug_draw(app, triangles, nodes, indices, segments);
+        assert(0);
+      }
+    }
 
     // Aggiungiamo i nuovi triangoli e aggiorniamo la face_edgemap.
     for (auto i = 0; i < triangles.size(); i++) {
@@ -351,16 +473,19 @@ void do_the_thing(app_state* app) {
       auto edge_key = make_edge_key(edge);
 
       auto faces = face_edgemap.at(edge_key);
-      if (faces.x == -1) {
-        save_test(app, "data/tests/crash.json");
-        assert(0);
+
+      if (faces.x == -1 || faces.y == -1) {
+        auto t  = debug_triangles[face];
+        auto n  = debug_nodes[face];
+        auto is = debug_indices[face];
+        debug_draw(app, t, n, is, segments);
       }
 
       // Il triangolo di sinistra ha lo stesso orientamento del poligono.
       auto& [a, b, c] = app->mesh.triangles[faces.x];
 
-      // Controlliamo che l'edge si nello stesso verso del poligono. Se non e'
-      // cosi, invertiamo.
+      // Controlliamo che l'edge si nello stesso verso del poligono. Se non
+      // e' cosi, invertiamo.
       if ((edge == vec2i{b, a}) || (edge == vec2i{c, b}) ||
           (edge == vec2i{a, c})) {
         swap(faces.x, faces.y);
@@ -383,7 +508,7 @@ void do_the_thing(app_state* app) {
     outer.erase(unique(outer.begin(), outer.end()), outer.end());
   }
 
-  // (marzia) Why do we need this?
+  // // (marzia) Why do we need this?
   for (auto& ist : app->instances) ist->hidden = true;
 
   app->mesh.normals = compute_normals(app->mesh.triangles, app->mesh.positions);
@@ -411,15 +536,6 @@ void do_the_thing(app_state* app) {
     auto start_in   = app->polygons[p].inner_faces;
     auto visited_in = flood_fill(app->mesh, start_in, p, check);
     for (auto i : visited_in) face_polygons[i].push_back(p);
-
-    // auto color_out = app->cell_materials[(2 * p)]->color;
-    // auto color_in  = app->cell_materials[(2 * p) - 1]->color;
-
-    // app->patch_out[p].push_back(app->glscene->instances.size());
-    // add_patch_shape(app, visited_out, color_out, 0.0002f * p);
-
-    // app->patch_in[p].push_back(app->glscene->instances.size());
-    // add_patch_shape(app, visited_in, color_in, 0.00025f * p);
   }
 
   // Inverting face_polygons map
