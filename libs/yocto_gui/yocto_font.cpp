@@ -24,7 +24,6 @@ auto vertex = R"(
     TexCoords = vec2(vertex.x, 1 - vertex.y);
     vec2 p = vertex;
     p *= scale;
-    p.y *= -1;
     p += center;
     gl_Position = vec4(p.x, p.y, 0, 1);
   }
@@ -124,9 +123,9 @@ void draw_glfont(const opengl_font& font, const string& text, float x, float y,
     float scale, const vec3f& color, float alpha) {
   auto shader = font.program;
 
-  //  auto bottom_left = frame.o - frame.x - frame.y;
-  // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   set_ogl_blending(true);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   bind_program(shader);
   set_uniform(shader, "color", color);
   set_uniform(shader, "alpha", alpha);
@@ -147,14 +146,12 @@ void draw_glfont(const opengl_font& font, const string& text, float x, float y,
     float width  = ch.size.x * scale;
     float height = ch.size.y * scale;
 
-    // float vertices[6][4] = {{xpos, ypos + h}, {xpos, ypos}, {xpos + w, ypos},
-    //     {xpos, ypos + h}, {xpos + w, ypos}, {xpos + w, ypos + h}};
     auto center  = vec2f{xpos, ypos};
     auto scaling = vec2f{width, height};
 
-    // auto scale = vec2f{width * 0.5f, height * 0.5f} * dxy;
     set_uniform(shader, "center", center);
     set_uniform(shader, "scale", scaling);
+    // auto scale = vec2f{width * 0.5f, height * 0.5f} * dxy;
     // auto smat = mat2f{{scale.x, 1}, {1, scale.y}};
     // smat.x.x /= ratio;
     // auto mat = rot * smat;

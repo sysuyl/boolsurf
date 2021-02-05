@@ -36,7 +36,6 @@ inline void draw_triangulation(const string& filename,
 
     void main() {
       vec2 position = (positions - vec2(0.5)) * 1.5;
-      position.y *= -1;
       gl_Position = vec4(position, 0, 1);
     }
   )";
@@ -63,11 +62,23 @@ inline void draw_triangulation(const string& filename,
   set_ogl_viewport(size);
   clear_ogl_framebuffer({0, 0, 0.1, 1}, true);
 
+  auto text_size = 0.0004;
   for (int i = 0; i < positions.size(); i++) {
     auto text   = to_string(i);
     auto coords = (positions[i] - vec2f{0.5f, 0.5f}) * 1.5f;
-    draw_glfont(font, text, coords.x, -coords.y, 0.0004, {0.8, 0.4, 0.1});
+    draw_glfont(font, text, coords.x, coords.y, text_size, {0.8, 0.4, 0.1});
   }
+
+  draw_glfont(font, "triangles", 0.49, 0.9, text_size, {0.8, 0.4, 0.1});
+  for (int i = 0; i < triangles.size(); i++) {
+    auto [a, b, c] = triangles[i];
+    auto text = "(" + to_string(a) + ", " + to_string(b) + ", " + to_string(c) +
+                ")";
+    auto coords = vec2f{0.5, 0.9};
+    coords.y -= (i + 1) * 2 * font.characters.at('I').size.y * text_size;
+    draw_glfont(font, text, coords.x, coords.y, text_size, {0.8, 0.4, 0.1});
+  }
+
   bind_program(program);
 
   set_uniform(program, "alpha", 1.0f);
@@ -82,7 +93,13 @@ inline void draw_triangulation(const string& filename,
   draw_shape(faces);
 
   unbind_framebuffer();
-  auto img   = get_texture(texture);
+  auto img = get_texture(texture);
+
+  // flip verticllay
+  for (int y = 0; y < img.imsize().y / 2; y++)
+    for (int x = 0; x < img.imsize().x; x++)
+      std::swap(img[{x, y}], img[{x, img.imsize().y - y}]);
+
   auto error = ""s;
   if (!save_image(filename, img, error)) {
     printf("%s: %s\n", __FUNCTION__, error.c_str());
