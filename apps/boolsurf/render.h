@@ -1,8 +1,12 @@
+#include <yocto_gui/yocto_font.h>
 #include <yocto_gui/yocto_shade.h>
 
 inline void draw_triangulation(const string& filename,
     const vector<vec3i>& triangles, const vector<vec2f>& positions) {
-  auto size = vec2i{512, 512};
+  auto font = opengl_font{};
+  init_glfont(font, "data/Menlo-Regular.ttf", 100);
+
+  auto size = vec2i{2048, 2048};
 
   auto faces = new ogl_shape{};
   set_vertex_buffer(faces, positions, 0);
@@ -68,8 +72,14 @@ inline void draw_triangulation(const string& filename,
 
   set_uniform(program, "color", vec3f{1, 0, 0});
   draw_shape(points);
-
   unbind_program();
+
+  for (int i = 0; i < positions.size(); i++) {
+    auto text   = to_string(i);
+    auto coords = (positions[i] - vec2f{0.5f, 0.5f}) * 1.5f;
+    draw_glfont(font, text, coords.x, -coords.y, 0.0002, {1, 1, 1});
+  }
+
   unbind_framebuffer();
   auto img   = get_texture(texture);
   auto error = ""s;
