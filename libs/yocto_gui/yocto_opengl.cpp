@@ -123,6 +123,18 @@ void set_ogl_viewport(const vec2i& viewport) {
   glViewport(0, 0, viewport.x, viewport.y);
 }
 
+vec4i get_ogl_viewport() {
+  auto viewport = vec4i{};
+  glGetIntegerv(GL_VIEWPORT, &viewport.x);
+  return viewport;
+}
+
+vec2i get_ogl_viewport_size() {
+  auto viewport = vec4i{};
+  glGetIntegerv(GL_VIEWPORT, &viewport.x);
+  return {viewport.z - viewport.x, viewport.w - viewport.y};
+}
+
 void set_ogl_wireframe(bool enabled) {
   if (enabled)
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
