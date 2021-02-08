@@ -66,7 +66,7 @@ inline bool is_closed(const mesh_polygon& polygon) {
 
 inline int compute_vertex(
     bool_mesh& mesh, const mesh_point& point, const bool add = true) {
-  float eps = 0.0001;
+  float eps = 0.001;
   auto  uv  = point.uv;
   auto  tr  = mesh.triangles[point.face];
   if (uv.x < eps && uv.y < eps) return tr.x;
@@ -353,7 +353,7 @@ inline vector<vec3i> constrained_triangulation(
     auto  orientation = cross(b - a, c - b);
     if (fabs(orientation) < 0.00001) {
       printf("Detected collinearity\n");
-      continue;
+      // continue;
     }
 
     triangles.push_back(verts);

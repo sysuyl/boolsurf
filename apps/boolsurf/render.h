@@ -155,7 +155,7 @@ inline void draw_triangulation(const string& filename,
   // flip verticllay
   for (int y = 0; y < img.imsize().y / 2; y++)
     for (int x = 0; x < img.imsize().x; x++)
-      std::swap(img[{x, y}], img[{x, img.imsize().y - y}]);
+      std::swap(img[{x, y}], img[{x, img.imsize().y - y - 1}]);
 
   auto error = ""s;
   if (!save_image(filename, img, error)) {

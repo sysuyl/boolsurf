@@ -61,8 +61,8 @@ void debug_draw(app_state* app, const vector<vec3i>& triangles,
     edges.push_back({e.x, e.y, e.y});
   }
 
-  // auto ext1 = ".edges" + to_string(count) + ".png";
-  // draw_triangulation(replace_extension(base, ext1), edges, n);
+  auto ext1 = ".edges" + to_string(count) + ".png";
+  draw_triangulation(replace_extension(base, ext1), edges, n);
 
   save_test(app, "data/tests/crash.json");
   count += 1;
@@ -270,8 +270,10 @@ void do_the_thing(app_state* app) {
         // Popoliamo triangle_segments.
         for (auto& [end_vertex, l] : isecs) {
           auto end_uv = lerp(segment.start, segment.end, l);
-          triangle_segments[segment.face].push_back(
-              {polygon_id, start_vertex, end_vertex, start_uv, end_uv});
+          if (start_vertex != end_vertex) {
+            triangle_segments[segment.face].push_back(
+                {polygon_id, start_vertex, end_vertex, start_uv, end_uv});
+          }
 
           // Accorcio il segmento corrente.
           start_uv     = end_uv;
@@ -290,9 +292,15 @@ void do_the_thing(app_state* app) {
         end_vertex = first_id;
       }
 
+      auto is_vertex_uv = [](const vec2f& uv) {
+        return uv == vec2f{0, 0} || uv == vec2f{1, 0} || uv == vec2f{0, 1};
+      };
+      if (is_vertex_uv(start_uv) && is_vertex_uv(end_uv)) {
+        continue;
+      }
+      if (start_vertex == end_vertex) continue;
       triangle_segments[segment.face].push_back(
           {polygon_id, start_vertex, end_vertex, start_uv, end_uv});
-      start_vertex = end_vertex;
     }
   }
 
