@@ -73,6 +73,19 @@ void set_ogl_blending(bool enabled);
 void set_ogl_point_size(int size);
 void set_ogl_msaa();
 
+enum struct ogl_depth_test {
+  less = 0,
+  equal,
+  lequal,
+  greater,
+  notequal,
+  gequal,
+  always,
+  never,
+};
+
+void set_ogl_depth_test(ogl_depth_test test);
+
 // OpenGL texture
 struct ogl_texture {
   // Texture properties

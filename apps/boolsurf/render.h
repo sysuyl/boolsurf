@@ -230,8 +230,9 @@ void update_path_shape(shade_shape* shape, const bool_mesh& mesh,
     float radius) {
   auto shape = add_shape(scene);
   update_path_shape(shape, mesh, path, radius);
-  add_instance(scene, identity3x4f, shape, material, false);
-  return add_instance(scene, identity3x4f, shape, material, false);
+  auto instance = add_instance(scene, identity3x4f, shape, material, false);
+  instance->depth_test = ogl_depth_test::always;
+  return instance;
 }
 
 [[nodiscard]] shade_instance* draw_intersections(shade_scene* scene,
@@ -309,14 +310,14 @@ void update_path_shape(shade_shape* shape, const bool_mesh& mesh,
   return instances;
 }
 
-void set_patch_shape(shade_shape* shape, const bool_mesh& mesh,
+inline void set_patch_shape(shade_shape* shape, const bool_mesh& mesh,
     const vector<int>& faces, const float distance) {
   auto positions = vector<vec3f>(faces.size() * 3);
   for (int i = 0; i < faces.size(); i++) {
     auto [a, b, c]       = mesh.triangles[faces[i]];
-    positions[3 * i + 0] = mesh.positions[a] + distance * mesh.normals[a];
-    positions[3 * i + 1] = mesh.positions[b] + distance * mesh.normals[b];
-    positions[3 * i + 2] = mesh.positions[c] + distance * mesh.normals[c];
+    positions[3 * i + 0] = mesh.positions[a];
+    positions[3 * i + 1] = mesh.positions[b];
+    positions[3 * i + 2] = mesh.positions[c];
   }
   set_positions(shape, positions);
   set_instances(shape, {});

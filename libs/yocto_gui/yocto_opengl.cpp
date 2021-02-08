@@ -143,6 +143,19 @@ void set_ogl_blending(bool enabled) {
 void set_ogl_point_size(int size) { glPointSize(size); }
 void set_ogl_msaa() { glEnable(GL_MULTISAMPLE); }
 
+void set_ogl_depth_test(ogl_depth_test test) {
+  switch (test) {
+    case ogl_depth_test::less: glDepthFunc(GL_LESS); break;
+    case ogl_depth_test::equal: glDepthFunc(GL_EQUAL); break;
+    case ogl_depth_test::lequal: glDepthFunc(GL_LEQUAL); break;
+    case ogl_depth_test::greater: glDepthFunc(GL_GREATER); break;
+    case ogl_depth_test::notequal: glDepthFunc(GL_NOTEQUAL); break;
+    case ogl_depth_test::gequal: glDepthFunc(GL_GEQUAL); break;
+    case ogl_depth_test::always: glDepthFunc(GL_ALWAYS); break;
+    case ogl_depth_test::never: glDepthFunc(GL_NEVER); break;
+  }
+}
+
 void set_texture(ogl_texture* texture, const vec2i& size, int num_channels,
     const byte* img, bool as_srgb, bool linear, bool mipmap, bool wrap_repeat) {
   static auto sformat = vector<uint>{
