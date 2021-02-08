@@ -64,8 +64,7 @@ inline bool is_closed(const mesh_polygon& polygon) {
   return (polygon.points.front() == polygon.points.back());
 }
 
-inline int compute_vertex(
-    bool_mesh& mesh, const mesh_point& point, const bool add = true) {
+inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
   float eps = 0.001;
   auto  uv  = point.uv;
   auto  tr  = mesh.triangles[point.face];
@@ -73,10 +72,8 @@ inline int compute_vertex(
   if (uv.x > 1 - eps && uv.y < eps) return tr.y;
   if (uv.y > 1 - eps && uv.x < eps) return tr.z;
   auto vertex = (int)mesh.positions.size();
-  if (add) {
-    auto pos = eval_position(mesh.triangles, mesh.positions, point);
-    mesh.positions.push_back(pos);
-  }
+  auto pos    = eval_position(mesh.triangles, mesh.positions, point);
+  mesh.positions.push_back(pos);
   return vertex;
 }
 
@@ -328,7 +325,7 @@ inline vector<vec3i> triangulate(const vector<vec2f>& nodes) {
 
 inline vector<vec3i> constrained_triangulation(
     vector<vec2f> nodes, const vector<vec2i>& edges) {
-  for (auto& n : nodes) n *= 1e6;
+  for (auto& n : nodes) n *= 1e9;
 
   auto cdt = CDT::Triangulation<float>(CDT::FindingClosestPoint::ClosestRandom);
   cdt.insertVertices(
@@ -378,10 +375,13 @@ inline void update_face_edgemap(unordered_map<vec2i, vec2i>& face_edgemap,
   auto key = make_edge_key(edge);
   if (face_edgemap.find(key) != face_edgemap.end()) {
     auto& faces = face_edgemap[key];
-    if (faces.x == -1)
+    if (faces.x == -1) {
+      assert(faces.y == -1);
       faces.x = face;
-    else
+    } else {
+      assert(faces.y == -1);
       faces.y = face;
+    }
   }
 }
 

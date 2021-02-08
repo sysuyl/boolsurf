@@ -42,9 +42,10 @@ inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
 }
 
 inline void draw_triangulation(const string& filename,
-    const vector<vec3i>& triangles, const vector<vec2f>& positions) {
-  if(positions.empty()) return;
-  
+    const vector<vec3i>& triangles, const vector<vec2f>& positions,
+    const vector<int>& indices) {
+  if (positions.empty()) return;
+
   auto font = opengl_font{};
   init_glfont(font, "data/Menlo-Regular.ttf", 100);
   set_ogl_depth_test(ogl_depth_test::always);
@@ -126,7 +127,7 @@ inline void draw_triangulation(const string& filename,
 
   {
     float y             = 0.9;
-    float x             = 0.4;
+    float x             = 0.1;
     auto  color         = vec3f{0.8, 0.4, 0.1};
     float vertical_step = 2 * font.characters.at('I').size.y * text_size;
     draw_glfont(font, "triangles", x - 0.01, y, text_size, color);
@@ -140,10 +141,10 @@ inline void draw_triangulation(const string& filename,
 
     y -= 2 * vertical_step;
     draw_glfont(font, "positions", x - 0.01, y, text_size, color);
-    for (int i = 3; i < positions.size(); i++) {
+    for (int i = 0; i < positions.size(); i++) {
       auto [a, b] = positions[i];
-      auto text   = to_string(i) + ": (" + to_string(a) + ", " + to_string(b) +
-                  ")";
+      auto text   = "[" + to_string(indices[i]) + "] ";
+      text += to_string(i) + ": (" + to_string(a) + ", " + to_string(b) + ")";
       y -= vertical_step;
       draw_glfont(font, text, x, y, text_size, color);
     }

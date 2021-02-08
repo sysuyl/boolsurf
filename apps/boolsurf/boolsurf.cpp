@@ -43,7 +43,7 @@ struct triangle_segment {
 
 void debug_draw(app_state* app, const vector<vec3i>& triangles,
     const vector<vec2f>& nodes, const vector<int>& indices,
-    const vector<triangle_segment>& segments) {
+    const vector<triangle_segment>& segments, const string& header = "") {
   static int count = 0;
   auto&      t     = triangles;
   auto       n     = nodes;
@@ -54,7 +54,10 @@ void debug_draw(app_state* app, const vector<vec3i>& triangles,
   auto base = app->test_filename;
   if (base == "") base = "data/tests/no-name.json";
   auto ext0 = ".triangulation" + to_string(count) + ".png";
-  draw_triangulation(replace_extension(base, ext0), t, n);
+  if (header.size()) {
+    ext0 = header + "." + ext0;
+  }
+  draw_triangulation(replace_extension(base, ext0), t, n, is);
   auto edges = vector<vec3i>{};
   for (auto& s : segments) {
     auto e = vec2i{find_idx(is, s.start_vertex), find_idx(is, s.end_vertex)};
@@ -62,11 +65,14 @@ void debug_draw(app_state* app, const vector<vec3i>& triangles,
   }
 
   auto ext1 = ".edges" + to_string(count) + ".png";
-  draw_triangulation(replace_extension(base, ext1), edges, n);
+  if (header.size()) {
+    ext1 = header + "." + ext1;
+  }
+
+  draw_triangulation(replace_extension(base, ext1), edges, n, is);
 
   save_test(app, "data/tests/crash.json");
   count += 1;
-  assert(0);
 }
 
 // draw with shading
@@ -226,10 +232,11 @@ void do_the_thing(app_state* app) {
         auto point_id = (int)state.points.size();
         state.points.push_back(point);
 
-        auto vertex_id = (int)app->mesh.positions.size();
-        auto pos       = eval_position(
-            app->mesh.triangles, app->mesh.positions, point);
-        app->mesh.positions.push_back(pos);
+        // auto vertex_id = (int)app->mesh.positions.size();
+        // auto pos       = eval_position(
+        //     app->mesh.triangles, app->mesh.positions, point);
+        // app->mesh.positions.push_back(pos);
+        auto vertex_id = add_vertex(app->mesh, point);
 
         intersections[{AB.polygon, AB.segment}].push_back({vertex_id, l.x});
         intersections[{CD.polygon, CD.segment}].push_back({vertex_id, l.y});
@@ -250,18 +257,22 @@ void do_the_thing(app_state* app) {
   // Dobbiamo inserire nei punti giusti anche i punti di intersezione che
   // spezzano i segmenti.
   // Inoltre popoliamo triangle_segments.
+  auto original_vertices = app->mesh.positions.size();
   for (auto polygon_id = 0; polygon_id < state.polygons.size(); polygon_id++) {
     auto& segments = state.polygons[polygon_id].segments;
-    auto  first_id = (int)app->mesh.positions.size();
+
+    auto vertices = vector<int>(segments.size());
+    for (auto i = 0; i < segments.size(); i++) {
+      vertices[i] = add_vertex(
+          app->mesh, {segments[i].face, segments[i].start});
+    }
 
     // Per ogni segmento del poligono.
     for (auto segment_id = 0; segment_id < segments.size(); segment_id++) {
       auto& segment = segments[segment_id];
 
       auto start_uv     = segment.start;
-      auto start_vertex = compute_vertex(app->mesh, {segment.face, start_uv});
-
-      if (segment_id == 0) first_id = start_vertex;
+      auto start_vertex = vertices[segment_id];
 
       // Se questo segmento aveva una o piu' interesezioni con altri segmenti...
       if (intersections.find({polygon_id, segment_id}) != intersections.end()) {
@@ -284,21 +295,20 @@ void do_the_thing(app_state* app) {
       auto end_uv = segment.end;
 
       // L'indice del prossimo vertice che aggiungeremo al prossimo giro.
-      auto end_vertex = compute_vertex(
-          app->mesh, {segment.face, end_uv}, false);
+      auto end_vertex = vertices[(segment_id + 1) % vertices.size()];
 
-      if (segment_id == segments.size() - 1) {
-        // Se e' l'ultimo vertice del poligono, gia' ce l'ho: e' il primo.
-        end_vertex = first_id;
-      }
-
-      auto is_vertex_uv = [](const vec2f& uv) {
-        return uv == vec2f{0, 0} || uv == vec2f{1, 0} || uv == vec2f{0, 1};
-      };
-      if (is_vertex_uv(start_uv) && is_vertex_uv(end_uv)) {
+      // auto is_vertex_uv = [](const vec2f& uv) {
+      //   return uv == vec2f{0, 0} || uv == vec2f{1, 0} || uv == vec2f{0, 1};
+      // };
+      // if (is_vertex_uv(start_uv) && is_vertex_uv(end_uv)) {
+      //   continue;
+      // }
+      if (start_vertex < original_vertices && end_vertex < original_vertices) {
         continue;
       }
-      if (start_vertex == end_vertex) continue;
+      if (start_vertex == end_vertex) {
+        continue;
+      }
       triangle_segments[segment.face].push_back(
           {polygon_id, start_vertex, end_vertex, start_uv, end_uv});
     }
@@ -421,7 +431,6 @@ void do_the_thing(app_state* app) {
         }
       }
       if (!found) {
-        // draw_triangulation("data/tests/debugging.png", triangles, nodes);
         debug_draw(app, triangles, nodes, indices, segments);
         assert(0);
       }
@@ -446,6 +455,13 @@ void do_the_thing(app_state* app) {
     app->mesh.triangles[face] = {0, 0, 0};
   }
 
+  auto temp = vector<pair<vec2i, vec2i>>{};
+  for (auto& [key, value] : face_edgemap) {
+    if (value.x == -1 || value.y == -1) {
+      temp.push_back({key, value});
+    }
+  }
+
   // Creaiamo inner_faces e outer_faces di ogni poligono.
   for (auto& [face, segments] : triangle_segments) {
     for (auto i = 0; i < segments.size(); i++) {
@@ -460,6 +476,15 @@ void do_the_thing(app_state* app) {
         auto n  = debug_nodes[face];
         auto is = debug_indices[face];
         debug_draw(app, t, n, is, segments);
+        auto qualcosa = hashgrid[face];
+        {
+          auto ff = app->mesh.adjacencies[face][1];
+          auto t  = debug_triangles[ff];
+          auto n  = debug_nodes[ff];
+          auto is = debug_indices[ff];
+          debug_draw(app, t, n, is, segments, "other");
+        }
+        assert(0);
       }
 
       // Il triangolo di sinistra ha lo stesso orientamento del poligono.
