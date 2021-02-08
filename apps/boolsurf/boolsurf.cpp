@@ -525,7 +525,8 @@ void do_the_thing(app_state* app) {
     for (auto c : cells[i]) printf("%d ", c);
     printf("\n\t Faces: %d \n", cell_faces[i].size());
 
-    auto color = app->cell_materials[i + 1]->color;
+    auto color =
+        app->cell_materials[(i + 1) % app->cell_materials.size()]->color;
     add_patch_shape(app, cell_faces[i], color, 0.00025f * (i + 1));
   }
 
