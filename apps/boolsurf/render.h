@@ -43,6 +43,8 @@ inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
 
 inline void draw_triangulation(const string& filename,
     const vector<vec3i>& triangles, const vector<vec2f>& positions) {
+  if(positions.empty()) return;
+  
   auto font = opengl_font{};
   init_glfont(font, "data/Menlo-Regular.ttf", 100);
   set_ogl_depth_test(ogl_depth_test::always);

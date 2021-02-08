@@ -64,7 +64,8 @@ inline bool is_closed(const mesh_polygon& polygon) {
   return (polygon.points.front() == polygon.points.back());
 }
 
-inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
+inline int compute_vertex(
+    bool_mesh& mesh, const mesh_point& point, const bool add = true) {
   float eps = 0.0001;
   auto  uv  = point.uv;
   auto  tr  = mesh.triangles[point.face];
@@ -72,8 +73,10 @@ inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
   if (uv.x > 1 - eps && uv.y < eps) return tr.y;
   if (uv.y > 1 - eps && uv.x < eps) return tr.z;
   auto vertex = (int)mesh.positions.size();
-  auto pos    = eval_position(mesh.triangles, mesh.positions, point);
-  mesh.positions.push_back(pos);
+  if (add) {
+    auto pos = eval_position(mesh.triangles, mesh.positions, point);
+    mesh.positions.push_back(pos);
+  }
   return vertex;
 }
 
@@ -174,7 +177,8 @@ inline vec2f intersect_segments(const vec2f& start1, const vec2f& end1,
 inline vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
     const vector<int>& strip, const vector<float>& lerps,
     const mesh_point& start, const mesh_point& end) {
-  auto result = vector<mesh_segment>(strip.size());
+  auto result = vector<mesh_segment>{};
+  result.reserve(strip.size());
 
   for (int i = 0; i < strip.size(); ++i) {
     vec2f start_uv;
@@ -198,9 +202,10 @@ inline vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
           triangles[strip[i]], triangles[strip[i + 1]]);
       auto a = uvw[k];
       auto b = uvw[mod3(k + 1)];
-      end_uv = lerp(a, b, lerps[i]);  // i'm sorry
+      end_uv = lerp(a, b, lerps[i]);
     }
-    result[i] = {start_uv, end_uv, strip[i]};
+    if (start_uv == end_uv) continue;
+    result.push_back({start_uv, end_uv, strip[i]});
   }
   return result;
 }
@@ -307,16 +312,16 @@ inline vector<vec3i> triangulate(const vector<vec2f>& nodes) {
     triangles.push_back(verts);
   }
 
-  // Area of whole triangle must be 1.
-  auto real_area = cross(nodes[1] - nodes[0], nodes[2] - nodes[0]);
-  assert(fabs(real_area - 1) < 0.001);
+  // // Area of whole triangle must be 1.
+  // auto real_area = cross(nodes[1] - nodes[0], nodes[2] - nodes[0]);
+  // assert(fabs(real_area - 1) < 0.001);
 
-  // Check total area.
-  auto area = 0.0f;
-  for (auto& tr : triangles) {
-    area += cross(nodes[tr.y] - nodes[tr.x], nodes[tr.z] - nodes[tr.x]);
-  }
-  assert(fabs(area - real_area) < 0.001);
+  // // Check total area.
+  // auto area = 0.0f;
+  // for (auto& tr : triangles) {
+  //   area += cross(nodes[tr.y] - nodes[tr.x], nodes[tr.z] - nodes[tr.x]);
+  // }
+  // assert(fabs(area - real_area) < 0.001);
 
   return triangles;
 }
@@ -355,15 +360,15 @@ inline vector<vec3i> constrained_triangulation(
   }
 
   // Area of whole triangle must be 1.
-//  auto real_area = cross(nodes[1] - nodes[0], nodes[2] - nodes[0]);
-//  assert(fabs(real_area - 1) < 0.001);
-//
-//  // Check total area.
-//  auto area = 0.0f;
-//  for (auto& tr : triangles) {
-//    area += cross(nodes[tr.y] - nodes[tr.x], nodes[tr.z] - nodes[tr.x]);
-//  }
-//  assert(fabs(area - real_area) < 0.001);
+  //  auto real_area = cross(nodes[1] - nodes[0], nodes[2] - nodes[0]);
+  //  assert(fabs(real_area - 1) < 0.001);
+  //
+  //  // Check total area.
+  //  auto area = 0.0f;
+  //  for (auto& tr : triangles) {
+  //    area += cross(nodes[tr.y] - nodes[tr.x], nodes[tr.z] - nodes[tr.x]);
+  //  }
+  //  assert(fabs(area - real_area) < 0.001);
 
   return triangles;
 }
