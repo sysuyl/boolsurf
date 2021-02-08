@@ -1,6 +1,46 @@
 #include <yocto_gui/yocto_font.h>
 #include <yocto_gui/yocto_shade.h>
 
+inline void set_patch_shape(shade_shape* shape, const bool_mesh& mesh,
+    const vector<int>& faces, const float distance) {
+  auto positions = vector<vec3f>(faces.size() * 3);
+  for (int i = 0; i < faces.size(); i++) {
+    auto [a, b, c]       = mesh.triangles[faces[i]];
+    positions[3 * i + 0] = mesh.positions[a];
+    positions[3 * i + 1] = mesh.positions[b];
+    positions[3 * i + 2] = mesh.positions[c];
+  }
+  set_positions(shape, positions);
+  set_instances(shape, {});
+  shape->shape->elements = ogl_element_type::triangles;
+}
+
+inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
+    mesh_polygon& polygon, shade_material* material) {
+  if (!polygon.gpu) {
+    polygon.gpu             = add_instance(scene);
+    polygon.gpu->material   = material;
+    polygon.gpu->depth_test = ogl_depth_test::always;
+  }
+  if (!polygon.gpu->shape) {
+    polygon.gpu->shape = add_shape(scene);
+  }
+  if (polygon.segments.empty()) return;
+  auto positions = vector<vec3f>(polygon.segments.size() + 1);
+  for (int i = 0; i < polygon.segments.size(); i++) {
+    auto& segment = polygon.segments[i];
+    positions[i]  = eval_position(mesh, {segment.face, segment.start});
+  }
+  {
+    auto& segment    = polygon.segments.back();
+    positions.back() = eval_position(mesh, {segment.face, segment.end});
+  }
+
+  set_positions(polygon.gpu->shape, positions);
+  polygon.gpu->shape->shape->elements = ogl_element_type::line_strip;
+  set_instances(polygon.gpu->shape, {}, {});
+}
+
 inline void draw_triangulation(const string& filename,
     const vector<vec3i>& triangles, const vector<vec2f>& positions) {
   auto font = opengl_font{};
@@ -121,6 +161,8 @@ inline void draw_triangulation(const string& filename,
   }
 }
 
+#if 0
+
 [[nodiscard]] shade_instance* draw_sphere(shade_scene* scene,
     const bool_mesh& mesh, shade_material* material, const vector<vec3f>& pos,
     float dim) {
@@ -240,28 +282,6 @@ void update_path_shape(shade_shape* shape, const bool_mesh& mesh,
   set_instances(shape, froms, tos);
 }
 
-[[nodiscard]] shade_instance* draw_path(shade_scene* scene,
-    const bool_mesh& mesh, shade_material* material, const geodesic_path& path,
-    float radius) {
-  auto shape = add_shape(scene);
-  update_path_shape(shape, mesh, path, radius);
-  auto instance = add_instance(scene, identity3x4f, shape, material, false);
-  instance->depth_test = ogl_depth_test::always;
-  return instance;
-}
-
-[[nodiscard]] shade_instance* draw_intersections(shade_scene* scene,
-    const bool_mesh& mesh, shade_material* material, const vector<int>& isecs) {
-  auto pos = vector<vec3f>(isecs.size());
-  for (auto i = 0; i < isecs.size(); i++) {
-    auto v = mesh.triangles[isecs[i]];
-    pos[i] = (mesh.positions[v.x] + mesh.positions[v.y] + mesh.positions[v.z]) /
-             3.0f;
-  }
-
-  return draw_sphere(scene, mesh, material, pos, 0.0015f);
-}
-
 [[nodiscard]] shade_instance* draw_segment(shade_scene* scene,
     const bool_mesh& mesh, shade_material* material, const vec3f& start,
     const vec3f& end, float radius = 0.0006f) {
@@ -324,17 +344,4 @@ void update_path_shape(shade_shape* shape, const bool_mesh& mesh,
   }
   return instances;
 }
-
-inline void set_patch_shape(shade_shape* shape, const bool_mesh& mesh,
-    const vector<int>& faces, const float distance) {
-  auto positions = vector<vec3f>(faces.size() * 3);
-  for (int i = 0; i < faces.size(); i++) {
-    auto [a, b, c]       = mesh.triangles[faces[i]];
-    positions[3 * i + 0] = mesh.positions[a];
-    positions[3 * i + 1] = mesh.positions[b];
-    positions[3 * i + 2] = mesh.positions[c];
-  }
-  set_positions(shape, positions);
-  set_instances(shape, {});
-  shape->shape->elements = ogl_element_type::triangles;
-}
+#endif

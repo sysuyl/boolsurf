@@ -32,6 +32,7 @@ struct mesh_polygon {
   vector<mesh_segment> segments    = {};
   vector<int>          inner_faces = {};
   vector<int>          outer_faces = {};
+  shade_instance*      gpu         = nullptr;
 };
 
 struct cell_polygon {
@@ -53,6 +54,10 @@ struct intersection_node {
   int   segment = -1;
   float t       = -1;
 };
+
+inline vec3f eval_position(const bool_mesh& mesh, const mesh_point& point) {
+  return eval_position(mesh.triangles, mesh.positions, point);
+}
 
 inline bool is_closed(const mesh_polygon& polygon) {
   if (polygon.points.size() < 3) return false;
@@ -79,12 +84,6 @@ inline vec2i get_edge_points(const vector<mesh_polygon>& polygons,
   auto  a       = (int)polygon.points[edge_id];
   auto  b       = (int)polygon.points[(edge_id + 1) % polygon.points.size()];
   return vec2i{a, b};
-}
-
-inline void update_mesh_polygon(
-    mesh_polygon& polygon, const vector<mesh_segment>& segments) {
-  polygon.segments.insert(
-      polygon.segments.end(), segments.begin(), segments.end());
 }
 
 inline bool_mesh init_mesh(const generic_shape* shape) {

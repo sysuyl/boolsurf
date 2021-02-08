@@ -11,33 +11,22 @@ using namespace yocto;
 void save_test(app_state* app, const string& filename) {
   app->test        = {};
   app->test.model  = app->filename;
-  app->test.points = app->points;
-  for (auto& mesh_polygon : app->polygons) {
+  app->test.points = app->state.points;
+  for (auto& mesh_polygon : app->state.polygons) {
     app->test.polygons.push_back(mesh_polygon.points);
   }
   save_test(app->test, filename);
 }
 
 void init_from_test(app_state* app) {
-  auto& points = app->points;
+  auto& points = app->state.points;
   points       = app->test.points;
   for (auto& polygon : app->test.polygons) {
     // Add new polygon to state.
-    auto& mesh_polygon  = app->polygons.emplace_back();
+    auto& mesh_polygon  = app->state.polygons.emplace_back();
     mesh_polygon.points = polygon;
-    if (polygon.empty()) continue;
-
-    // Draw polygon.
-    for (int i = 0; i < polygon.size(); i++) {
-      auto start = polygon[i];
-      auto end   = polygon[(i + 1) % polygon.size()];
-      auto path  = compute_geodesic_path(app->mesh, points[start], points[end]);
-      draw_path(app->glscene, app->mesh, app->paths_material, path, 0.0005f);
-      auto segments = mesh_segments(
-          app->mesh.triangles, path.strip, path.lerps, path.start, path.end);
-      update_mesh_polygon(mesh_polygon, segments);
-    }
   }
+  update_polygons(app);
 }
 
 // Rappresentazione di un segmento all'interno di una faccia. Serivra' per la
@@ -100,7 +89,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
   if (begin_header(widgets, "view")) {
     auto  glmaterial = app->mesh_material;
     auto& params     = app->drawgl_prms;
-    draw_checkbox(widgets, "faceted", params.faceted);
+    // draw_checkbox(widgets, "faceted", params.faceted);
     // continue_line(widgets);
     draw_checkbox(widgets, "lines", app->glscene->instances[1]->hidden, true);
     // continue_line(widgets);
@@ -153,48 +142,31 @@ geodesic_path compute_path(const mesh_polygon& polygon,
 void mouse_input(app_state* app, const gui_input& input) {
   if (is_active(&app->widgets)) return;
 
-  if (input.modifier_alt &&
-      input.mouse_left.state == gui_button::state::releasing) {
-    auto isec = intersect_shape(app, input);
-    if (isec.hit) {
-      if (app->polygons.size() == 1) app->polygons.push_back(mesh_polygon{});
-      if (is_closed(app->polygons.back()))
-        app->polygons.push_back(mesh_polygon{});
+  // trigger: alt + left click
+  if (!input.modifier_alt) return;
+  if (input.mouse_left.state != gui_button::state::releasing) return;
 
-      auto& polygon = app->polygons.back();
-      auto  point   = mesh_point{isec.element, isec.uv};
+  auto isec = intersect_shape(app, input);
+  if (!isec.hit) return;
+  commit_state(app);
+  auto point = mesh_point{isec.element, isec.uv};
 
-      if (polygon.points.size()) {
-        auto& last_point = app->points[polygon.points.back()];
-        if ((point.face == last_point.face) && (point.uv == last_point.uv))
-          return;
-      }
+  // Add point index to last polygon.
+  auto polygon_id = app->state.polygons.size() - 1;
+  app->state.polygons[polygon_id].points.push_back(app->state.points.size());
 
-      app->points.push_back(point);
-      polygon.points.push_back(app->points.size() - 1);
+  // Add point to state.
+  app->state.points.push_back(point);
 
-      draw_mesh_point(
-          app->glscene, app->mesh, app->paths_material, point, 0.0008f);
-
-      if (polygon.points.size() > 1) {
-        auto geo_path = compute_path(polygon, app->points, app->mesh);
-        auto instance = draw_path(
-            app->glscene, app->mesh, app->paths_material, geo_path, 0.0005f);
-        app->instances.push_back(instance);
-
-        auto segments = mesh_segments(app->mesh.triangles, geo_path.strip,
-            geo_path.lerps, geo_path.start, geo_path.end);
-
-        update_mesh_polygon(polygon, segments);
-      }
-    }
-  }
+  // TODO(giacomo): recomputing all paths of the polygon at every click is bad
+  update_polygon(app, polygon_id);
 }
 
 void do_the_thing(app_state* app) {
   // Hashgrid from triangle idx to <polygon idx, edge_idx, segment idx,
   // segment start uv, segment end uv> to handle intersections and
   // self-intersections
+  auto& state = app->state;
 
   struct hashgrid_segment {
     int polygon = -1;
@@ -214,14 +186,9 @@ void do_the_thing(app_state* app) {
   // Mappa segmento (polygon_id, segment_id) a lista di intersezioni.
   auto intersections = unordered_map<vec2i, vector<intersection>>{};
 
-  // for (auto p = 0; p < app->polygons.size(); p++) {
-  //   if (app->polygons[p].segments.size())
-  //   app->polygons[p].segments.pop_back();
-  // }
-
   // Riempiamo l'hashgrid con i segmenti per triangolo.
-  for (auto p = 0; p < app->polygons.size(); p++) {
-    auto& polygon = app->polygons[p];
+  for (auto p = 0; p < state.polygons.size(); p++) {
+    auto& polygon = state.polygons[p];
     for (auto s = 0; s < polygon.segments.size(); s++) {
       auto& segment = polygon.segments[s];
       hashgrid[segment.face].push_back({p, s, segment.start, segment.end});
@@ -251,8 +218,8 @@ void do_the_thing(app_state* app) {
 
         auto uv       = lerp(CD.start, CD.end, l.y);
         auto point    = mesh_point{face, uv};
-        auto point_id = (int)app->points.size();
-        app->points.push_back(point);
+        auto point_id = (int)state.points.size();
+        state.points.push_back(point);
 
         auto vertex_id = (int)app->mesh.positions.size();
         auto pos       = eval_position(
@@ -278,8 +245,8 @@ void do_the_thing(app_state* app) {
   // Dobbiamo inserire nei punti giusti anche i punti di intersezione che
   // spezzano i segmenti.
   // Inoltre popoliamo triangle_segments.
-  for (auto polygon_id = 0; polygon_id < app->polygons.size(); polygon_id++) {
-    auto& segments = app->polygons[polygon_id].segments;
+  for (auto polygon_id = 0; polygon_id < state.polygons.size(); polygon_id++) {
+    auto& segments = state.polygons[polygon_id].segments;
     auto  first_id = (int)app->mesh.positions.size();
 
     // Per ogni segmento del poligono.
@@ -491,15 +458,15 @@ void do_the_thing(app_state* app) {
         swap(faces.x, faces.y);
       }
 
-      if (faces.x != -1) app->polygons[polygon].inner_faces.push_back(faces.x);
-      if (faces.y != -1) app->polygons[polygon].outer_faces.push_back(faces.y);
+      if (faces.x != -1) state.polygons[polygon].inner_faces.push_back(faces.x);
+      if (faces.y != -1) state.polygons[polygon].outer_faces.push_back(faces.y);
     }
   }
 
   // Removing face duplicates
-  for (auto i = 1; i < app->polygons.size(); i++) {
-    auto& inner = app->polygons[i].inner_faces;
-    auto& outer = app->polygons[i].outer_faces;
+  for (auto i = 1; i < state.polygons.size(); i++) {
+    auto& inner = state.polygons[i].inner_faces;
+    auto& outer = state.polygons[i].outer_faces;
 
     sort(inner.begin(), inner.end());
     inner.erase(unique(inner.begin(), inner.end()), inner.end());
@@ -516,22 +483,22 @@ void do_the_thing(app_state* app) {
   init_edges_and_vertices_shapes_and_points(app);
   app->mesh_instance->hidden = true;
 
-  auto tags          = compute_face_tags(app->mesh, app->polygons);
+  auto tags          = compute_face_tags(app->mesh, state.polygons);
   auto face_polygons = unordered_map<int, vector<int>>();
 
   auto cells      = vector<vector<int>>();
   auto cell_faces = unordered_map<int, vector<int>>();
 
-  for (auto p = 1; p < app->polygons.size(); p++) {
+  for (auto p = 1; p < state.polygons.size(); p++) {
     auto check = [&](int face, int polygon) {
       return find_in_vec(tags[face], polygon) == -1;
     };
 
-    auto start_out   = app->polygons[p].outer_faces;
+    auto start_out   = state.polygons[p].outer_faces;
     auto visited_out = flood_fill(app->mesh, start_out, -p, check);
     for (auto o : visited_out) face_polygons[o].push_back(-p);
 
-    auto start_in   = app->polygons[p].inner_faces;
+    auto start_in   = state.polygons[p].inner_faces;
     auto visited_in = flood_fill(app->mesh, start_in, p, check);
     for (auto i : visited_in) face_polygons[i].push_back(p);
   }
@@ -558,17 +525,18 @@ void do_the_thing(app_state* app) {
 
   // Previous Implementation
   // auto graph = compute_graph(
-  //     app->points.size(), edge_map, counterclockwise);
+  //     app->state.points.size(), edge_map, counterclockwise);
   // // print_graph(graph);
 
-  // auto edge_info  = compute_edge_info(edge_map, app->polygons);
+  // auto edge_info  = compute_edge_info(edge_map, app->state.polygons);
   // auto components = compute_connected_components(graph);
 
   // for (auto& component : components) {
   //   auto cells = compute_cells(
-  //       component, app->points, app->mesh, app->polygons.size());
+  //       component, app->state.points, app->mesh,
+  //       app->state.polygons.size());
   //   // draw_arrangement(app->glscene, app->mesh, app->cell_materials,
-  //   //     app->points, arrangement);
+  //   //     app->state.points, arrangement);
 
   //   print_graph(component);
   //   print_cells(cells);
@@ -598,7 +566,7 @@ void do_the_thing(app_state* app) {
   // }
 
   // draw_arrangement(
-  //     app->glscene, app->mesh, app->cell_materials, app->points,
+  //     app->glscene, app->mesh, app->cell_materials, app->state.points,
   //     result);
 }
 
@@ -608,6 +576,13 @@ void key_input(app_state* app, const gui_input& input) {
     if (button.state != gui_button::state::pressing) continue;
 
     switch (idx) {
+      case (int)gui_key('Z'): {
+        undo_state(app);
+      } break;
+      case (int)gui_key('Y'): {
+        redo_state(app);
+      } break;
+
       case (int)gui_key('I'): {
         do_the_thing(app);
       } break;
@@ -635,14 +610,14 @@ void key_input(app_state* app, const gui_input& input) {
         //           (key == app->current_polygon) ? false : true;
 
         //   app->current_polygon = (app->current_polygon + 1) %
-        //                          app->polygons.size();
+        //                          app->state.polygons.size();
         // } break;
 
       case (int)gui_key('C'): {
         auto old_camera = app->glcamera;
-        app->points.clear();
-        app->polygons.clear();
-        app->polygons.push_back(mesh_polygon{});
+        app->state.points.clear();
+        app->state.polygons.clear();
+        app->state.polygons.push_back(mesh_polygon{});
         load_shape(app, app->filename);
         clear_scene(app->glscene);
         init_glscene(app, app->glscene, app->mesh, {});
@@ -650,23 +625,9 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key::enter: {
-        auto& polygon = app->polygons.back();
-        if (polygon.points.size() < 3 || is_closed(polygon)) return;
-
-        auto point = polygon.points.front();
-        polygon.points.push_back(point);
-
-        auto geo_path = compute_path(polygon, app->points, app->mesh);
-        draw_path(
-            app->glscene, app->mesh, app->paths_material, geo_path, 0.0005f);
-
-        auto segments = mesh_segments(app->mesh.triangles, geo_path.strip,
-            geo_path.lerps, geo_path.start, geo_path.end);
-
-        update_mesh_polygon(polygon, segments);
-
-        break;
-      }
+        commit_state(app);
+        app->state.polygons.push_back({});
+      } break;
     }
   }
 }

@@ -22,6 +22,13 @@
 
 using namespace yocto;
 
+struct edit_state {
+  vector<mesh_polygon> polygons = {{}, {}};
+  vector<mesh_point>   points   = {};
+
+  // Put cells here...
+};
+
 // Application state
 struct app_state {
   // loading parameters
@@ -39,8 +46,9 @@ struct app_state {
   // boolmesh info
   bool_mesh mesh = bool_mesh{};
 
-  vector<mesh_polygon> polygons = {mesh_polygon{}};
-  vector<mesh_point>   points   = {};  // Click inserted points
+  edit_state         state         = {};
+  vector<edit_state> history       = {};
+  int                history_index = 0;
 
   // rendering state
   shade_scene*    glscene           = new shade_scene{};
@@ -71,6 +79,52 @@ struct app_state {
   }
 };
 
+void update_polygon(app_state* app, int polygon_id) {
+  auto& mesh_polygon = app->state.polygons[polygon_id];
+
+  mesh_polygon.segments.clear();
+
+  // Draw polygon.
+  for (int i = 0; i < mesh_polygon.points.size(); i++) {
+    auto start = mesh_polygon.points[i];
+    auto end   = mesh_polygon.points[(i + 1) % mesh_polygon.points.size()];
+    auto path  = compute_geodesic_path(
+        app->mesh, app->state.points[start], app->state.points[end]);
+    auto segments = mesh_segments(
+        app->mesh.triangles, path.strip, path.lerps, path.start, path.end);
+    mesh_polygon.segments.insert(
+        mesh_polygon.segments.end(), segments.begin(), segments.end());
+    set_polygon_shape(
+        app->glscene, app->mesh, mesh_polygon, app->paths_material);
+  }
+}
+
+void update_polygons(app_state* app) {
+  for (int i = 1; i < app->state.polygons.size(); i++) {
+    update_polygon(app, i);
+  }
+}
+
+void commit_state(app_state* app) {
+  app->history_index += 1;
+  app->history.resize(app->history_index + 1);
+  app->history[app->history_index] = app->state;
+}
+bool undo_state(app_state* app) {
+  if (app->history_index <= 1) return false;
+  app->history_index -= 1;
+  app->state = app->history[app->history_index];
+  update_polygons(app);
+  return true;
+}
+bool redo_state(app_state* app) {
+  if (app->history_index >= app->history.size() - 1) return false;
+  app->history_index += 1;
+  app->state = app->history[app->history_index];
+  update_polygons(app);
+  return true;
+}
+
 void load_shape(app_state* app, const string& filename) {
   app->filename = filename;
   auto error    = ""s;
@@ -91,18 +145,11 @@ void load_shape(app_state* app, const string& filename) {
 
 void init_edges_and_vertices_shapes_and_points(
     app_state* app, bool thin = true) {
-  auto edges = get_edges(app->mesh.triangles, {});
-  auto froms = vector<vec3f>();
-  auto tos   = vector<vec3f>();
-  froms.reserve(edges.size());
-  tos.reserve(edges.size());
+  auto  edges           = get_edges(app->mesh.triangles, {});
   float avg_edge_length = 0;
   for (auto& edge : edges) {
-    auto from = app->mesh.positions[edge.x];
-    auto to   = app->mesh.positions[edge.y];
-    froms.push_back(from);
-    tos.push_back(to);
-    avg_edge_length += length(from - to);
+    avg_edge_length += length(
+        app->mesh.positions[edge.x] - app->mesh.positions[edge.y]);
   }
   avg_edge_length /= edges.size();
   auto cylinder_radius = 0.01f * avg_edge_length;
@@ -115,17 +162,16 @@ void init_edges_and_vertices_shapes_and_points(
     set_normals(edges_shape, {});
     set_texcoords(edges_shape, {});
     set_instances(edges_shape, {});
-    // edges_shape->shape->elements = ogl_element_type::line_strip;
   } else {
-    auto cylinder = make_uvcylinder({8, 1, 1}, {cylinder_radius, 1});
-    for (auto& p : cylinder.positions) {
-      p.z = p.z * 0.5 + 0.5;
-    }
-    set_quads(edges_shape, cylinder.quads);
-    set_positions(edges_shape, cylinder.positions);
-    set_normals(edges_shape, cylinder.normals);
-    set_texcoords(edges_shape, cylinder.texcoords);
-    set_instances(edges_shape, froms, tos);
+    //    auto cylinder = make_uvcylinder({8, 1, 1}, {cylinder_radius, 1});
+    //    for (auto& p : cylinder.positions) {
+    //      p.z = p.z * 0.5 + 0.5;
+    //    }
+    //    set_quads(edges_shape, cylinder.quads);
+    //    set_positions(edges_shape, cylinder.positions);
+    //    set_normals(edges_shape, cylinder.normals);
+    //    set_texcoords(edges_shape, cylinder.texcoords);
+    //    set_instances(edges_shape, froms, tos);
   }
 
   auto vertices_shape  = app->vertices_instance->shape;
