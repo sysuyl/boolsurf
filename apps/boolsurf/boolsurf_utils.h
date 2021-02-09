@@ -200,7 +200,7 @@ inline unordered_map<int, vector<hashgrid_segment>> compute_hashgrid(
 }
 
 inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
-  float eps = 0.001;
+  float eps = 0.00001;
   auto  uv  = point.uv;
   auto  tr  = mesh.triangles[point.face];
   if (uv.x < eps && uv.y < eps) return tr.x;
@@ -347,7 +347,7 @@ inline vector<vec3i> constrained_triangulation(
     auto  orientation = cross(b - a, c - b);
     if (fabs(orientation) < 0.00001) {
       printf("Detected collinearity\n");
-      // continue;
+      continue;
     }
 
     triangles.push_back(verts);
@@ -370,6 +370,7 @@ inline vector<vec3i> constrained_triangulation(
 inline void update_face_edgemap(unordered_map<vec2i, vec2i>& face_edgemap,
     const vec2i& edge, const int face) {
   auto key = make_edge_key(edge);
+
   if (face_edgemap.find(key) != face_edgemap.end()) {
     auto& faces = face_edgemap[key];
     if (faces.x == -1) {
