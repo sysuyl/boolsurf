@@ -19,6 +19,7 @@ void save_test(app_state* app, const string& filename) {
 }
 
 void init_from_test(app_state* app) {
+  app->state.polygons.clear();
   auto& points = app->state.points;
   points       = app->test.points;
   for (auto& polygon : app->test.polygons) {
