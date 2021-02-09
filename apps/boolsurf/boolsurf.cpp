@@ -170,85 +170,18 @@ void mouse_input(app_state* app, const gui_input& input) {
 }
 
 void do_the_thing(app_state* app) {
-  // Hashgrid from triangle idx to <polygon idx, edge_idx, segment idx,
-  // segment start uv, segment end uv> to handle intersections and
-  // self-intersections
   auto& state = app->state;
 
-  struct hashgrid_segment {
-    int polygon = -1;
-    int segment = -1;
-
-    vec2f start = {};
-    vec2f end   = {};
-  };
-
-  struct intersection {
-    int   vertex_id = -1;
-    float lerp      = -1.0f;
-  };
-
-  auto hashgrid = unordered_map<int, vector<hashgrid_segment>>{};
+  // Riempiamo l'hashgrid con i segmenti per triangolo.
+  // Hashgrid from triangle idx to <polygon idx, segment idx,
+  // segment start uv, segment end uv> to handle intersections and
+  // self-intersections
+  auto hashgrid = compute_hashgrid(state.polygons);
 
   // Mappa segmento (polygon_id, segment_id) a lista di intersezioni.
-  auto intersections = unordered_map<vec2i, vector<intersection>>{};
-
-  // Riempiamo l'hashgrid con i segmenti per triangolo.
-  for (auto p = 0; p < state.polygons.size(); p++) {
-    auto& polygon = state.polygons[p];
-    for (auto s = 0; s < polygon.segments.size(); s++) {
-      auto& segment = polygon.segments[s];
-      hashgrid[segment.face].push_back({p, s, segment.start, segment.end});
-
-      if (segment.start == segment.end)
-        printf("P: %d S: %d -> (%f %f) - (%f %f)\n", p, s, segment.start.x,
-            segment.start.y, segment.end.x, segment.end.y);
-    }
-  }
-
   // Per ogni faccia dell'hashgrid, calcoliamo le intersezioni fra i segmenti
   // contenuti.
-  for (auto& [face, entries] : hashgrid) {
-    for (auto i = 0; i < entries.size() - 1; i++) {
-      auto& AB = entries[i];
-      for (auto j = i + 1; j < entries.size(); j++) {
-        auto& CD = entries[j];
-        if (AB.polygon == CD.polygon &&
-            yocto::abs(AB.segment - CD.segment) <= 1) {
-          continue;
-        }
-
-        auto l = intersect_segments(AB.start, AB.end, CD.start, CD.end);
-        if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) continue;
-
-        //        C
-        //        |
-        // A -- point -- B
-        //        |
-        //        D
-
-        auto uv       = lerp(CD.start, CD.end, l.y);
-        auto point    = mesh_point{face, uv};
-        auto point_id = (int)state.points.size();
-        state.points.push_back(point);
-
-        // auto vertex_id = (int)app->mesh.positions.size();
-        // auto pos       = eval_position(
-        //     app->mesh.triangles, app->mesh.positions, point);
-        // app->mesh.positions.push_back(pos);
-        auto vertex_id = add_vertex(app->mesh, point);
-
-        intersections[{AB.polygon, AB.segment}].push_back({vertex_id, l.x});
-        intersections[{CD.polygon, CD.segment}].push_back({vertex_id, l.y});
-      }
-    }
-  }
-
-  for (auto& [key, isecs] : intersections) {
-    // Ordiniamo le intersezioni sulla lunghezza del segmento.
-    sort(isecs.begin(), isecs.end(),
-        [](auto& a, auto& b) { return a.lerp < b.lerp; });
-  }
+  auto intersections = compute_intersections(hashgrid, app->mesh, state.points);
 
   // Mappa ogni faccia alla lista di triangle_segments di quella faccia.
   auto triangle_segments = unordered_map<int, vector<triangle_segment>>{};
@@ -297,18 +230,14 @@ void do_the_thing(app_state* app) {
       // L'indice del prossimo vertice che aggiungeremo al prossimo giro.
       auto end_vertex = vertices[(segment_id + 1) % vertices.size()];
 
-      // auto is_vertex_uv = [](const vec2f& uv) {
-      //   return uv == vec2f{0, 0} || uv == vec2f{1, 0} || uv == vec2f{0, 1};
-      // };
-      // if (is_vertex_uv(start_uv) && is_vertex_uv(end_uv)) {
-      //   continue;
-      // }
       if (start_vertex < original_vertices && end_vertex < original_vertices) {
         continue;
       }
+
       if (start_vertex == end_vertex) {
         continue;
       }
+
       triangle_segments[segment.face].push_back(
           {polygon_id, start_vertex, end_vertex, start_uv, end_uv});
     }
@@ -408,9 +337,6 @@ void do_the_thing(app_state* app) {
         edges.push_back({start, end});
       }
     }
-
-    // printf("Face: %d Nodes: %d Edges: %d\n", face, nodes.size(),
-    // edges.size());
 
     if (nodes.size() == 3) continue;
     debug_nodes[face]     = nodes;

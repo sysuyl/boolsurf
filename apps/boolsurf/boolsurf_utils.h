@@ -35,6 +35,19 @@ struct mesh_polygon {
   shade_instance*      gpu         = nullptr;
 };
 
+struct hashgrid_segment {
+  int polygon = -1;
+  int segment = -1;
+
+  vec2f start = {};
+  vec2f end   = {};
+};
+
+struct intersection {
+  int   vertex_id = -1;
+  float lerp      = -1.0f;
+};
+
 struct cell_polygon {
   vector<int>          points    = {};
   vector<mesh_segment> segments  = {};
@@ -49,19 +62,6 @@ inline vec3f eval_position(const bool_mesh& mesh, const mesh_point& point) {
 inline bool is_closed(const mesh_polygon& polygon) {
   if (polygon.points.size() < 3) return false;
   return (polygon.points.front() == polygon.points.back());
-}
-
-inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
-  float eps = 0.001;
-  auto  uv  = point.uv;
-  auto  tr  = mesh.triangles[point.face];
-  if (uv.x < eps && uv.y < eps) return tr.x;
-  if (uv.x > 1 - eps && uv.y < eps) return tr.y;
-  if (uv.y > 1 - eps && uv.x < eps) return tr.z;
-  auto vertex = (int)mesh.positions.size();
-  auto pos    = eval_position(mesh.triangles, mesh.positions, point);
-  mesh.positions.push_back(pos);
-  return vertex;
 }
 
 inline bool_mesh init_mesh(const generic_shape* shape) {
@@ -129,26 +129,6 @@ inline int find_adjacent_triangle(
   return -1;
 }
 
-// From yocto_mesh.h + small update
-inline vec2f intersect_segments(const vec2f& start1, const vec2f& end1,
-    const vec2f& start2, const vec2f& end2) {
-  if (end1 == start2) return zero2f;
-  if (end2 == start1) return one2f;
-  if (start2 == start1) return zero2f;
-  if (end2 == end1) return one2f;
-
-  auto a = end1 - start1;    // direction of line a
-  auto b = start2 - end2;    // direction of line b, reversed
-  auto d = start2 - start1;  // right-hand side
-
-  auto det = a.x * b.y - a.y * b.x;
-  if (det == 0) return {-1, -1};
-
-  auto r = (d.x * b.y - d.y * b.x) / det;
-  auto s = (a.x * d.y - a.y * d.x) / det;
-  return {r, s};
-}
-
 inline vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
     const vector<int>& strip, const vector<float>& lerps,
     const mesh_point& start, const mesh_point& end) {
@@ -183,6 +163,97 @@ inline vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
     result.push_back({start_uv, end_uv, strip[i]});
   }
   return result;
+}
+
+// From yocto_mesh.h + small update
+inline vec2f intersect_segments(const vec2f& start1, const vec2f& end1,
+    const vec2f& start2, const vec2f& end2) {
+  if (end1 == start2) return zero2f;
+  if (end2 == start1) return one2f;
+  if (start2 == start1) return zero2f;
+  if (end2 == end1) return one2f;
+
+  auto a = end1 - start1;    // direction of line a
+  auto b = start2 - end2;    // direction of line b, reversed
+  auto d = start2 - start1;  // right-hand side
+
+  auto det = a.x * b.y - a.y * b.x;
+  if (det == 0) return {-1, -1};
+
+  auto r = (d.x * b.y - d.y * b.x) / det;
+  auto s = (a.x * d.y - a.y * d.x) / det;
+  return {r, s};
+}
+
+inline unordered_map<int, vector<hashgrid_segment>> compute_hashgrid(
+    const vector<mesh_polygon>& polygons) {
+  auto hashgrid = unordered_map<int, vector<hashgrid_segment>>{};
+
+  for (auto p = 0; p < polygons.size(); p++) {
+    auto& polygon = polygons[p];
+    for (auto s = 0; s < polygon.segments.size(); s++) {
+      auto& segment = polygon.segments[s];
+      hashgrid[segment.face].push_back({p, s, segment.start, segment.end});
+    }
+  }
+  return hashgrid;
+}
+
+inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
+  float eps = 0.001;
+  auto  uv  = point.uv;
+  auto  tr  = mesh.triangles[point.face];
+  if (uv.x < eps && uv.y < eps) return tr.x;
+  if (uv.x > 1 - eps && uv.y < eps) return tr.y;
+  if (uv.y > 1 - eps && uv.x < eps) return tr.z;
+  auto vertex = (int)mesh.positions.size();
+  auto pos    = eval_position(mesh.triangles, mesh.positions, point);
+  mesh.positions.push_back(pos);
+  return vertex;
+}
+
+inline unordered_map<vec2i, vector<intersection>> compute_intersections(
+    const unordered_map<int, vector<hashgrid_segment>>& hashgrid,
+    bool_mesh& mesh, vector<mesh_point>& points) {
+  auto intersections = unordered_map<vec2i, vector<intersection>>();
+  for (auto& [face, entries] : hashgrid) {
+    for (auto i = 0; i < entries.size() - 1; i++) {
+      auto& AB = entries[i];
+      for (auto j = i + 1; j < entries.size(); j++) {
+        auto& CD = entries[j];
+        if (AB.polygon == CD.polygon &&
+            yocto::abs(AB.segment - CD.segment) <= 1) {
+          continue;
+        }
+
+        auto l = intersect_segments(AB.start, AB.end, CD.start, CD.end);
+        if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) continue;
+
+        //        C
+        //        |
+        // A -- point -- B
+        //        |
+        //        D
+
+        auto uv       = lerp(CD.start, CD.end, l.y);
+        auto point    = mesh_point{face, uv};
+        auto point_id = (int)points.size();
+        points.push_back(point);
+
+        auto vertex_id = add_vertex(mesh, point);
+
+        intersections[{AB.polygon, AB.segment}].push_back({vertex_id, l.x});
+        intersections[{CD.polygon, CD.segment}].push_back({vertex_id, l.y});
+      }
+    }
+  }
+
+  for (auto& [key, isecs] : intersections) {
+    // Ordiniamo le intersezioni sulla lunghezza del segmento.
+    sort(isecs.begin(), isecs.end(),
+        [](auto& a, auto& b) { return a.lerp < b.lerp; });
+  }
+  return intersections;
 }
 
 inline vec2i make_edge_key(const vec2i& edge) {
@@ -311,15 +382,6 @@ inline void update_face_edgemap(unordered_map<vec2i, vec2i>& face_edgemap,
   }
 }
 
-inline vector<int> find_boundary_faces(const vector<vec3i>& adjacencies) {
-  auto boundary = vector<int>();
-  for (auto face = 0; face < adjacencies.size(); face++) {
-    auto& [f0, f1, f2] = adjacencies[face];
-    if ((f0 == -1) || (f1 == -1) || (f2 == -1)) boundary.push_back(face);
-  }
-  return boundary;
-}
-
 inline vector<vec3i> compute_face_tags(
     const bool_mesh& mesh, const vector<mesh_polygon>& polygons) {
   auto tags = vector<vec3i>(mesh.triangles.size(), zero3i);
@@ -376,40 +438,42 @@ vector<int> flood_fill(const bool_mesh& mesh, const vector<int>& start,
   return result;
 }
 
-// Polygon operations (from previous implementation)
-inline void polygon_and(const vector<cell_polygon>& cells,
-    vector<int>& cell_ids, const int polygon) {
-  for (auto i = 0; i < cells.size(); i++) {
-    auto& label = cells[i].embedding[polygon];
-    cell_ids[i] = cell_ids[i] && label;
-  }
-}
+// // Polygon operations (from previous implementation)
+// inline void polygon_and(const vector<cell_polygon>& cells,
+//     vector<int>& cell_ids, const int polygon) {
+//   for (auto i = 0; i < cells.size(); i++) {
+//     auto& label = cells[i].embedding[polygon];
+//     cell_ids[i] = cell_ids[i] && label;
+//   }
+// }
 
-inline void polygon_or(const vector<cell_polygon>& cells, vector<int>& cell_ids,
-    const int polygon) {
-  for (auto i = 0; i < cells.size(); i++) {
-    auto& label = cells[i].embedding[polygon];
-    cell_ids[i] = cell_ids[i] || label;
-  }
-}
+// inline void polygon_or(const vector<cell_polygon>& cells, vector<int>&
+// cell_ids,
+//     const int polygon) {
+//   for (auto i = 0; i < cells.size(); i++) {
+//     auto& label = cells[i].embedding[polygon];
+//     cell_ids[i] = cell_ids[i] || label;
+//   }
+// }
 
-inline void polygon_not(const vector<cell_polygon>& cells,
-    vector<int>& cell_ids, const int polygon) {
-  for (auto i = 0; i < cells.size(); i++) {
-    auto& label = cells[i].embedding[polygon];
-    cell_ids[i] = !label;
-  }
-}
+// inline void polygon_not(const vector<cell_polygon>& cells,
+//     vector<int>& cell_ids, const int polygon) {
+//   for (auto i = 0; i < cells.size(); i++) {
+//     auto& label = cells[i].embedding[polygon];
+//     cell_ids[i] = !label;
+//   }
+// }
 
-inline void polygon_common(
-    const vector<cell_polygon>& cells, vector<int>& cell_ids, const int num) {
-  if (num < 1) return;
+// inline void polygon_common(
+//     const vector<cell_polygon>& cells, vector<int>& cell_ids, const int num)
+//     {
+//   if (num < 1) return;
 
-  for (auto i = 0; i < cells.size(); i++) {
-    auto  sum   = 0;
-    auto& label = cells[i].embedding;
-    for (auto& l : label) sum += l;
-    cell_ids[i] = sum >= num;
-  }
-  return;
-}
+//   for (auto i = 0; i < cells.size(); i++) {
+//     auto  sum   = 0;
+//     auto& label = cells[i].embedding;
+//     for (auto& l : label) sum += l;
+//     cell_ids[i] = sum >= num;
+//   }
+//   return;
+// }
