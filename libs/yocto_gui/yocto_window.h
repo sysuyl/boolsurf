@@ -202,6 +202,7 @@ typedef void (*update_callback)(const gui_input&, void*);
 
 // Run loop
 void run_ui(gui_window* win, update_callback update);
+bool run_frame(gui_window* win, update_callback update);
 
 void set_close(gui_window* win, bool close);
 

@@ -54,6 +54,22 @@ struct cell_polygon {
   vector<int>          embedding = {};
 };
 
+// Vector append and concatenation
+template <typename T>
+inline void operator+=(vector<T>& a, const vector<T>& b) {
+  a.insert(a.end(), b.begin(), b.end());
+}
+template <typename T>
+inline void operator+=(vector<T>& a, const T& b) {
+  a.push_back(b);
+}
+template <typename T>
+inline vector<T> operator+(const vector<T>& a, const vector<T>& b) {
+  auto c = a;
+  c += b;
+  return b;
+}
+
 inline vec3f eval_position(const bool_mesh& mesh, const mesh_point& point) {
   return eval_position(mesh.triangles, mesh.positions, point);
 }

@@ -46,15 +46,15 @@ auto fragment = R"(
   }
 )";
 
-void init_glfont(opengl_font& font, const string& filename, float size) {
+void init_font(opengl_font* font, const string& filename, float size) {
   auto error    = string{};
   auto errorlog = string{};
-  if (!set_program(font.program, vertex, fragment, error, errorlog)) {
+  if (!set_program(font->program, vertex, fragment, error, errorlog)) {
     printf("%s: %s\n", __FUNCTION__, error.c_str());
     printf("%s: %s\n", __FUNCTION__, errorlog.c_str());
   }
 
-  font.size = size;
+  font->size = size;
 
   // FreeType
   FT_Library ft;
@@ -67,7 +67,7 @@ void init_glfont(opengl_font& font, const string& filename, float size) {
     printf("ERROR::FREETYPE: Failed to load font %s\n", filename.c_str());
 
   // Set size to load glyphs as
-  FT_Set_Pixel_Sizes(face, 0, (int)font.size);
+  FT_Set_Pixel_Sizes(face, 0, (int)font->size);
 
   // Disable byte-alignment restriction
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -81,7 +81,7 @@ void init_glfont(opengl_font& font, const string& filename, float size) {
     }
 
     // Add entry to hash map.
-    auto& character = font.characters[(char)c];
+    auto& character = font->characters[(char)c];
     character.size  = {
         int(face->glyph->bitmap.width), int(face->glyph->bitmap.rows)};
     character.bearing = {face->glyph->bitmap_left, face->glyph->bitmap_top};
@@ -117,13 +117,13 @@ void init_glfont(opengl_font& font, const string& filename, float size) {
     {0, 1, 3}, {3, 2, 1}
   };
   // clang-format on
-  set_vertex_buffer(font.quad, positions, 0);
-  set_index_buffer(font.quad, triangles);
+  set_vertex_buffer(font->quad, positions, 0);
+  set_index_buffer(font->quad, triangles);
 }
 
-void draw_glfont(const opengl_font& font, const string& text, float x, float y,
+void draw_text(const opengl_font* font, const string& text, float x, float y,
     float scale, const vec3f& color, float alpha) {
-  auto shader = font.program;
+  auto& shader = font->program;
 
   set_ogl_blending(true);
   glEnable(GL_BLEND);
@@ -141,7 +141,7 @@ void draw_glfont(const opengl_font& font, const string& text, float x, float y,
   }
 
   for (int i = 0; i < text.size(); ++i) {
-    auto& ch = font.characters.at(text[i]);
+    auto& ch = font->characters.at(text[i]);
 
     // printf("\ncharacter[%d]: %c\n", i, text[i]);
     // printf("size: %d, %d\n", ch.size.x, ch.size.y);
@@ -167,7 +167,7 @@ void draw_glfont(const opengl_font& font, const string& text, float x, float y,
     // set_uniform(shader, "mat", mat);
 
     glBindTexture(GL_TEXTURE_2D, ch.texture_id);
-    draw_shape(font.quad);
+    draw_shape(font->quad);
     assert(glGetError() == GL_NO_ERROR);
 
     // Advance cursors for next glyph (advance is number of 1/64 pixels)

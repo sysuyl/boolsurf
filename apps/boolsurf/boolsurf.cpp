@@ -41,13 +41,11 @@ struct triangle_segment {
   vec2f end   = {};
 };
 
-void debug_draw(app_state* app, const vector<vec3i>& triangles,
-    const vector<vec2f>& nodes, const vector<int>& indices,
+void debug_draw(app_state* app, int face,
     const vector<triangle_segment>& segments, const string& header = "") {
   static int count = 0;
-  auto&      t     = triangles;
-  auto       n     = nodes;
-  auto       is    = indices;
+  auto&      n     = debug_nodes[face];
+  auto&      is    = debug_indices[face];
   //  auto       e     = vec2i{find_idx(is, edge_key.x), find_idx(is,
   //  edge_key.y)};
 
@@ -55,25 +53,25 @@ void debug_draw(app_state* app, const vector<vec3i>& triangles,
   if (base == "") base = "data/tests/no-name.json";
   auto ext0 = ".triangulation" + to_string(count) + ".png";
   if (header.size()) {
-    ext0 = header + "." + ext0;
+    ext0 = "-" + header + ext0;
   }
-  draw_triangulation(replace_extension(base, ext0), t, n, is);
-  auto edges = vector<vec3i>{};
+  auto edges = vector<vec2i>{};
   for (auto& s : segments) {
     auto e = vec2i{find_idx(is, s.start_vertex), find_idx(is, s.end_vertex)};
-    edges.push_back({e.x, e.y, e.y});
+    edges.push_back({e.x, e.y});
   }
+  debug_edges[face] = edges;
 
-  auto ext1 = ".edges" + to_string(count) + ".png";
-  if (header.size()) {
-    ext1 = header + "." + ext1;
-  }
-
-  draw_triangulation(replace_extension(base, ext1), edges, n, is);
+  save_triangulation(replace_extension(base, ext0), face);
 
   save_test(app, "data/tests/crash.json");
   count += 1;
 }
+
+#include <yocto_gui/ext/imgui/imgui.h>
+#include <yocto_gui/ext/imgui/imgui_impl_glfw.h>
+#include <yocto_gui/ext/imgui/imgui_impl_opengl3.h>
+#include <yocto_gui/ext/imgui/imgui_internal.h>
 
 // draw with shading
 void draw_widgets(app_state* app, const gui_input& input) {
@@ -91,6 +89,21 @@ void draw_widgets(app_state* app, const gui_input& input) {
   if (draw_filedialog_button(widgets, "save test", true, "save file", filename,
           true, "data/", "test.json", "*.json")) {
     save_test(app, filename);
+  }
+
+  static auto view_triangulation = false;
+  draw_checkbox(widgets, "view triangulation", view_triangulation);
+  if (view_triangulation) {
+    static ogl_texture* texture = new ogl_texture{};
+    ImGui::Begin("Triangulation viewer");
+    auto [x, y] = ImGui::GetWindowSize();
+    // auto size   = yocto::min(yocto::min(x, y), 1024);
+
+    // ImGui::Text("pointer = %p", texture);
+    auto face = app->last_clicked_point.face;
+    draw_triangulation(texture, face);
+    ImGui::Image((void*)texture->texture_id, {800, 800}, {0, 1}, {1, 0});
+    ImGui::End();
   }
 
   if (begin_header(widgets, "view")) {
@@ -149,14 +162,15 @@ geodesic_path compute_path(const mesh_polygon& polygon,
 void mouse_input(app_state* app, const gui_input& input) {
   if (is_active(&app->widgets)) return;
 
-  // trigger: alt + left click
-  if (!input.modifier_alt) return;
   if (input.mouse_left.state != gui_button::state::releasing) return;
 
   auto isec = intersect_shape(app, input);
   if (!isec.hit) return;
+  auto point              = mesh_point{isec.element, isec.uv};
+  app->last_clicked_point = point;
+
+  if (!input.modifier_alt) return;
   commit_state(app);
-  auto point = mesh_point{isec.element, isec.uv};
 
   // Add point index to last polygon.
   auto polygon_id = app->state.polygons.size() - 1;
@@ -255,9 +269,9 @@ void do_the_thing(app_state* app) {
   //(marzia) collapse the triangle_segments iterations
   // Not now, they're useful while debugging
 
-  auto debug_triangles = unordered_map<int, vector<vec3i>>{};
-  auto debug_nodes     = unordered_map<int, vector<vec2f>>{};
-  auto debug_indices   = unordered_map<int, vector<int>>{};
+  debug_triangles.clear();
+  debug_nodes.clear();
+  debug_indices.clear();
 
   // Mappa a ogni edge generato le due facce generate adiacenti.
   auto face_edgemap = unordered_map<vec2i, vec2i>{};
@@ -346,10 +360,10 @@ void do_the_thing(app_state* app) {
     }
 
     if (nodes.size() == 3) continue;
+    auto triangles        = constrained_triangulation(nodes, edges);
     debug_nodes[face]     = nodes;
     debug_indices[face]   = indices;
-    debug_triangles[face] = constrained_triangulation(nodes, edges);
-    auto& triangles       = debug_triangles[face];
+    debug_triangles[face] = triangles;
 
     for (auto ee : edges) {
       auto found = false;
@@ -364,7 +378,7 @@ void do_the_thing(app_state* app) {
         }
       }
       if (!found) {
-        debug_draw(app, triangles, nodes, indices, segments);
+        debug_draw(app, face, segments);
         assert(0);
       }
     }
@@ -385,8 +399,8 @@ void do_the_thing(app_state* app) {
     }
 
     // Rendi triangolo originale degenere per farlo sparire.
-    app->mesh.triangles[face] = {0, 0, 0};
-  }
+    //    app->mesh.triangles[face] = {0, 0, 0};
+  }  // end for triangle_segments
 
   auto temp = vector<pair<vec2i, vec2i>>{};
   for (auto& [key, value] : face_edgemap) {
@@ -395,7 +409,7 @@ void do_the_thing(app_state* app) {
     }
   }
 
-  // Creaiamo inner_faces e outer_faces di ogni poligono.
+  // Creiamo inner_faces e outer_faces di ogni poligono.
   for (auto& [face, segments] : triangle_segments) {
     for (auto i = 0; i < segments.size(); i++) {
       auto& [polygon, start_vertex, end_vertex, start_vu, end_uv] = segments[i];
@@ -405,18 +419,13 @@ void do_the_thing(app_state* app) {
       auto faces = face_edgemap.at(edge_key);
 
       if (faces.x == -1 || faces.y == -1) {
-        auto t  = debug_triangles[face];
-        auto n  = debug_nodes[face];
-        auto is = debug_indices[face];
-        debug_draw(app, t, n, is, segments);
         auto qualcosa = hashgrid[face];
-        {
-          auto ff = app->mesh.adjacencies[face][1];
-          auto t  = debug_triangles[ff];
-          auto n  = debug_nodes[ff];
-          auto is = debug_indices[ff];
-          debug_draw(app, t, n, is, segments, "other");
-        }
+
+        debug_draw(app, face, segments);
+
+        auto ff = app->mesh.adjacencies[face][1];
+        debug_draw(app, ff, segments, "other");
+
         assert(0);
       }
 
@@ -453,6 +462,9 @@ void do_the_thing(app_state* app) {
   set_triangles(app->mesh_instance->shape, app->mesh.triangles);
   set_normals(app->mesh_instance->shape, app->mesh.normals);
   init_edges_and_vertices_shapes_and_points(app);
+  //  app->bvh = make_triangles_bvh(app->mesh.triangles, app->mesh.positions,
+  //  {});
+
   app->mesh_instance->hidden = true;
 
   auto tags          = compute_face_tags(app->mesh, state.polygons);
@@ -624,7 +636,8 @@ int main(int argc, const char* argv[]) {
   auto camera_name = ""s;
   auto input       = ""s;
   auto window      = new gui_window{};
-  window->msaa     = 8;
+
+  window->msaa = 8;
 
   // parse command line
   auto cli = make_cli("yboolsurf", "views shapes inteactively");
@@ -640,6 +653,7 @@ int main(int argc, const char* argv[]) {
   parse_cli(cli, argc, argv);
 
   init_window(window, {1280 + 320, 720}, "boolsurf", true);
+
   window->user_data = app;
 
   auto extension = path_extension(input);
@@ -658,6 +672,7 @@ int main(int argc, const char* argv[]) {
   set_ogl_blending(true);
 
   app->widgets = create_imgui(window);
+  app->window  = window;
 
   if (app->test_filename != "") {
     init_from_test(app);

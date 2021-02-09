@@ -20,7 +20,16 @@ struct opengl_font {
   std::unordered_map<char, opengl_char> characters = {};
 };
 
-void init_glfont(opengl_font& font, const string& filename, float size);
+void init_font(opengl_font* font, const string& filename, float size);
 
-void draw_glfont(const opengl_font& font, const string& text, float x, float y,
+void draw_text(const opengl_font* font, const string& text, float x, float y,
     float scale, const vec3f& color, float alpha = 1);
+
+inline void draw_text(const opengl_font* font, const vector<string>& lines,
+    float x, float y, float scale, const vec3f& color, float alpha = 1) {
+  float vertical_step = 2 * font->characters.at('I').size.y * scale;
+  for (auto& line : lines) {
+    draw_text(font, line, x, y, scale, color, alpha);
+    y -= vertical_step;
+  }
+}

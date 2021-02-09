@@ -32,9 +32,10 @@ struct edit_state {
 // Application state
 struct app_state {
   // loading parameters
-  string    filename      = "";
-  string    test_filename = "";
-  bool_test test          = {};
+  string      filename      = "";
+  string      test_filename = "";
+  bool_test   test          = {};
+  gui_window* window        = nullptr;
 
   // options
   shade_params drawgl_prms = {};
@@ -71,7 +72,8 @@ struct app_state {
   // unordered_map<int, vector<int>> patch_out       = {};
   // int                             current_polygon = 1;
 
-  gui_widgets widgets = {};
+  gui_widgets widgets            = {};
+  mesh_point  last_clicked_point = {};
 
   ~app_state() {
     if (glscene) delete glscene;
