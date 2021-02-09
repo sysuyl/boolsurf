@@ -170,9 +170,6 @@ void mouse_input(app_state* app, const gui_input& input) {
 }
 
 void do_the_thing(app_state* app) {
-  // Hashgrid from triangle idx to <polygon idx, edge_idx, segment idx,
-  // segment start uv, segment end uv> to handle intersections and
-  // self-intersections
   auto& state             = app->state;
   auto  original_vertices = app->mesh.positions.size();
 
@@ -233,16 +230,17 @@ void do_the_thing(app_state* app) {
       // L'indice del prossimo vertice che aggiungeremo al prossimo giro.
       auto end_vertex = vertices[(segment_id + 1) % vertices.size()];
 
-      auto is_vertex_uv = [](const vec2f& uv) {
-        return uv == vec2f{0, 0} || uv == vec2f{1, 0} || uv == vec2f{0, 1};
-      };
-      if (is_vertex_uv(start_uv) && is_vertex_uv(end_uv)) {
-        continue;
-      }
-      // if (start_vertex < original_vertices && end_vertex < original_vertices)
-      // {
+      // auto is_vertex_uv = [](const vec2f& uv) {
+      //   return uv == vec2f{0, 0} || uv == vec2f{1, 0} || uv == vec2f{0, 1};
+      // };
+      // if (is_vertex_uv(start_uv) && is_vertex_uv(end_uv)) {
       //   continue;
       // }
+
+      if (start_vertex < original_vertices && end_vertex < original_vertices) {
+        continue;
+      }
+
       if (start_vertex == end_vertex) {
         continue;
       }
