@@ -399,7 +399,7 @@ void do_the_thing(app_state* app) {
     }
 
     // Rendi triangolo originale degenere per farlo sparire.
-    //    app->mesh.triangles[face] = {0, 0, 0};
+    app->mesh.triangles[face] = {0, 0, 0};
   }  // end for triangle_segments
 
   auto temp = vector<pair<vec2i, vec2i>>{};

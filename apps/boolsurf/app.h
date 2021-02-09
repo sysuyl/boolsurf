@@ -41,11 +41,12 @@ struct app_state {
   shade_params drawgl_prms = {};
 
   // scene
-  generic_shape* ioshape = new generic_shape{};
-  shape_bvh      bvh     = {};
+  generic_shape* ioshape = new generic_shape{};  // TODO(giacomo): remove
 
   // boolmesh info
-  bool_mesh mesh = bool_mesh{};
+  bool_mesh mesh          = bool_mesh{};
+  bool_mesh mesh_original = bool_mesh{};
+  shape_bvh bvh           = {};
 
   edit_state         state         = {};
   vector<edit_state> history       = {};
@@ -141,8 +142,9 @@ void load_shape(app_state* app, const string& filename) {
     app->ioshape->quads     = {};
   }
 
-  app->mesh = init_mesh(app->ioshape);
-  app->bvh  = make_triangles_bvh(app->mesh.triangles, app->mesh.positions, {});
+  app->mesh          = init_mesh(app->ioshape);
+  app->mesh_original = app->mesh;
+  app->bvh = make_triangles_bvh(app->mesh.triangles, app->mesh.positions, {});
 }
 
 void init_edges_and_vertices_shapes_and_points(
@@ -312,8 +314,11 @@ shape_intersection intersect_shape(
   auto ray      = camera_ray(app->glcamera->frame, app->glcamera->lens,
       app->glcamera->aspect, app->glcamera->film, mouse_uv);
 
-  auto isec = intersect_triangles_bvh(
-      app->bvh, app->mesh.triangles, app->mesh.positions, ray);
+  // TODO(giacomo): we always use the same original mesh for intersection to
+  // support triangulation viewer, but we don't want to do that in the future.
+  // We need two kinds of intersect.
+  auto isec = intersect_triangles_bvh(app->bvh, app->mesh_original.triangles,
+      app->mesh_original.positions, ray);
 
   return isec;
 }
