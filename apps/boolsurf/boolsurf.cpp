@@ -68,6 +68,18 @@ void debug_draw(app_state* app, int face,
   count += 1;
 }
 
+void debug_cells(app_state* app) {
+  printf("Debugging cell: %d\n", app->current_patch);
+  for (auto i = 0; i < app->cell_patches.size(); i++) {
+    auto idx = app->cell_patches[i];
+
+    app->glscene->instances[idx]->hidden = (i == app->current_patch) ? false
+                                                                     : true;
+  }
+
+  app->current_patch = (app->current_patch + 1) % app->cell_patches.size();
+}
+
 #include <yocto_gui/ext/imgui/imgui.h>
 #include <yocto_gui/ext/imgui/imgui_impl_glfw.h>
 #include <yocto_gui/ext/imgui/imgui_impl_opengl3.h>
@@ -446,6 +458,7 @@ void do_the_thing(app_state* app) {
 
   // Removing face duplicates
   for (auto i = 1; i < state.polygons.size(); i++) {
+    if (!state.polygons[i].points.size()) continue;
     auto& inner = state.polygons[i].inner_faces;
     auto& outer = state.polygons[i].outer_faces;
 
@@ -470,10 +483,16 @@ void do_the_thing(app_state* app) {
   auto tags          = compute_face_tags(app->mesh, state.polygons);
   auto face_polygons = unordered_map<int, vector<int>>();
 
+  for (auto& tag : tags) {
+    if (tag == zero3i) continue;
+    printf("Tag: %d %d %d\n", tag[0], tag[1], tag[2]);
+  }
+
   auto cells      = vector<vector<int>>();
   auto cell_faces = unordered_map<int, vector<int>>();
 
   for (auto p = 1; p < state.polygons.size(); p++) {
+    if (!state.polygons[p].points.size()) continue;
     auto check = [&](int face, int polygon) {
       return find_in_vec(tags[face], polygon) == -1;
     };
@@ -505,54 +524,10 @@ void do_the_thing(app_state* app) {
 
     auto color =
         app->cell_materials[(i + 1) % app->cell_materials.size()]->color;
+
+    app->cell_patches.push_back((int)app->glscene->instances.size());
     add_patch_shape(app, cell_faces[i], color, 0.00025f * (i + 1));
   }
-
-  // Previous Implementation
-  // auto graph = compute_graph(
-  //     app->state.points.size(), edge_map, counterclockwise);
-  // // print_graph(graph);
-
-  // auto edge_info  = compute_edge_info(edge_map, app->state.polygons);
-  // auto components = compute_connected_components(graph);
-
-  // for (auto& component : components) {
-  //   auto cells = compute_cells(
-  //       component, app->state.points, app->mesh,
-  //       app->state.polygons.size());
-  //   // draw_arrangement(app->glscene, app->mesh, app->cell_materials,
-  //   //     app->state.points, arrangement);
-
-  //   print_graph(component);
-  //   print_cells(cells);
-
-  //   auto dual_graph = compute_dual_graph(cells, edge_info);
-  //   // print_dual_graph(dual_graph);
-  //   auto outer_face = compute_outer_face(dual_graph);
-
-  //   visit_dual_graph(dual_graph, cells, outer_face);
-  // }
-
-  // Boolean operation example
-  // auto ids = vector<int>(arrangement.size(), 0);
-  // for (auto i = 0; i < arrangement.size(); i++)
-  //   if (!arrangement[i].embedding[1]) ids[i] = 1;
-
-  // polygon_and(arrangement, ids, 0);
-  // // polygon_or(arrangement, ids, 2);
-
-  // auto result = vector<cell_polygon>();
-  // for (auto i = 0; i < ids.size(); i++) {
-  //   if (ids[i]) {
-  //     result.push_back(arrangement[i]);
-  //     for (auto a : arrangement[i].points) printf("%d ", a);
-  //   }
-  //   printf("\n");
-  // }
-
-  // draw_arrangement(
-  //     app->glscene, app->mesh, app->cell_materials, app->state.points,
-  //     result);
 }
 
 void key_input(app_state* app, const gui_input& input) {
@@ -564,6 +539,7 @@ void key_input(app_state* app, const gui_input& input) {
       case (int)gui_key('Z'): {
         undo_state(app);
       } break;
+
       case (int)gui_key('Y'): {
         redo_state(app);
       } break;
@@ -571,32 +547,10 @@ void key_input(app_state* app, const gui_input& input) {
       case (int)gui_key('I'): {
         do_the_thing(app);
       } break;
-        // case (int)gui_key('L'): {
-        //   for (auto& [_, patches] : app->patch_in)
-        //     for (auto p : patches)
-        //       app->glscene->instances[p]->hidden =
-        //           !app->glscene->instances[p]->hidden;
-        // } break;
-        // case (int)gui_key('R'): {
-        //   for (auto& [_, patches] : app->patch_out)
-        //     for (auto p : patches)
-        //       app->glscene->instances[p]->hidden =
-        //           !app->glscene->instances[p]->hidden;
-        // } break;
-        // case (int)gui_key('N'): {
-        //   for (auto& [key, patches] : app->patch_in)
-        //     for (auto p : patches)
-        //       app->glscene->instances[p]->hidden =
-        //           (key == app->current_polygon) ? false : true;
 
-        //   for (auto& [key, patches] : app->patch_out)
-        //     for (auto p : patches)
-        //       app->glscene->instances[p]->hidden =
-        //           (key == app->current_polygon) ? false : true;
-
-        //   app->current_polygon = (app->current_polygon + 1) %
-        //                          app->state.polygons.size();
-        // } break;
+      case (int)gui_key('N'): {
+        debug_cells(app);
+      } break;
 
       case (int)gui_key('C'): {
         auto old_camera = app->glcamera;

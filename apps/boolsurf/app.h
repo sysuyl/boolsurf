@@ -69,9 +69,8 @@ struct app_state {
   vector<shade_instance*> instances      = {};
 
   //(marzia) Useful while debugging!
-  // unordered_map<int, vector<int>> patch_in        = {};
-  // unordered_map<int, vector<int>> patch_out       = {};
-  // int                             current_polygon = 1;
+  vector<int> cell_patches  = {};
+  int         current_patch = 0;
 
   gui_widgets widgets            = {};
   mesh_point  last_clicked_point = {};
