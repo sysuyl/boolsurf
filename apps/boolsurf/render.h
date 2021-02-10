@@ -142,7 +142,7 @@ inline void draw_triangulation(
   set_uniform(program, "color", vec3f{0.5, 0.5, 0.5});
   draw_shape(faces);
 
-  auto text_size = 0.0004;
+  auto text_size = 0.04;
   for (int i = 0; i < positions.size(); i++) {
     auto text   = to_string(i);
     auto coords = (positions[i] - vec2f{0.5f, 0.5f}) * 1.5f;

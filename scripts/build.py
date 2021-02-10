@@ -15,7 +15,7 @@ def cli():
 def release(clear=False):
     os.makedirs('build/terminal/Release', exist_ok=True)
     os.chdir('build/terminal/Release')
-    os.system('cmake ../../.. -GNinja -DCMAKE_BUILD_TYPE=Release -DYOCTO_EMBREE=ON')
+    os.system('cmake ../../.. -GNinja -DCMAKE_BUILD_TYPE=Release -DYOCTO_EMBREE=OFF')
     os.system('cmake --build . --parallel 8' +
               (' --clean-first' if clear else ''))
 
@@ -42,8 +42,8 @@ def xcode():
 def vs():
     os.makedirs('build/vs', exist_ok=True)
     os.chdir('build/vs')
-    os.system('cmake ../.. -G  "Visual Studio 15 2017" -DYOCTO_EMBREE=ON')
-    os.system('yocto_gl.sln')
+    os.system('cmake ../.. -G  "Visual Studio 15 2017" -DYOCTO_EMBREE=OFF')
+    # os.system('yocto_gl.sln')
 
 
 @cli.command()

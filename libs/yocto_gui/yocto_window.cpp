@@ -230,6 +230,7 @@ static void poll_input(gui_input& input, const gui_window* win) {
   input.time_now   = (double)input.clock_now / 1000000000.0;
   input.time_delta = (double)(input.clock_now - input.clock_last) /
                      1000000000.0;
+  input.frame += 1;
 }
 
 void run_ui(gui_window* win, update_callback update) {

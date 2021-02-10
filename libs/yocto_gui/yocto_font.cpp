@@ -1,18 +1,15 @@
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
 #endif
-#include "ext/glad/glad.h"
-//
-#include <ft2build.h>
 
-#include <cassert>
+#include "ext/glad/glad.h"
+// We only need glPixelStorei();
+
+#include <ft2build.h>
 #include FT_FREETYPE_H
-#include FT_OUTLINE_H
 
 #include "yocto_font.h"
-using namespace yocto;
 
-// From opengl tutorial <3
 // https://learnopengl.com/In-Practice/Text-Rendering
 
 auto vertex = R"(
@@ -36,17 +33,18 @@ auto fragment = R"(
   in vec2 TexCoords;
   out vec4 out_color;
 
-  uniform sampler2D text;
+  uniform sampler2D char_texture;
   uniform vec3 color = vec3(1, 1, 1);
   uniform float alpha = 1;
 
   void main() {    
-      float sampled = texture(text, TexCoords).r;
+      float sampled = texture(char_texture, TexCoords).r;
       out_color = vec4(color, alpha * sampled);
   }
 )";
 
-void init_font(opengl_font* font, const string& filename, float size) {
+namespace yocto {
+void init_font(opengl_font* font, const string& filename, uint size) {
   auto error    = string{};
   auto errorlog = string{};
   if (!set_program(font->program, vertex, fragment, error, errorlog)) {
@@ -67,16 +65,18 @@ void init_font(opengl_font* font, const string& filename, float size) {
     printf("ERROR::FREETYPE: Failed to load font %s\n", filename.c_str());
 
   // Set size to load glyphs as
-  FT_Set_Pixel_Sizes(face, 0, (int)font->size);
+  FT_Set_Pixel_Sizes(face, 0, font->size);
 
   // Disable byte-alignment restriction
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
   // Load first 128 characters of ASCII set
+  font->characters.resize(128);
   for (int c = 0; c < 128; c++) {
     // Load character glyph
     if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
-      printf("%s: ERROR::FREETYTPE: Failed to load Glyph\n", __FUNCTION__);
+      printf(
+          "%s: FreeType failed to load glyph \"%c\"\n", __FUNCTION__, (char)c);
       continue;
     }
 
@@ -85,40 +85,21 @@ void init_font(opengl_font* font, const string& filename, float size) {
     character.size  = {
         int(face->glyph->bitmap.width), int(face->glyph->bitmap.rows)};
     character.bearing = {face->glyph->bitmap_left, face->glyph->bitmap_top};
-    character.advance = (GLuint)face->glyph->advance.x;
+    character.advance = (uint)face->glyph->advance.x;
 
-    // Generate texture
-    assert(glGetError() == GL_NO_ERROR);
-    auto& texture = character.texture_id;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, face->glyph->bitmap.width,
-        face->glyph->bitmap.rows, 0, GL_RED, GL_UNSIGNED_BYTE,
-        face->glyph->bitmap.buffer);
-
-    // Set texture options
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    assert(glGetError() == GL_NO_ERROR);
+    // Generate texture.
+    set_texture(character.texture, character.size, 1,
+        face->glyph->bitmap.buffer, true, true, false);
   }
-  glBindTexture(GL_TEXTURE_2D, 0);
 
   // Destroy FreeType
   FT_Done_Face(face);
   FT_Done_FreeType(ft);
 
-  // clang-format off
-  static const auto positions = vector<vec3f>{
-    {0, 0}, {1, 0}, {1, 1}, {0, 1},
-  };
-  static const auto triangles = vector<vec3i>{
-    {0, 1, 3}, {3, 2, 1}
-  };
-  // clang-format on
+  // Set quad shape.
+  static const auto positions = vector<vec3f>{{0, 0}, {1, 0}, {0, 1}, {1, 1}};
   set_vertex_buffer(font->quad, positions, 0);
-  set_index_buffer(font->quad, triangles);
+  font->quad->elements = ogl_element_type::triangle_strip;
 }
 
 void draw_text(const opengl_font* font, const string& text, float x, float y,
@@ -126,27 +107,19 @@ void draw_text(const opengl_font* font, const string& text, float x, float y,
   auto& shader = font->program;
 
   set_ogl_blending(true);
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   bind_program(shader);
   set_uniform(shader, "color", color);
   set_uniform(shader, "alpha", alpha);
-  assert(glGetError() == GL_NO_ERROR);
-  glActiveTexture(GL_TEXTURE0);
 
   float aspect = 1.0f;
   {
     auto size = get_ogl_viewport_size();
     aspect    = float(size.x) / size.y;
   }
+  scale /= font->size;
 
   for (int i = 0; i < text.size(); ++i) {
-    auto& ch = font->characters.at(text[i]);
-
-    // printf("\ncharacter[%d]: %c\n", i, text[i]);
-    // printf("size: %d, %d\n", ch.size.x, ch.size.y);
-    // printf("bearing: %d, %d\n", ch.bearing.x, ch.bearing.y);
-    // printf("advance: %d\n", (int)ch.advance);
+    auto& ch = font->characters[(int)text[i]];
 
     float xpos = x + ch.bearing.x * scale;
     float ypos = y - (ch.size.y - ch.bearing.y) * scale;
@@ -160,18 +133,12 @@ void draw_text(const opengl_font* font, const string& text, float x, float y,
     set_uniform(shader, "center", center);
     set_uniform(shader, "scale", scaling);
 
-    // auto scale = vec2f{width * 0.5f, height * 0.5f} * dxy;
-    // auto smat = mat2f{{scale.x, 1}, {1, scale.y}};
-    // smat.x.x /= ratio;
-    // auto mat = rot * smat;
-    // set_uniform(shader, "mat", mat);
-
-    glBindTexture(GL_TEXTURE_2D, ch.texture_id);
+    set_uniform(shader, "char_texture", ch.texture, 0);
     draw_shape(font->quad);
-    assert(glGetError() == GL_NO_ERROR);
 
     // Advance cursors for next glyph (advance is number of 1/64 pixels)
-    // line_pos.x += (ch.advance / 64.0);
     x += (ch.advance >> 6) * scale / aspect;
   }
 }
+
+}  // namespace yocto

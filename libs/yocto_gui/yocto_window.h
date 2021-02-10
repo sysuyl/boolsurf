@@ -151,7 +151,7 @@ struct gui_input {
   uint64_t clock_last = 0;       // clock last
   double   time_now   = 0;       // time now
   double   time_delta = 0;       // time delta
-  int      frame      = 0;
+  size_t   frame      = 0;
 
   gui_button mouse_left   = {};
   gui_button mouse_middle = {};
