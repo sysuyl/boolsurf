@@ -232,8 +232,39 @@ inline unordered_map<int, vector<hashgrid_polyline>> compute_hashgrid(
   for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
     auto& polygon   = polygons[polygon_id];
     int   last_face = -1;
+    
+    if(polygon.segments.empty()) continue;
+    int first_face = polygon.segments[0].face;
+    int s_first    = -1;
 
     for (auto s = 0; s < polygon.segments.size(); s++) {
+      auto& segment = polygon.segments[s];
+
+      if (segment.face == first_face) continue;
+      if (s_first == -1) s_first = s;
+
+      auto& entry = hashgrid[segment.face];
+      if (segment.face != last_face) {
+        auto& polyline   = entry.emplace_back();
+        polyline.polygon = polygon_id;
+
+        polyline.points.push_back(segment.end);
+        auto ss = s - 1;
+        if (ss < 0) ss = polygon.segments.size() - 1;
+        polyline.vertices.push_back(vertices[polygon_id][ss]);
+
+        polyline.points.push_back(segment.end);
+        polyline.vertices.push_back(vertices[polygon_id][s]);
+      } else {
+        auto& polyline = entry.back();
+        polyline.points.push_back(segment.end);
+        polyline.vertices.push_back(vertices[polygon_id][s]);
+      }
+      last_face = segment.face;
+    }
+
+    // Ripetiamo perche' la prima polyline non la calcoliamo al primo giro.
+    for (auto s = 0; s < s_first; s++) {
       auto& segment = polygon.segments[s];
       auto& entry   = hashgrid[segment.face];
       if (segment.face != last_face) {
