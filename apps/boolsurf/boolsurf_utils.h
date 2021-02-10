@@ -286,6 +286,7 @@ inline void compute_intersections(
     for (auto p0 = 0; p0 < polylines.size(); p0++) {
       auto& poly = polylines[p0];
 
+      int num_added = 0;
       for (int s0 = 0; s0 < poly.points.size() - 2; s0++) {
         auto& start0 = poly.points[s0];
         auto& end0   = poly.points[(s0 + 1) % poly.points.size()];
@@ -303,16 +304,21 @@ inline void compute_intersections(
 
           insert(poly.points, s0, uv);
           insert(poly.vertices, s0, vertex);
-          s0 += 1;
+          insert(poly.points, s1 + 1, uv);
+          insert(poly.vertices, s1 + 1, vertex);
+          num_added += 1;
+          s1 += 1;
         }
+        s0 += num_added;
       }
     }
 
     // Check for intersections between different polylines
     for (auto p0 = 0; p0 < polylines.size(); p0++) {
       for (auto p1 = p0 + 1; p1 < polylines.size(); p1++) {
-        auto& poly0 = polylines[p0];
-        auto& poly1 = polylines[p1];
+        auto& poly0     = polylines[p0];
+        auto& poly1     = polylines[p1];
+        int   num_added = 0;
         for (int s0 = 0; s0 < poly0.points.size(); s0++) {
           auto& start0 = poly0.points[s0];
           auto& end0   = poly0.points[(s0 + 1) % poly0.points.size()];
@@ -331,9 +337,10 @@ inline void compute_intersections(
             insert(poly0.vertices, s0, vertex);
             insert(poly1.points, s1, uv);
             insert(poly1.vertices, s1, vertex);
-            s0 += 1;
+            num_added += 1;
             s1 += 1;
           }
+          s0 += num_added;
         }
       }
     }
