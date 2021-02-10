@@ -367,7 +367,7 @@ inline vector<vec3i> constrained_triangulation(
     auto  orientation = cross(b - a, c - b);
     if (fabs(orientation) < 0.00001) {
       printf("Detected collinearity\n");
-      continue;
+      //      continue;
     }
 
     triangles.push_back(verts);
@@ -459,30 +459,49 @@ vector<int> flood_fill(const bool_mesh& mesh, const vector<int>& start,
   return result;
 }
 
+static auto debug_result  = vector<int>();
+static auto debug_visited = vector<bool>{};
+static auto debug_stack   = vector<int>{};
+static auto debug_restart = true;
+
 template <typename F>
-vector<int> flood_fill(
+void flood_fill_debug(
     const bool_mesh& mesh, const vector<int>& start, F&& check) {
-  auto visited = vector<bool>(mesh.adjacencies.size(), false);
-
-  auto result = vector<int>();
-  auto stack  = start;
-
-  while (!stack.empty()) {
-    auto face = stack.back();
-    stack.pop_back();
-
-    if (visited[face]) continue;
-    visited[face] = true;
-
-    result.push_back(face);
-
-    for (auto neighbor : mesh.adjacencies[face]) {
-      if (neighbor < 0 || visited[neighbor]) continue;
-      if (check(face, neighbor)) stack.push_back(neighbor);
-    }
+  int face = -1;
+  if (debug_stack.empty()) {
+    debug_restart = true;
+    return;
   }
+  while (!debug_stack.empty()) {
+    auto f = debug_stack.back();
+    debug_stack.pop_back();
+    if (debug_visited[f]) continue;
+    face = f;
+    break;
+  }
+  if (face == -1) return;
 
-  return result;
+  debug_visited[face] = true;
+
+  debug_result.push_back(face);
+
+  auto tag = mesh.tags[face];
+  auto adj = mesh.adjacencies[face];
+  printf("\nfrom %d: tag(%d %d %d) adj(%d %d %d)\n", face, tag[0], tag[1],
+      tag[2], adj[0], adj[1], adj[2]);
+
+  for (auto neighbor : mesh.adjacencies[face]) {
+    if (neighbor < 0 || debug_visited[neighbor]) continue;
+    auto tag = mesh.tags[neighbor];
+    auto adj = mesh.adjacencies[neighbor];
+    if (check(face, neighbor)) {
+      debug_stack.push_back(neighbor);
+      printf("ok   %d: tag(%d %d %d) adj(%d %d %d)\n", neighbor, tag[0], tag[1],
+          tag[2], adj[0], adj[1], adj[2]);
+    }
+    printf("no   %d: tag(%d %d %d) adj(%d %d %d)\n", neighbor, tag[0], tag[1],
+        tag[2], adj[0], adj[1], adj[2]);
+  }
 }
 
 // // Polygon operations (from previous implementation)

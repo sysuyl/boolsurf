@@ -45,7 +45,6 @@ struct triangle_segment {
 void debug_draw(app_state* app, int face,
     const vector<triangle_segment>& segments, const string& header = "") {
   static int count = 0;
-  auto&      n     = debug_nodes[face];
   auto&      is    = debug_indices[face];
   //  auto       e     = vec2i{find_idx(is, edge_key.x), find_idx(is,
   //  edge_key.y)};
@@ -191,6 +190,7 @@ void mouse_input(app_state* app, const gui_input& input) {
   if (!isec.hit) return;
   auto point              = mesh_point{isec.element, isec.uv};
   app->last_clicked_point = point;
+  debug_restart           = true;
 
   if (input.modifier_alt) {
     commit_state(app);
@@ -514,7 +514,6 @@ void do_the_thing(app_state* app) {
       for (int j = k + 1; j < 3; j++) {
         if (tags[i][j] == -tags[i][k]) {
           printf("error i: %d\n", i);
-          exit(0);
           assert(0);
         }
       }
@@ -616,6 +615,7 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key('F'): {
+      press:
         auto add = [&](int face, int neighbor) -> bool {
           for (int k = 0; k < 3; k++) {
             if (app->mesh.tags[face][k] == 0) continue;
@@ -625,16 +625,23 @@ void key_input(app_state* app, const gui_input& input) {
           }
           return true;
         };
-        auto start   = app->last_clicked_point.face;
-        auto visited = flood_fill(app->mesh, {start}, add);
+        auto start = app->last_clicked_point.face;
+
+        if (debug_restart) {
+          debug_visited = vector<bool>(app->mesh.adjacencies.size(), false);
+          debug_stack   = {start};
+          debug_result.clear();
+          debug_restart = false;
+        }
+        flood_fill_debug(app->mesh, {start}, add);
+        auto visited = debug_result;
 
         for (int i = 0; i < visited.size(); i++) {
           auto tag = app->mesh.tags[visited[i]];
           auto adj = app->mesh.adjacencies[visited[i]];
-          printf("%d: tag(%d %d %d) adj(%d %d %d)\n", visited[i], tag[0],
-              tag[1], tag[2], adj[0], adj[1], adj[2]);
+          // printf("%d: tag(%d %d %d) adj(%d %d %d)\n", visited[i], tag[0],
+          //     tag[1], tag[2], adj[0], adj[1], adj[2]);
         }
-      
 
         if (app->temp_patch) {
           set_patch_shape(app->temp_patch->shape, app->mesh, visited);
@@ -642,26 +649,25 @@ void key_input(app_state* app, const gui_input& input) {
           app->temp_patch = add_patch_shape(app, visited, app->materials.blue);
         }
         app->temp_patch->depth_test = ogl_depth_test::always;
+      } break;
+
+      case (int)gui_key('C'): {
+        auto old_camera = app->glcamera;
+        app->state.points.clear();
+        app->state.polygons.clear();
+        app->state.polygons.push_back(mesh_polygon{});
+        load_shape(app, app->filename);
+        clear_scene(app->glscene);
+        init_glscene(app, app->glscene, app->mesh, {});
+        app->glcamera = old_camera;
+      } break;
+
+      case (int)gui_key::enter: {
+        commit_state(app);
+        app->state.polygons.push_back({});
+      } break;
     }
-    break;
-
-    case (int)gui_key('C'): {
-      auto old_camera = app->glcamera;
-      app->state.points.clear();
-      app->state.polygons.clear();
-      app->state.polygons.push_back(mesh_polygon{});
-      load_shape(app, app->filename);
-      clear_scene(app->glscene);
-      init_glscene(app, app->glscene, app->mesh, {});
-      app->glcamera = old_camera;
-    } break;
-
-    case (int)gui_key::enter: {
-      commit_state(app);
-      app->state.polygons.push_back({});
-    } break;
   }
-}
 }
 
 void update_app(const gui_input& input, void* data) {
