@@ -58,6 +58,7 @@ struct app_state {
   shade_instance* mesh_instance     = nullptr;
   shade_instance* edges_instance    = nullptr;
   shade_instance* vertices_instance = nullptr;
+  shade_instance* temp_patch        = nullptr;
 
   shade_material* mesh_material   = nullptr;
   shade_material* edges_material  = nullptr;

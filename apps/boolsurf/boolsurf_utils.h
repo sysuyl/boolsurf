@@ -19,6 +19,7 @@ struct bool_mesh {
   vector<vec3f>        positions   = {};
   vector<vec3f>        normals     = {};
   dual_geodesic_solver dual_solver = {};
+  vector<vec3i>        tags        = {};
 };
 
 struct mesh_segment {
@@ -32,10 +33,10 @@ struct mesh_polygon {
   vector<mesh_segment> segments    = {};
   vector<int>          inner_faces = {};
   vector<int>          outer_faces = {};
-  
-  shade_instance*    polyline_shape         = nullptr;
-  shade_instance*    inner_shape         = nullptr;
-  shade_instance*    outer_shape         = nullptr;
+
+  shade_instance* polyline_shape = nullptr;
+  shade_instance* inner_shape    = nullptr;
+  shade_instance* outer_shape    = nullptr;
 };
 
 struct hashgrid_segment {
@@ -452,6 +453,32 @@ vector<int> flood_fill(const bool_mesh& mesh, const vector<int>& start,
       // else if (check(neighbor, polygon))
       //   stack.push_back(neighbor);
       if (check(neighbor, polygon)) stack.push_back(neighbor);
+    }
+  }
+
+  return result;
+}
+
+template <typename F>
+vector<int> flood_fill(
+    const bool_mesh& mesh, const vector<int>& start, F&& check) {
+  auto visited = vector<bool>(mesh.adjacencies.size(), false);
+
+  auto result = vector<int>();
+  auto stack  = start;
+
+  while (!stack.empty()) {
+    auto face = stack.back();
+    stack.pop_back();
+
+    if (visited[face]) continue;
+    visited[face] = true;
+
+    result.push_back(face);
+
+    for (auto neighbor : mesh.adjacencies[face]) {
+      if (neighbor < 0 || visited[neighbor]) continue;
+      if (check(face, neighbor)) stack.push_back(neighbor);
     }
   }
 

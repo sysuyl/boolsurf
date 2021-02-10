@@ -192,18 +192,19 @@ void mouse_input(app_state* app, const gui_input& input) {
   auto point              = mesh_point{isec.element, isec.uv};
   app->last_clicked_point = point;
 
-  if (!input.modifier_alt) return;
-  commit_state(app);
+  if (input.modifier_alt) {
+    commit_state(app);
 
-  // Add point index to last polygon.
-  auto polygon_id = app->state.polygons.size() - 1;
-  app->state.polygons[polygon_id].points.push_back(app->state.points.size());
+    // Add point index to last polygon.
+    auto polygon_id = app->state.polygons.size() - 1;
+    app->state.polygons[polygon_id].points.push_back(app->state.points.size());
 
-  // Add point to state.
-  app->state.points.push_back(point);
+    // Add point to state.
+    app->state.points.push_back(point);
 
-  // TODO(giacomo): recomputing all paths of the polygon at every click is bad
-  update_polygon(app, polygon_id);
+    // TODO(giacomo): recomputing all paths of the polygon at every click is bad
+    update_polygon(app, polygon_id);
+  }
 }
 
 void do_the_thing(app_state* app) {
@@ -483,11 +484,13 @@ void do_the_thing(app_state* app) {
 
   // Draw inner and outer faces
   for (auto i = 0; i < state.polygons.size(); i++) {
-    auto& polygon       = state.polygons[i];
-    auto  a             = app->materials.red;
-    auto  b             = app->materials.green;
-    polygon.inner_shape = add_patch_shape(app, polygon.inner_faces, a);
-    polygon.outer_shape = add_patch_shape(app, polygon.outer_faces, b);
+    auto& polygon               = state.polygons[i];
+    auto  a                     = app->materials.red;
+    auto  b                     = app->materials.green;
+    polygon.inner_shape         = add_patch_shape(app, polygon.inner_faces, a);
+    polygon.outer_shape         = add_patch_shape(app, polygon.outer_faces, b);
+    polygon.inner_shape->hidden = true;
+    polygon.outer_shape->hidden = true;
   }
 
   app->mesh.normals = compute_normals(app->mesh.triangles, app->mesh.positions);
@@ -501,7 +504,42 @@ void do_the_thing(app_state* app) {
 
   app->mesh_instance->hidden = true;
 
-  auto tags          = compute_face_tags(app->mesh, state.polygons);
+  app->mesh.tags = compute_face_tags(app->mesh, state.polygons);
+  auto& tags     = app->mesh.tags;
+
+  // Check if face is both outside and inside
+  for (int i = 0; i < tags.size(); i++) {
+    for (int k = 0; k < 2; k++) {
+      if (tags[i][k] == 0) continue;
+      for (int j = k + 1; j < 3; j++) {
+        if (tags[i][j] == -tags[i][k]) {
+          printf("error i: %d\n", i);
+          exit(0);
+          assert(0);
+        }
+      }
+    }
+  }
+
+  for (int i = 0; i < tags.size(); i++) {
+    for (int k = 0; k < 3; k++) {
+      if (tags[i][k] == 0) continue;
+      auto found = false;
+      for (int n = 0; n < 3; n++) {
+        auto neighbor = app->mesh.adjacencies[i][n];
+        auto id       = find_in_vec(tags[neighbor], -tags[i][k]);
+        if (id != -1) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        assert(0);
+        exit(0);
+      }
+    }
+  }
+
   auto face_polygons = unordered_map<int, vector<int>>();
 
   for (auto& tag : tags) {
@@ -577,23 +615,53 @@ void key_input(app_state* app, const gui_input& input) {
         debug_borders(app);
       } break;
 
-      case (int)gui_key('C'): {
-        auto old_camera = app->glcamera;
-        app->state.points.clear();
-        app->state.polygons.clear();
-        app->state.polygons.push_back(mesh_polygon{});
-        load_shape(app, app->filename);
-        clear_scene(app->glscene);
-        init_glscene(app, app->glscene, app->mesh, {});
-        app->glcamera = old_camera;
-      } break;
+      case (int)gui_key('F'): {
+        auto add = [&](int face, int neighbor) -> bool {
+          for (int k = 0; k < 3; k++) {
+            if (app->mesh.tags[face][k] == 0) continue;
+            if (find_in_vec(
+                    app->mesh.tags[neighbor], -app->mesh.tags[face][k]) != -1)
+              return false;
+          }
+          return true;
+        };
+        auto start   = app->last_clicked_point.face;
+        auto visited = flood_fill(app->mesh, {start}, add);
 
-      case (int)gui_key::enter: {
-        commit_state(app);
-        app->state.polygons.push_back({});
-      } break;
+        for (int i = 0; i < visited.size(); i++) {
+          auto tag = app->mesh.tags[visited[i]];
+          auto adj = app->mesh.adjacencies[visited[i]];
+          printf("%d: tag(%d %d %d) adj(%d %d %d)\n", visited[i], tag[0],
+              tag[1], tag[2], adj[0], adj[1], adj[2]);
+        }
+      
+
+        if (app->temp_patch) {
+          set_patch_shape(app->temp_patch->shape, app->mesh, visited);
+        } else {
+          app->temp_patch = add_patch_shape(app, visited, app->materials.blue);
+        }
+        app->temp_patch->depth_test = ogl_depth_test::always;
     }
+    break;
+
+    case (int)gui_key('C'): {
+      auto old_camera = app->glcamera;
+      app->state.points.clear();
+      app->state.polygons.clear();
+      app->state.polygons.push_back(mesh_polygon{});
+      load_shape(app, app->filename);
+      clear_scene(app->glscene);
+      init_glscene(app, app->glscene, app->mesh, {});
+      app->glcamera = old_camera;
+    } break;
+
+    case (int)gui_key::enter: {
+      commit_state(app);
+      app->state.polygons.push_back({});
+    } break;
   }
+}
 }
 
 void update_app(const gui_input& input, void* data) {
