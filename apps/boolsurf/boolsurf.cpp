@@ -223,6 +223,11 @@ void do_the_thing(app_state* app) {
     vertices[i].resize(segments.size());
 
     for (auto s = 0; s < segments.size(); s++) {
+      if (segments[s].face == 132938) {
+        printf("\n%d\n", s);
+        printf("%f %f\n", segments[s].start.x, segments[s].start.y);
+        printf("%f %f\n", segments[s].end.x, segments[s].end.y);
+      }
       vertices[i][s] = add_vertex(
           app->mesh, {segments[s].face, segments[s].end});
     }
@@ -230,13 +235,13 @@ void do_the_thing(app_state* app) {
 
   auto hashgrid = compute_hashgrid(state.polygons, vertices);
 
-    auto yy = hashgrid[132870];
+  auto yy = hashgrid[132938];
   // Mappa segmento (polygon_id, segment_id) a lista di intersezioni.
   // Per ogni faccia dell'hashgrid, calcoliamo le intersezioni fra i segmenti
   // contenuti.
   compute_intersections(hashgrid, app->mesh);
-    auto zz = hashgrid[132870];
-    
+  auto zz = hashgrid[132938];
+
   // Mappa ogni faccia alla lista di triangle_segments di quella faccia.
   auto triangle_segments = unordered_map<int, vector<triangle_segment>>{};
 
@@ -360,7 +365,8 @@ void do_the_thing(app_state* app) {
           auto vertex_start       = polyline.vertices[i - 1];
           auto uv_start           = polyline.points[i - 1];
           auto local_vertex_start = find_idx(indices, vertex_start);
-//          auto edge = make_edge_key({local_vertex_start, local_vertex});
+          //          auto edge = make_edge_key({local_vertex_start,
+          //          local_vertex});
           // edge_set.insert(edge);
 
           auto [tri_edge, l] = get_mesh_edge({0, 1, 2}, uv_start);
@@ -454,6 +460,7 @@ void do_the_thing(app_state* app) {
 
     for (auto ee : edges) {
       auto found = false;
+      if (ee.x == ee.y) continue;  // TODO: why?
       for (auto& tr : triangles) {
         int k = 0;
         for (k = 0; k < 3; k++) {
@@ -705,6 +712,34 @@ void key_input(app_state* app, const gui_input& input) {
           auto adj = app->mesh.adjacencies[visited[i]];
           // printf("%d: tag(%d %d %d) adj(%d %d %d)\n", visited[i], tag[0],
           //     tag[1], tag[2], adj[0], adj[1], adj[2]);
+        }
+
+        if (app->temp_patch) {
+          set_patch_shape(app->temp_patch->shape, app->mesh, visited);
+        } else {
+          app->temp_patch = add_patch_shape(app, visited, app->materials.blue);
+        }
+        app->temp_patch->depth_test = ogl_depth_test::always;
+      } break;
+
+      case (int)gui_key('G'): {
+        auto add = [&](int face, int neighbor) -> bool {
+          for (int k = 0; k < 3; k++) {
+            if (app->mesh.tags[face][k] == 0) continue;
+            if (find_in_vec(
+                    app->mesh.tags[neighbor], -app->mesh.tags[face][k]) != -1)
+              return false;
+          }
+          return true;
+        };
+        auto start   = app->last_clicked_point.face;
+        auto visited = flood_fill(app->mesh, {start}, add);
+
+        for (int i = 0; i < visited.size(); i++) {
+          auto tag = app->mesh.tags[visited[i]];
+          auto adj = app->mesh.adjacencies[visited[i]];
+          printf("%d: tag(%d %d %d) adj(%d %d %d)\n", visited[i], tag[0],
+              tag[1], tag[2], adj[0], adj[1], adj[2]);
         }
 
         if (app->temp_patch) {

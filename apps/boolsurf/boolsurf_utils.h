@@ -232,15 +232,15 @@ inline unordered_map<int, vector<hashgrid_polyline>> compute_hashgrid(
   for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
     auto& polygon   = polygons[polygon_id];
     int   last_face = -1;
-    
-    if(polygon.segments.empty()) continue;
+
+    if (polygon.segments.empty()) continue;
     int first_face = polygon.segments[0].face;
     int s_first    = -1;
 
     for (auto s = 0; s < polygon.segments.size(); s++) {
       auto& segment = polygon.segments[s];
 
-      if (segment.face == first_face) continue;
+      if (segment.face == first_face && s_first == -1) continue;
       if (s_first == -1) s_first = s;
 
       auto& entry = hashgrid[segment.face];
@@ -248,42 +248,35 @@ inline unordered_map<int, vector<hashgrid_polyline>> compute_hashgrid(
         auto& polyline   = entry.emplace_back();
         polyline.polygon = polygon_id;
 
-        polyline.points.push_back(segment.end);
         auto ss = s - 1;
-        if (ss < 0) ss = polygon.segments.size() - 1;
+        assert(ss >= 0);
         polyline.vertices.push_back(vertices[polygon_id][ss]);
+        polyline.points.push_back(segment.start);
 
-        polyline.points.push_back(segment.end);
         polyline.vertices.push_back(vertices[polygon_id][s]);
+        polyline.points.push_back(segment.end);
       } else {
         auto& polyline = entry.back();
+        assert(segment.end != polyline.points.back());
         polyline.points.push_back(segment.end);
         polyline.vertices.push_back(vertices[polygon_id][s]);
+      }
+      auto& polyline = entry.back();
+      if (polyline.points.size() >= 2) {
+        assert(polyline.points.back() != polyline.points.end()[-2]);
       }
       last_face = segment.face;
     }
 
     // Ripetiamo perche' la prima polyline non la calcoliamo al primo giro.
+    assert(last_face != -1);
     for (auto s = 0; s < s_first; s++) {
-      auto& segment = polygon.segments[s];
-      auto& entry   = hashgrid[segment.face];
-      if (segment.face != last_face) {
-        auto& polyline   = entry.emplace_back();
-        polyline.polygon = polygon_id;
-
-        polyline.points.push_back(segment.end);
-        auto ss = s - 1;
-        if (ss < 0) ss = polygon.segments.size() - 1;
-        polyline.vertices.push_back(vertices[polygon_id][ss]);
-
-        polyline.points.push_back(segment.end);
-        polyline.vertices.push_back(vertices[polygon_id][s]);
-      } else {
-        auto& polyline = entry.back();
-        polyline.points.push_back(segment.end);
-        polyline.vertices.push_back(vertices[polygon_id][s]);
-      }
-      last_face = segment.face;
+      auto& segment  = polygon.segments[s];
+      auto& entry    = hashgrid[segment.face];
+      auto& polyline = entry.back();
+      assert(segment.face == last_face);
+      polyline.points.push_back(segment.end);
+      polyline.vertices.push_back(vertices[polygon_id][s]);
     }
   }
   return hashgrid;
@@ -555,6 +548,32 @@ vector<int> flood_fill(const bool_mesh& mesh, const vector<int>& start,
       // else if (check(neighbor, polygon))
       //   stack.push_back(neighbor);
       if (check(neighbor, polygon)) stack.push_back(neighbor);
+    }
+  }
+
+  return result;
+}
+
+template <typename F>
+vector<int> flood_fill(
+    const bool_mesh& mesh, const vector<int>& start, F&& check) {
+  auto visited = vector<bool>(mesh.adjacencies.size(), false);
+
+  auto result = vector<int>();
+  auto stack  = start;
+
+  while (!stack.empty()) {
+    auto face = stack.back();
+    stack.pop_back();
+
+    if (visited[face]) continue;
+    visited[face] = true;
+
+    result.push_back(face);
+
+    for (auto neighbor : mesh.adjacencies[face]) {
+      if (neighbor < 0 || visited[neighbor]) continue;
+      if (check(face, neighbor)) stack.push_back(neighbor);
     }
   }
 
