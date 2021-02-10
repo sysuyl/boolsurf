@@ -81,6 +81,16 @@ void debug_cells(app_state* app) {
   app->current_patch = (app->current_patch + 1) % app->cell_patches.size();
 }
 
+void debug_borders(app_state* app) {
+  printf("Debugging cell: %d\n", app->current_border);
+  for (auto i = 0; i < app->state.polygons.size(); i++) {
+    app->state.polygons[i].inner_shape->hidden = (i != app->current_border);
+    app->state.polygons[i].outer_shape->hidden = (i != app->current_border);
+  }
+
+  app->current_border = (app->current_border + 1) % app->state.polygons.size();
+}
+
 #include <yocto_gui/ext/imgui/imgui.h>
 #include <yocto_gui/ext/imgui/imgui_impl_glfw.h>
 #include <yocto_gui/ext/imgui/imgui_impl_opengl3.h>
@@ -458,6 +468,7 @@ void do_the_thing(app_state* app) {
   }
 
   // Removing face duplicates
+  // TODO(giacomo): check if we can avoid this
   for (auto i = 1; i < state.polygons.size(); i++) {
     if (!state.polygons[i].points.size()) continue;
     auto& inner = state.polygons[i].inner_faces;
@@ -468,6 +479,15 @@ void do_the_thing(app_state* app) {
 
     sort(outer.begin(), outer.end());
     outer.erase(unique(outer.begin(), outer.end()), outer.end());
+  }
+
+  // Draw inner and outer faces
+  for (auto i = 0; i < state.polygons.size(); i++) {
+    auto& polygon       = state.polygons[i];
+    auto  a             = app->materials.red;
+    auto  b             = app->materials.green;
+    polygon.inner_shape = add_patch_shape(app, polygon.inner_faces, a);
+    polygon.outer_shape = add_patch_shape(app, polygon.outer_faces, b);
   }
 
   app->mesh.normals = compute_normals(app->mesh.triangles, app->mesh.positions);
@@ -527,7 +547,7 @@ void do_the_thing(app_state* app) {
         app->cell_materials[(i + 1) % app->cell_materials.size()]->color;
 
     app->cell_patches.push_back((int)app->glscene->instances.size());
-    add_patch_shape(app, cell_faces[i], color, 0.00025f * (i + 1));
+    add_patch_shape(app, cell_faces[i], color);
   }
 }
 
@@ -551,6 +571,10 @@ void key_input(app_state* app, const gui_input& input) {
 
       case (int)gui_key('N'): {
         debug_cells(app);
+      } break;
+
+      case (int)gui_key('B'): {
+        debug_borders(app);
       } break;
 
       case (int)gui_key('C'): {

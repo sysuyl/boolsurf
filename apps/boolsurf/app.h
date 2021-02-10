@@ -65,12 +65,20 @@ struct app_state {
   shade_material* paths_material  = nullptr;
   shade_material* isecs_material  = nullptr;
 
+  struct {
+    shade_material* red   = nullptr;
+    shade_material* blue  = nullptr;
+    shade_material* green = nullptr;
+    shade_material* white = nullptr;
+  } materials;
+
   vector<shade_material*> cell_materials = {};
   vector<shade_instance*> instances      = {};
 
   //(marzia) Useful while debugging!
-  vector<int> cell_patches  = {};
-  int         current_patch = 0;
+  vector<int> cell_patches   = {};
+  int         current_patch  = 0;
+  int         current_border = 0;
 
   gui_widgets widgets            = {};
   mesh_point  last_clicked_point = {};
@@ -247,6 +255,11 @@ void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh,
         glscene, {0, 0, 0}, colors[i], 1, 0, 0.4);
   }
 
+  app->materials.red   = add_material(glscene, {0, 0, 0}, {1, 0, 0}, 1, 0, 1);
+  app->materials.green = add_material(glscene, {0, 0, 0}, {0, 1, 0}, 1, 0, 1);
+  app->materials.blue  = add_material(glscene, {0, 0, 0}, {0, 0, 1}, 1, 0, 1);
+  app->materials.white = add_material(glscene, {0, 0, 0}, {1, 1, 1}, 1, 0, 1);
+
   // shapes
   if (progress_cb) progress_cb("convert shape", progress.x++, progress.y);
   auto mesh_shape = add_shape(glscene, {}, {}, app->mesh.triangles, {},
@@ -322,11 +335,18 @@ shape_intersection intersect_shape(
   return isec;
 }
 
-shade_instance* add_patch_shape(app_state* app, const vector<int>& faces,
-    const vec3f& color, const float distance) {
+shade_instance* add_patch_shape(
+    app_state* app, const vector<int>& faces, const vec3f& color) {
   auto patch_shape    = add_shape(app->glscene, {}, {}, {}, {}, {}, {}, {}, {});
   auto patch_material = add_material(
       app->glscene, {0, 0, 0}, color * 0.1, 1, 0, 0.4);  // @Leak
-  set_patch_shape(patch_shape, app->mesh, faces, distance);
+  set_patch_shape(patch_shape, app->mesh, faces);
   return add_instance(app->glscene, identity3x4f, patch_shape, patch_material);
+}
+
+shade_instance* add_patch_shape(
+    app_state* app, const vector<int>& faces, shade_material* material) {
+  auto patch_shape = add_shape(app->glscene, {}, {}, {}, {}, {}, {}, {}, {});
+  set_patch_shape(patch_shape, app->mesh, faces);
+  return add_instance(app->glscene, identity3x4f, patch_shape, material);
 }

@@ -1,8 +1,8 @@
 #include <yocto_gui/yocto_font.h>
 #include <yocto_gui/yocto_shade.h>
 
-inline void set_patch_shape(shade_shape* shape, const bool_mesh& mesh,
-    const vector<int>& faces, const float distance) {
+inline void set_patch_shape(
+    shade_shape* shape, const bool_mesh& mesh, const vector<int>& faces) {
   auto positions = vector<vec3f>(faces.size() * 3);
   for (int i = 0; i < faces.size(); i++) {
     auto [a, b, c]       = mesh.triangles[faces[i]];
@@ -17,13 +17,13 @@ inline void set_patch_shape(shade_shape* shape, const bool_mesh& mesh,
 
 inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
     mesh_polygon& polygon, shade_material* material) {
-  if (!polygon.gpu) {
-    polygon.gpu             = add_instance(scene);
-    polygon.gpu->material   = material;
-    polygon.gpu->depth_test = ogl_depth_test::always;
+  if (!polygon.polyline_shape) {
+    polygon.polyline_shape             = add_instance(scene);
+    polygon.polyline_shape->material   = material;
+    polygon.polyline_shape->depth_test = ogl_depth_test::always;
   }
-  if (!polygon.gpu->shape) {
-    polygon.gpu->shape = add_shape(scene);
+  if (!polygon.polyline_shape->shape) {
+    polygon.polyline_shape->shape = add_shape(scene);
   }
   if (polygon.segments.empty()) return;
   auto positions = vector<vec3f>(polygon.segments.size() + 1);
@@ -36,9 +36,9 @@ inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
     positions.back() = eval_position(mesh, {segment.face, segment.end});
   }
 
-  set_positions(polygon.gpu->shape, positions);
-  polygon.gpu->shape->shape->elements = ogl_element_type::line_strip;
-  set_instances(polygon.gpu->shape, {}, {});
+  set_positions(polygon.polyline_shape->shape, positions);
+  polygon.polyline_shape->shape->shape->elements = ogl_element_type::line_strip;
+  set_instances(polygon.polyline_shape->shape, {}, {});
 }
 
 auto debug_triangles = unordered_map<int, vector<vec3i>>{};
