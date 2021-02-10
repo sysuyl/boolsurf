@@ -196,7 +196,7 @@ void mouse_input(app_state* app, const gui_input& input) {
     commit_state(app);
 
     // Add point index to last polygon.
-    auto polygon_id = app->state.polygons.size() - 1;
+    auto polygon_id = (int)app->state.polygons.size() - 1;
     app->state.polygons[polygon_id].points.push_back(app->state.points.size());
 
     // Add point to state.
@@ -215,12 +215,25 @@ void do_the_thing(app_state* app) {
   // Hashgrid from triangle idx to <polygon idx, segment idx,
   // segment start uv, segment end uv> to handle intersections and
   // self-intersections
-  auto hashgrid = compute_hashgrid(state.polygons);
+
+  // Compute all new vertices
+  auto vertices = vector<vector<int>>(state.polygons.size());
+  for (int i = 0; i < state.polygons.size(); i++) {
+    auto& segments = state.polygons[i].segments;
+    vertices[i].resize(segments.size());
+
+    for (auto s = 0; s < segments.size(); s++) {
+      vertices[i][s] = add_vertex(
+          app->mesh, {segments[s].face, segments[s].end});
+    }
+  }
+
+  auto hashgrid = compute_hashgrid(state.polygons, vertices);
 
   // Mappa segmento (polygon_id, segment_id) a lista di intersezioni.
   // Per ogni faccia dell'hashgrid, calcoliamo le intersezioni fra i segmenti
   // contenuti.
-  auto intersections = compute_intersections(hashgrid, app->mesh, state.points);
+  compute_intersections(hashgrid, app->mesh);
 
   // Mappa ogni faccia alla lista di triangle_segments di quella faccia.
   auto triangle_segments = unordered_map<int, vector<triangle_segment>>{};
@@ -229,64 +242,67 @@ void do_the_thing(app_state* app) {
   // Dobbiamo inserire nei punti giusti anche i punti di intersezione che
   // spezzano i segmenti.
   // Inoltre popoliamo triangle_segments.
-  for (auto polygon_id = 0; polygon_id < state.polygons.size(); polygon_id++) {
-    auto& segments = state.polygons[polygon_id].segments;
-
-    auto vertices = vector<int>(segments.size());
-    for (auto i = 0; i < segments.size(); i++) {
-      vertices[i] = add_vertex(
-          app->mesh, {segments[i].face, segments[i].start});
-    }
-
-    // Per ogni segmento del poligono.
-    for (auto segment_id = 0; segment_id < segments.size(); segment_id++) {
-      auto& segment = segments[segment_id];
-
-      auto start_uv     = segment.start;
-      auto start_vertex = vertices[segment_id];
-
-      // Se questo segmento aveva una o piu' interesezioni con altri segmenti...
-      if (intersections.find({polygon_id, segment_id}) != intersections.end()) {
-        auto& isecs = intersections[{polygon_id, segment_id}];
-
-        // Popoliamo triangle_segments.
-        for (auto& [end_vertex, l] : isecs) {
-          auto end_uv = lerp(segment.start, segment.end, l);
-          if (start_vertex != end_vertex) {
-            triangle_segments[segment.face].push_back(
-                {polygon_id, start_vertex, end_vertex, start_uv, end_uv});
-          }
-
-          // Accorcio il segmento corrente.
-          start_uv     = end_uv;
-          start_vertex = end_vertex;
-        }
-      }
-
-      auto end_uv = segment.end;
-
-      // L'indice del prossimo vertice che aggiungeremo al prossimo giro.
-      auto end_vertex = vertices[(segment_id + 1) % vertices.size()];
-
-      // auto is_vertex_uv = [](const vec2f& uv) {
-      //   return uv == vec2f{0, 0} || uv == vec2f{1, 0} || uv == vec2f{0, 1};
-      // };
-      // if (is_vertex_uv(start_uv) && is_vertex_uv(end_uv)) {
-      //   continue;
-      // }
-
-      if (start_vertex < original_vertices && end_vertex < original_vertices) {
-        continue;
-      }
-
-      if (start_vertex == end_vertex) {
-        continue;
-      }
-
-      triangle_segments[segment.face].push_back(
-          {polygon_id, start_vertex, end_vertex, start_uv, end_uv});
-    }
-  }
+//  for (auto polygon_id = 0; polygon_id < state.polygons.size(); polygon_id++) {
+//    auto& segments = state.polygons[polygon_id].segments;
+//
+//    auto vertices = vector<int>(segments.size());
+//    for (auto i = 0; i < segments.size(); i++) {
+//      vertices[i] = add_vertex(
+//          app->mesh, {segments[i].face, segments[i].start});
+//    }
+//
+//    // Per ogni segmento del poligono.
+//    for (auto segment_id = 0; segment_id < segments.size(); segment_id++) {
+//      auto& segment = segments[segment_id];
+//
+//      auto start_uv     = segment.start;
+//      auto start_vertex = vertices[segment_id];
+//
+//      // Se questo segmento aveva una o piu' interesezioni con altri segmenti...
+//
+//        //     !!!!!!!!!!!!!!
+//        //      if (intersections.find({polygon_id, segment_id}) != intersections.end())
+//      {
+//        auto& isecs = intersections[{polygon_id, segment_id}];
+//
+//        // Popoliamo triangle_segments.
+//        for (auto& [end_vertex, l] : isecs) {
+//          auto end_uv = lerp(segment.start, segment.end, l);
+//          if (start_vertex != end_vertex) {
+//            triangle_segments[segment.face].push_back(
+//                {polygon_id, start_vertex, end_vertex, start_uv, end_uv});
+//          }
+//
+//          // Accorcio il segmento corrente.
+//          start_uv     = end_uv;
+//          start_vertex = end_vertex;
+//        }
+//      }
+//
+//      auto end_uv = segment.end;
+//
+//      // L'indice del prossimo vertice che aggiungeremo al prossimo giro.
+//      auto end_vertex = vertices[(segment_id + 1) % vertices.size()];
+//
+//      // auto is_vertex_uv = [](const vec2f& uv) {
+//      //   return uv == vec2f{0, 0} || uv == vec2f{1, 0} || uv == vec2f{0, 1};
+//      // };
+//      // if (is_vertex_uv(start_uv) && is_vertex_uv(end_uv)) {
+//      //   continue;
+//      // }
+//
+//      if (start_vertex < original_vertices && end_vertex < original_vertices) {
+//        continue;
+//      }
+//
+//      if (start_vertex == end_vertex) {
+//        continue;
+//      }
+//
+//      triangle_segments[segment.face].push_back(
+//          {polygon_id, start_vertex, end_vertex, start_uv, end_uv});
+//    }
+//  }
 
   // Adesso possiamo triangolare ogni faccia.
 

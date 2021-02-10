@@ -205,15 +205,54 @@ inline vec2f intersect_segments(const vec2f& start1, const vec2f& end1,
   return {r, s};
 }
 
-inline unordered_map<int, vector<hashgrid_segment>> compute_hashgrid(
-    const vector<mesh_polygon>& polygons) {
-  auto hashgrid = unordered_map<int, vector<hashgrid_segment>>{};
+struct hashgrid_polyline {
+  int           polygon  = -1;
+  vector<vec2f> points   = {};
+  vector<int>   vertices = {};
+};
 
-  for (auto p = 0; p < polygons.size(); p++) {
-    auto& polygon = polygons[p];
+inline pair<int, vec2f> add_vertex_new(
+    bool_mesh& mesh, const mesh_point& point) {
+  float eps = 0.00001;
+  auto  uv  = point.uv;
+  auto  tr  = mesh.triangles[point.face];
+  if (uv.x < eps && uv.y < eps) return {tr.x, {0, 0}};
+  if (uv.x > 1 - eps && uv.y < eps) return {tr.y, {1, 0}};
+  if (uv.y > 1 - eps && uv.x < eps) return {tr.z, {1, 1}};
+  auto vertex = (int)mesh.positions.size();
+  auto pos    = eval_position(mesh.triangles, mesh.positions, point);
+  mesh.positions.push_back(pos);
+  return {vertex, uv};
+}
+
+inline unordered_map<int, vector<hashgrid_polyline>> compute_hashgrid(
+    const vector<mesh_polygon>& polygons, const vector<vector<int>>& vertices) {
+  auto hashgrid = unordered_map<int, vector<hashgrid_polyline>>{};
+
+  for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
+    auto& polygon   = polygons[polygon_id];
+    int   last_face = -1;
+
     for (auto s = 0; s < polygon.segments.size(); s++) {
       auto& segment = polygon.segments[s];
-      hashgrid[segment.face].push_back({p, s, segment.start, segment.end});
+      auto& entry   = hashgrid[segment.face];
+      if (segment.face != last_face) {
+        auto& polyline   = entry.emplace_back();
+        polyline.polygon = polygon_id;
+
+        polyline.points.push_back(segment.end);
+        auto ss = s - 1;
+        if (ss < 0) ss = polygon.segments.size() - 1;
+        polyline.vertices.push_back(vertices[polygon_id][ss]);
+
+        polyline.points.push_back(segment.end);
+        polyline.vertices.push_back(vertices[polygon_id][s]);
+      } else {
+        auto& polyline = entry.back();
+        polyline.points.push_back(segment.end);
+        polyline.vertices.push_back(vertices[polygon_id][s]);
+      }
+      last_face = segment.face;
     }
   }
   return hashgrid;
@@ -232,48 +271,73 @@ inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
   return vertex;
 }
 
-inline unordered_map<vec2i, vector<intersection>> compute_intersections(
-    const unordered_map<int, vector<hashgrid_segment>>& hashgrid,
-    bool_mesh& mesh, vector<mesh_point>& points) {
+// TODO: put in utils
+template <typename T>
+inline void insert(vector<T>& vec, size_t i, const T& x) {
+  vec.insert(vec.begin() + i, x);
+}
+
+inline void compute_intersections(
+    unordered_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
   auto intersections = unordered_map<vec2i, vector<intersection>>();
-  for (auto& [face, entries] : hashgrid) {
-    for (auto i = 0; i < entries.size() - 1; i++) {
-      auto& AB = entries[i];
-      for (auto j = i + 1; j < entries.size(); j++) {
-        auto& CD = entries[j];
-        if (AB.polygon == CD.polygon &&
-            yocto::abs(AB.segment - CD.segment) <= 1) {
-          continue;
+
+  for (auto& [face, polylines] : hashgrid) {
+    // Check for polyline self interesctions
+    for (auto p0 = 0; p0 < polylines.size(); p0++) {
+      auto& poly = polylines[p0];
+
+      for (int s0 = 0; s0 < poly.points.size() - 2; s0++) {
+        auto& start0 = poly.points[s0];
+        auto& end0   = poly.points[(s0 + 1) % poly.points.size()];
+        for (int s1 = s0 + 2; s1 < poly.points.size(); s1++) {
+          auto& start1 = poly.points[s1];
+          auto& end1   = poly.points[(s1 + 1) % poly.points.size()];
+
+          auto l = intersect_segments(start0, end0, start1, end1);
+          if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) {
+            continue;
+          }
+
+          auto uv     = lerp(start1, end1, l.y);
+          auto vertex = add_vertex(mesh, {face, uv});
+
+          insert(poly.points, s0, uv);
+          insert(poly.vertices, s0, vertex);
+          s0 += 1;
         }
+      }
+    }
 
-        auto l = intersect_segments(AB.start, AB.end, CD.start, CD.end);
-        if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) continue;
+    // Check for intersections between different polylines
+    for (auto p0 = 0; p0 < polylines.size(); p0++) {
+      for (auto p1 = p0 + 1; p1 < polylines.size(); p1++) {
+        auto& poly0 = polylines[p0];
+        auto& poly1 = polylines[p1];
+        for (int s0 = 0; s0 < poly0.points.size(); s0++) {
+          auto& start0 = poly0.points[s0];
+          auto& end0   = poly0.points[(s0 + 1) % poly0.points.size()];
+          for (int s1 = 0; s1 < poly1.points.size(); s1++) {
+            auto& start1 = poly1.points[s1];
+            auto& end1   = poly1.points[(s1 + 1) % poly1.points.size()];
+            auto  l      = intersect_segments(start0, end0, start1, end1);
+            if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) {
+              continue;
+            }
 
-        //        C
-        //        |
-        // A -- point -- B
-        //        |
-        //        D
+            auto uv     = lerp(start1, end1, l.y);
+            auto vertex = add_vertex(mesh, {face, uv});
 
-        auto uv       = lerp(CD.start, CD.end, l.y);
-        auto point    = mesh_point{face, uv};
-        auto point_id = (int)points.size();
-        points.push_back(point);
-
-        auto vertex_id = add_vertex(mesh, point);
-
-        intersections[{AB.polygon, AB.segment}].push_back({vertex_id, l.x});
-        intersections[{CD.polygon, CD.segment}].push_back({vertex_id, l.y});
+            insert(poly0.points, s0, uv);
+            insert(poly0.vertices, s0, vertex);
+            insert(poly1.points, s1, uv);
+            insert(poly1.vertices, s1, vertex);
+            s0 += 1;
+            s1 += 1;
+          }
+        }
       }
     }
   }
-
-  for (auto& [key, isecs] : intersections) {
-    // Ordiniamo le intersezioni sulla lunghezza del segmento.
-    sort(isecs.begin(), isecs.end(),
-        [](auto& a, auto& b) { return a.lerp < b.lerp; });
-  }
-  return intersections;
 }
 
 inline vec2i make_edge_key(const vec2i& edge) {
@@ -531,7 +595,8 @@ void flood_fill_debug(
 // }
 
 // inline void polygon_common(
-//     const vector<cell_polygon>& cells, vector<int>& cell_ids, const int num)
+//     const vector<cell_polygon>& cells, vector<int>& cell_ids, const int
+//     num)
 //     {
 //   if (num < 1) return;
 
