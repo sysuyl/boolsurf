@@ -42,8 +42,8 @@ struct triangle_segment {
   vec2f end   = {};
 };
 
-void debug_draw(app_state* app, int face,
-    const vector<vec2i>& edges, const string& header = "") {
+void debug_draw(app_state* app, int face, const vector<vec2i>& edges,
+    const string& header = "") {
   static int count = 0;
   auto&      is    = debug_indices[face];
   //  auto       e     = vec2i{find_idx(is, edge_key.x), find_idx(is,
@@ -55,11 +55,11 @@ void debug_draw(app_state* app, int face,
   if (header.size()) {
     ext0 = "-" + header + ext0;
   }
-//  auto edges = vector<vec2i>{};
-//  for (auto& s : segments) {
-//    auto e = vec2i{find_idx(is, s.start_vertex), find_idx(is, s.end_vertex)};
-//    edges.push_back({e.x, e.y});
-//  }
+  //  auto edges = vector<vec2i>{};
+  //  for (auto& s : segments) {
+  //    auto e = vec2i{find_idx(is, s.start_vertex), find_idx(is,
+  //    s.end_vertex)}; edges.push_back({e.x, e.y});
+  //  }
   debug_edges[face] = edges;
 
   save_triangulation(replace_extension(base, ext0), face);
@@ -236,11 +236,40 @@ void do_the_thing(app_state* app) {
   auto hashgrid = compute_hashgrid(state.polygons, vertices);
 
   auto yy = hashgrid[139767];
+
+  auto draw_hashgrid = [&](int face) {
+    auto& nodes     = debug_nodes[face];
+    auto& triangles = debug_triangles[face];
+    auto& indices   = debug_indices[face];
+
+    nodes          = {{0, 0}, {0, 1}, {1, 0}};
+    triangles      = {{0, 1, 2}};
+    auto [a, b, c] = app->mesh.triangles[face];
+    indices        = {a, b, c};
+
+    int idx = 3;
+    for (auto& polyline : hashgrid[face]) {
+      nodes += polyline.points;
+      indices += polyline.vertices;
+      for (int i = 0; i < polyline.points.size() - 1; i++) {
+        triangles += vec3i{idx, idx + 1, idx + 1};
+        idx += 1;
+      }
+      idx += 1;
+    }
+
+    debug_draw(app, face, {});
+  };
+
+
   // Mappa segmento (polygon_id, segment_id) a lista di intersezioni.
   // Per ogni faccia dell'hashgrid, calcoliamo le intersezioni fra i segmenti
   // contenuti.
+
   compute_intersections(hashgrid, app->mesh);
   auto zz = hashgrid[139767];
+    draw_hashgrid(139767);
+    assert(0);
 
   debug_triangles.clear();
   debug_nodes.clear();
@@ -428,10 +457,10 @@ void do_the_thing(app_state* app) {
         auto edge     = vec2i{polyline.vertices[i], polyline.vertices[i + 1]};
         auto edge_key = make_edge_key(edge);
 
-          auto faces = vec2i{-1, -1};
-          if(face_edgemap.count(edge_key)) {
-              faces = face_edgemap.at(edge_key);
-          }
+        auto faces = vec2i{-1, -1};
+        if (face_edgemap.count(edge_key)) {
+          faces = face_edgemap.at(edge_key);
+        }
 
         if (faces.x == -1 || faces.y == -1) {
           auto qualcosa = hashgrid[face];

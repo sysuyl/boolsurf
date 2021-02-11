@@ -303,39 +303,37 @@ inline void insert(vector<T>& vec, size_t i, const T& x) {
 
 inline void compute_intersections(
     unordered_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
-  auto intersections = unordered_map<vec2i, vector<intersection>>();
-
   for (auto& [face, polylines] : hashgrid) {
     // Check for polyline self interesctions
-    for (auto p0 = 0; p0 < polylines.size(); p0++) {
-      auto& poly = polylines[p0];
+    // for (auto p0 = 0; p0 < polylines.size(); p0++) {
+    //   auto& poly = polylines[p0];
 
-      int num_added = 0;
-      for (int s0 = 0; s0 < poly.points.size() - 2; s0++) {
-        auto& start0 = poly.points[s0];
-        auto& end0   = poly.points[(s0 + 1) % poly.points.size()];
-        for (int s1 = s0 + 2; s1 < poly.points.size(); s1++) {
-          auto& start1 = poly.points[s1];
-          auto& end1   = poly.points[(s1 + 1) % poly.points.size()];
+    //   int num_added = 0;
+    //   for (int s0 = 0; s0 < poly.points.size() - 2; s0++) {
+    //     auto& start0 = poly.points[s0];
+    //     auto& end0   = poly.points[(s0 + 1) % poly.points.size()];
+    //     for (int s1 = s0 + 2; s1 < poly.points.size(); s1++) {
+    //       auto& start1 = poly.points[s1];
+    //       auto& end1   = poly.points[(s1 + 1) % poly.points.size()];
 
-          auto l = intersect_segments(start0, end0, start1, end1);
-          if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) {
-            continue;
-          }
+    //       auto l = intersect_segments(start0, end0, start1, end1);
+    //       if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) {
+    //         continue;
+    //       }
 
-          auto uv     = lerp(start1, end1, l.y);
-          auto vertex = add_vertex(mesh, {face, uv});
+    //       auto uv     = lerp(start1, end1, l.y);
+    //       auto vertex = add_vertex(mesh, {face, uv});
 
-          insert(poly.points, s0 + 1, uv);
-          insert(poly.vertices, s0 + 1, vertex);
-          insert(poly.points, s1 + 2, uv);
-          insert(poly.vertices, s1 + 2, vertex);
-          num_added += 1;
-          s1 += 2;
-        }
-        s0 += num_added;
-      }
-    }
+    //       insert(poly.points, s0 + 1, uv);
+    //       insert(poly.vertices, s0 + 1, vertex);
+    //       insert(poly.points, s1 + 2, uv);
+    //       insert(poly.vertices, s1 + 2, vertex);
+    //       num_added += 1;
+    //       s1 += 2;
+    //     }
+    //     s0 += num_added;
+    //   }
+    // }
 
     // Check for intersections between different polylines
     for (auto p0 = 0; p0 < polylines.size() - 1; p0++) {
@@ -343,12 +341,12 @@ inline void compute_intersections(
         auto& poly0     = polylines[p0];
         auto& poly1     = polylines[p1];
         int   num_added = 0;
-        for (int s0 = 0; s0 < poly0.points.size(); s0++) {
+        for (int s0 = 0; s0 < poly0.points.size() - 1; s0++) {
           auto& start0 = poly0.points[s0];
-          auto& end0   = poly0.points[(s0 + 1) % poly0.points.size()];
-          for (int s1 = 0; s1 < poly1.points.size(); s1++) {
+          auto& end0   = poly0.points[(s0 + 1)];
+          for (int s1 = 0; s1 < poly1.points.size() - 1; s1++) {
             auto& start1 = poly1.points[s1];
-            auto& end1   = poly1.points[(s1 + 1) % poly1.points.size()];
+            auto& end1   = poly1.points[(s1 + 1)];
             auto  l      = intersect_segments(start0, end0, start1, end1);
             if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) {
               continue;
