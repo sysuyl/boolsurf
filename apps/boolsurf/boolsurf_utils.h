@@ -326,19 +326,19 @@ inline void compute_intersections(
           auto uv     = lerp(start1, end1, l.y);
           auto vertex = add_vertex(mesh, {face, uv});
 
-          insert(poly.points, s0, uv);
-          insert(poly.vertices, s0, vertex);
-          insert(poly.points, s1 + 1, uv);
-          insert(poly.vertices, s1 + 1, vertex);
+          insert(poly.points, s0 + 1, uv);
+          insert(poly.vertices, s0 + 1, vertex);
+          insert(poly.points, s1 + 2, uv);
+          insert(poly.vertices, s1 + 2, vertex);
           num_added += 1;
-          s1 += 1;
+          s1 += 2;
         }
         s0 += num_added;
       }
     }
 
     // Check for intersections between different polylines
-    for (auto p0 = 0; p0 < polylines.size(); p0++) {
+    for (auto p0 = 0; p0 < polylines.size() - 1; p0++) {
       for (auto p1 = p0 + 1; p1 < polylines.size(); p1++) {
         auto& poly0     = polylines[p0];
         auto& poly1     = polylines[p1];
@@ -357,10 +357,10 @@ inline void compute_intersections(
             auto uv     = lerp(start1, end1, l.y);
             auto vertex = add_vertex(mesh, {face, uv});
 
-            insert(poly0.points, s0, uv);
-            insert(poly0.vertices, s0, vertex);
-            insert(poly1.points, s1, uv);
-            insert(poly1.vertices, s1, vertex);
+            insert(poly0.points, s0 + 1, uv);
+            insert(poly0.vertices, s0 + 1, vertex);
+            insert(poly1.points, s1 + 1, uv);
+            insert(poly1.vertices, s1 + 1, vertex);
             num_added += 1;
             s1 += 1;
           }
@@ -486,15 +486,17 @@ inline void update_face_edgemap(unordered_map<vec2i, vec2i>& face_edgemap,
     const vec2i& edge, const int face) {
   auto key = make_edge_key(edge);
 
-  if (face_edgemap.find(key) != face_edgemap.end()) {
-    auto& faces = face_edgemap[key];
-    if (faces.x == -1) {
-      assert(faces.y == -1);
-      faces.x = face;
-    } else {
-      assert(faces.y == -1);
-      faces.y = face;
-    }
+  auto it = face_edgemap.find(key);
+  if (it == face_edgemap.end()) {
+    //   auto& faces = face_edgemap[key];
+    // }
+    //   if (faces.x == -1) {
+    //     assert(faces.y == -1);
+    //     faces.x = face;
+    face_edgemap.insert(it, {key, {face, -1}});
+  } else {
+    // assert(faces.y == -1);
+    it->second.y = face;
   }
 }
 

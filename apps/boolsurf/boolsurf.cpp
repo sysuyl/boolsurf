@@ -43,7 +43,7 @@ struct triangle_segment {
 };
 
 void debug_draw(app_state* app, int face,
-    const vector<triangle_segment>& segments, const string& header = "") {
+    const vector<vec2i>& edges, const string& header = "") {
   static int count = 0;
   auto&      is    = debug_indices[face];
   //  auto       e     = vec2i{find_idx(is, edge_key.x), find_idx(is,
@@ -55,11 +55,11 @@ void debug_draw(app_state* app, int face,
   if (header.size()) {
     ext0 = "-" + header + ext0;
   }
-  auto edges = vector<vec2i>{};
-  for (auto& s : segments) {
-    auto e = vec2i{find_idx(is, s.start_vertex), find_idx(is, s.end_vertex)};
-    edges.push_back({e.x, e.y});
-  }
+//  auto edges = vector<vec2i>{};
+//  for (auto& s : segments) {
+//    auto e = vec2i{find_idx(is, s.start_vertex), find_idx(is, s.end_vertex)};
+//    edges.push_back({e.x, e.y});
+//  }
   debug_edges[face] = edges;
 
   save_triangulation(replace_extension(base, ext0), face);
@@ -223,7 +223,7 @@ void do_the_thing(app_state* app) {
     vertices[i].resize(segments.size());
 
     for (auto s = 0; s < segments.size(); s++) {
-      if (segments[s].face == 132938) {
+      if (segments[s].face == 139767) {
         printf("\n%d\n", s);
         printf("%f %f\n", segments[s].start.x, segments[s].start.y);
         printf("%f %f\n", segments[s].end.x, segments[s].end.y);
@@ -235,91 +235,12 @@ void do_the_thing(app_state* app) {
 
   auto hashgrid = compute_hashgrid(state.polygons, vertices);
 
-  auto yy = hashgrid[132938];
+  auto yy = hashgrid[139767];
   // Mappa segmento (polygon_id, segment_id) a lista di intersezioni.
   // Per ogni faccia dell'hashgrid, calcoliamo le intersezioni fra i segmenti
   // contenuti.
   compute_intersections(hashgrid, app->mesh);
-  auto zz = hashgrid[132938];
-
-  // Mappa ogni faccia alla lista di triangle_segments di quella faccia.
-  auto triangle_segments = unordered_map<int, vector<triangle_segment>>{};
-
-  // Aggiungiamo gli estremi dei segmenti come vertici della mesh.
-  // Dobbiamo inserire nei punti giusti anche i punti di intersezione che
-  // spezzano i segmenti.
-  // Inoltre popoliamo triangle_segments.
-  //  for (auto polygon_id = 0; polygon_id < state.polygons.size();
-  //  polygon_id++) {
-  //    auto& segments = state.polygons[polygon_id].segments;
-  //
-  //    auto vertices = vector<int>(segments.size());
-  //    for (auto i = 0; i < segments.size(); i++) {
-  //      vertices[i] = add_vertex(
-  //          app->mesh, {segments[i].face, segments[i].start});
-  //    }
-  //
-  //    // Per ogni segmento del poligono.
-  //    for (auto segment_id = 0; segment_id < segments.size(); segment_id++) {
-  //      auto& segment = segments[segment_id];
-  //
-  //      auto start_uv     = segment.start;
-  //      auto start_vertex = vertices[segment_id];
-  //
-  //      // Se questo segmento aveva una o piu' interesezioni con altri
-  //      segmenti...
-  //
-  //        //     !!!!!!!!!!!!!!
-  //        //      if (intersections.find({polygon_id, segment_id}) !=
-  //        intersections.end())
-  //      {
-  //        auto& isecs = intersections[{polygon_id, segment_id}];
-  //
-  //        // Popoliamo triangle_segments.
-  //        for (auto& [end_vertex, l] : isecs) {
-  //          auto end_uv = lerp(segment.start, segment.end, l);
-  //          if (start_vertex != end_vertex) {
-  //            triangle_segments[segment.face].push_back(
-  //                {polygon_id, start_vertex, end_vertex, start_uv, end_uv});
-  //          }
-  //
-  //          // Accorcio il segmento corrente.
-  //          start_uv     = end_uv;
-  //          start_vertex = end_vertex;
-  //        }
-  //      }
-  //
-  //      auto end_uv = segment.end;
-  //
-  //      // L'indice del prossimo vertice che aggiungeremo al prossimo giro.
-  //      auto end_vertex = vertices[(segment_id + 1) % vertices.size()];
-  //
-  //      // auto is_vertex_uv = [](const vec2f& uv) {
-  //      //   return uv == vec2f{0, 0} || uv == vec2f{1, 0} || uv == vec2f{0,
-  //      1};
-  //      // };
-  //      // if (is_vertex_uv(start_uv) && is_vertex_uv(end_uv)) {
-  //      //   continue;
-  //      // }
-  //
-  //      if (start_vertex < original_vertices && end_vertex <
-  //      original_vertices) {
-  //        continue;
-  //      }
-  //
-  //      if (start_vertex == end_vertex) {
-  //        continue;
-  //      }
-  //
-  //      triangle_segments[segment.face].push_back(
-  //          {polygon_id, start_vertex, end_vertex, start_uv, end_uv});
-  //    }
-  //  }
-
-  // Adesso possiamo triangolare ogni faccia.
-
-  //(marzia) collapse the triangle_segments iterations
-  // Not now, they're useful while debugging
+  auto zz = hashgrid[139767];
 
   debug_triangles.clear();
   debug_nodes.clear();
@@ -417,11 +338,6 @@ void do_the_thing(app_state* app) {
     //   }
     // }
 
-    // Per adesso, ad ogni nuovo edge associamo due facce adiacenti nulle.
-    // Ora serve per debugging.
-    // auto edge          = make_edge_key({start_vertex, end_vertex});
-    // face_edgemap[edge] = {-1, -1};
-
     // edges.push_back({edge_start, edge_end});
     // }
 
@@ -505,37 +421,45 @@ void do_the_thing(app_state* app) {
   }
 
   // Creiamo inner_faces e outer_faces di ogni poligono.
-  for (auto& [face, segments] : triangle_segments) {
-    for (auto i = 0; i < segments.size(); i++) {
-      auto& [polygon, start_vertex, end_vertex, start_vu, end_uv] = segments[i];
-      auto edge     = vec2i{start_vertex, end_vertex};
-      auto edge_key = make_edge_key(edge);
+  for (auto& [face, polylines] : hashgrid) {
+    for (auto& polyline : polylines) {
+      // TODO(giacomo): gestire caso in cui polyline sia chiusa...
+      for (auto i = 0; i < polyline.vertices.size() - 1; i++) {
+        auto edge     = vec2i{polyline.vertices[i], polyline.vertices[i + 1]};
+        auto edge_key = make_edge_key(edge);
 
-      auto faces = face_edgemap.at(edge_key);
+          auto faces = vec2i{-1, -1};
+          if(face_edgemap.count(edge_key)) {
+              faces = face_edgemap.at(edge_key);
+          }
 
-      if (faces.x == -1 || faces.y == -1) {
-        auto qualcosa = hashgrid[face];
+        if (faces.x == -1 || faces.y == -1) {
+          auto qualcosa = hashgrid[face];
 
-        debug_draw(app, face, segments);
+          debug_draw(app, face, {});
 
-        auto ff = app->mesh.adjacencies[face][1];
-        debug_draw(app, ff, segments, "other");
+          auto ff = app->mesh.adjacencies[face][1];
+          debug_draw(app, ff, {}, "other");
 
-        assert(0);
+          assert(0);
+        }
+
+        // Il triangolo di sinistra ha lo stesso orientamento del poligono.
+        auto& [a, b, c] = app->mesh.triangles[faces.x];
+
+        // Controlliamo che l'edge si nello stesso verso del poligono. Se non
+        // e' cosi, invertiamo.
+        if ((edge == vec2i{b, a}) || (edge == vec2i{c, b}) ||
+            (edge == vec2i{a, c})) {
+          swap(faces.x, faces.y);
+        }
+
+        auto polygon = polyline.polygon;
+        if (faces.x != -1)
+          state.polygons[polygon].inner_faces.push_back(faces.x);
+        if (faces.y != -1)
+          state.polygons[polygon].outer_faces.push_back(faces.y);
       }
-
-      // Il triangolo di sinistra ha lo stesso orientamento del poligono.
-      auto& [a, b, c] = app->mesh.triangles[faces.x];
-
-      // Controlliamo che l'edge si nello stesso verso del poligono. Se non
-      // e' cosi, invertiamo.
-      if ((edge == vec2i{b, a}) || (edge == vec2i{c, b}) ||
-          (edge == vec2i{a, c})) {
-        swap(faces.x, faces.y);
-      }
-
-      if (faces.x != -1) state.polygons[polygon].inner_faces.push_back(faces.x);
-      if (faces.y != -1) state.polygons[polygon].outer_faces.push_back(faces.y);
     }
   }
 
