@@ -323,6 +323,101 @@ inline bool check_tags(const bool_mesh& mesh) {
   }
   return true;
 }
+
+struct mesh_cell {
+  vector<int>        faces          = {};
+  unordered_set<int> outer_polygons = {};
+  unordered_set<int> inner_polygons = {};
+};
+
+void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
+    const bool_mesh& mesh) {
+  auto visited = vector<bool>(mesh.adjacencies.size(), false);
+
+  // consume tast stack
+  while (cells.size()) {
+    // pop element from task stack
+    auto cell = cells.back();
+    cells.pop_back();
+
+    auto stack = vector<int>{starts.back()};
+    starts.pop_back();
+
+    unordered_set<int> seen = {};
+
+    while (!stack.empty()) {
+      auto face = stack.back();
+      stack.pop_back();
+
+      if (visited[face]) continue;
+      visited[face] = true;
+
+      cell.faces.push_back(face);
+
+      for (int k = 0; k < 3; k++) {
+        auto neighbor = mesh.adjacencies[face][k];
+        if (neighbor < 0 || visited[neighbor]) continue;
+
+        auto t = mesh.tags[face][k];
+
+        auto t3 = mesh.tags[face];
+        auto p3 = mesh.tags[neighbor];
+        if (find_in_vec(mesh.tags[neighbor], -t) == -1) {
+          // assert(0);
+          continue;
+        }
+
+        if (t == 0) {
+          stack.push_back(neighbor);
+          continue;
+        }
+
+        if (auto it = seen.find(t); it == seen.end()) {
+          seen.insert(t);
+        } else {
+          continue;
+        }
+
+        auto& new_cell = cells.emplace_back();
+        starts.push_back(neighbor);
+
+        new_cell.inner_polygons = cell.inner_polygons;
+        new_cell.outer_polygons = cell.outer_polygons;
+        if (t > 0) {
+          // entering in cell t.
+
+          // old cell was outside from t
+          cell.outer_polygons.insert(t);
+
+          // new cell is not outside t
+          if (auto it = new_cell.outer_polygons.find(t);
+              it != new_cell.outer_polygons.end()) {
+            new_cell.outer_polygons.erase(it);
+          }
+
+          new_cell.inner_polygons.insert(t);
+        } else {
+          t = -t;
+          // exiting from cell t.
+
+          // old cell was inside t
+          cell.inner_polygons.insert(t);
+
+          // new cell is not inside t
+          if (auto it = new_cell.inner_polygons.find(t);
+              it != new_cell.inner_polygons.end()) {
+            new_cell.inner_polygons.erase(it);
+          }
+
+          new_cell.outer_polygons.insert(t);
+        }
+      }
+    }
+
+    result.push_back(cell);
+  }
+}
+
 inline void compute_intersections(
     unordered_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
   for (auto& [face, polylines] : hashgrid) {
