@@ -595,10 +595,10 @@ void do_the_thing(app_state* app) {
     printf("[cell %d]\n", i);
     printf("  faces: %d\n", (int)cell.faces.size());
     printf("  in: ");
-    for (auto& p : cell.inner_polygons) printf("%d", p);
+    for (auto& p : cell.inner_polygons) printf("%d ", p);
     printf("\n");
     printf("  out: ");
-    for (auto& p : cell.outer_polygons) printf("%d", p);
+    for (auto& p : cell.outer_polygons) printf("%d ", p);
     printf("\n\n");
   }
 
