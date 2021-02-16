@@ -19,6 +19,7 @@ struct bool_mesh {
   vector<vec3f>        positions   = {};
   vector<vec3f>        normals     = {};
   dual_geodesic_solver dual_solver = {};
+  vector<vec3i>        tags        = {};
 };
 
 struct mesh_segment {
@@ -32,7 +33,10 @@ struct mesh_polygon {
   vector<mesh_segment> segments    = {};
   vector<int>          inner_faces = {};
   vector<int>          outer_faces = {};
-  shade_instance*      gpu         = nullptr;
+
+  shade_instance* polyline_shape = nullptr;
+  shade_instance* inner_shape    = nullptr;
+  shade_instance* outer_shape    = nullptr;
 };
 
 struct hashgrid_segment {
@@ -201,15 +205,78 @@ inline vec2f intersect_segments(const vec2f& start1, const vec2f& end1,
   return {r, s};
 }
 
-inline unordered_map<int, vector<hashgrid_segment>> compute_hashgrid(
-    const vector<mesh_polygon>& polygons) {
-  auto hashgrid = unordered_map<int, vector<hashgrid_segment>>{};
+struct hashgrid_polyline {
+  int           polygon  = -1;
+  vector<vec2f> points   = {};
+  vector<int>   vertices = {};
+};
 
-  for (auto p = 0; p < polygons.size(); p++) {
-    auto& polygon = polygons[p];
+inline pair<int, vec2f> add_vertex_new(
+    bool_mesh& mesh, const mesh_point& point) {
+  float eps = 0.00001;
+  auto  uv  = point.uv;
+  auto  tr  = mesh.triangles[point.face];
+  if (uv.x < eps && uv.y < eps) return {tr.x, {0, 0}};
+  if (uv.x > 1 - eps && uv.y < eps) return {tr.y, {1, 0}};
+  if (uv.y > 1 - eps && uv.x < eps) return {tr.z, {1, 1}};
+  auto vertex = (int)mesh.positions.size();
+  auto pos    = eval_position(mesh.triangles, mesh.positions, point);
+  mesh.positions.push_back(pos);
+  return {vertex, uv};
+}
+
+inline unordered_map<int, vector<hashgrid_polyline>> compute_hashgrid(
+    const vector<mesh_polygon>& polygons, const vector<vector<int>>& vertices) {
+  auto hashgrid = unordered_map<int, vector<hashgrid_polyline>>{};
+
+  for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
+    auto& polygon   = polygons[polygon_id];
+    int   last_face = -1;
+
+    if (polygon.segments.empty()) continue;
+    int first_face = polygon.segments[0].face;
+    int s_first    = -1;
+
     for (auto s = 0; s < polygon.segments.size(); s++) {
       auto& segment = polygon.segments[s];
-      hashgrid[segment.face].push_back({p, s, segment.start, segment.end});
+
+      if (segment.face == first_face && s_first == -1) continue;
+      if (s_first == -1) s_first = s;
+
+      auto& entry = hashgrid[segment.face];
+      if (segment.face != last_face) {
+        auto& polyline   = entry.emplace_back();
+        polyline.polygon = polygon_id;
+
+        auto ss = s - 1;
+        assert(ss >= 0);
+        polyline.vertices.push_back(vertices[polygon_id][ss]);
+        polyline.points.push_back(segment.start);
+
+        polyline.vertices.push_back(vertices[polygon_id][s]);
+        polyline.points.push_back(segment.end);
+      } else {
+        auto& polyline = entry.back();
+        assert(segment.end != polyline.points.back());
+        polyline.points.push_back(segment.end);
+        polyline.vertices.push_back(vertices[polygon_id][s]);
+      }
+      auto& polyline = entry.back();
+      if (polyline.points.size() >= 2) {
+        assert(polyline.points.back() != polyline.points.end()[-2]);
+      }
+      last_face = segment.face;
+    }
+
+    // Ripetiamo perche' la prima polyline non la calcoliamo al primo giro.
+    assert(last_face != -1);
+    for (auto s = 0; s < s_first; s++) {
+      auto& segment  = polygon.segments[s];
+      auto& entry    = hashgrid[segment.face];
+      auto& polyline = entry.back();
+      assert(segment.face == last_face);
+      polyline.points.push_back(segment.end);
+      polyline.vertices.push_back(vertices[polygon_id][s]);
     }
   }
   return hashgrid;
@@ -228,48 +295,78 @@ inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
   return vertex;
 }
 
-inline unordered_map<vec2i, vector<intersection>> compute_intersections(
-    const unordered_map<int, vector<hashgrid_segment>>& hashgrid,
-    bool_mesh& mesh, vector<mesh_point>& points) {
-  auto intersections = unordered_map<vec2i, vector<intersection>>();
-  for (auto& [face, entries] : hashgrid) {
-    for (auto i = 0; i < entries.size() - 1; i++) {
-      auto& AB = entries[i];
-      for (auto j = i + 1; j < entries.size(); j++) {
-        auto& CD = entries[j];
-        if (AB.polygon == CD.polygon &&
-            yocto::abs(AB.segment - CD.segment) <= 1) {
-          continue;
+// TODO: put in utils
+template <typename T>
+inline void insert(vector<T>& vec, size_t i, const T& x) {
+  vec.insert(vec.begin() + i, x);
+}
+
+inline void compute_intersections(
+    unordered_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
+  for (auto& [face, polylines] : hashgrid) {
+    // Check for polyline self interesctions
+    for (auto p0 = 0; p0 < polylines.size(); p0++) {
+      auto& poly = polylines[p0];
+
+      int num_added = 0;
+      for (int s0 = 0; s0 < poly.points.size() - 2; s0++) {
+        auto& start0 = poly.points[s0];
+        auto& end0   = poly.points[(s0 + 1) % poly.points.size()];
+        for (int s1 = s0 + 2; s1 < poly.points.size(); s1++) {
+          auto& start1 = poly.points[s1];
+          auto& end1   = poly.points[(s1 + 1) % poly.points.size()];
+
+          auto l = intersect_segments(start0, end0, start1, end1);
+          if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) {
+            continue;
+          }
+
+          auto uv     = lerp(start1, end1, l.y);
+          auto vertex = add_vertex(mesh, {face, uv});
+
+          insert(poly.points, s0 + 1, uv);
+          insert(poly.vertices, s0 + 1, vertex);
+          insert(poly.points, s1 + 2, uv);
+          insert(poly.vertices, s1 + 2, vertex);
+          num_added += 1;
+          s1 += 2;
         }
+        s0 += num_added;
+      }
+    }
 
-        auto l = intersect_segments(AB.start, AB.end, CD.start, CD.end);
-        if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) continue;
+    // Check for intersections between different polylines
+    for (auto p0 = 0; p0 < polylines.size() - 1; p0++) {
+      for (auto p1 = p0 + 1; p1 < polylines.size(); p1++) {
+        auto& poly0     = polylines[p0];
+        auto& poly1     = polylines[p1];
+        int   num_added = 0;
+        for (int s0 = 0; s0 < poly0.points.size() - 1; s0++) {
+          auto& start0 = poly0.points[s0];
+          auto& end0   = poly0.points[(s0 + 1)];
+          for (int s1 = 0; s1 < poly1.points.size() - 1; s1++) {
+            auto& start1 = poly1.points[s1];
+            auto& end1   = poly1.points[(s1 + 1)];
+            auto  l      = intersect_segments(start0, end0, start1, end1);
+            if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) {
+              continue;
+            }
 
-        //        C
-        //        |
-        // A -- point -- B
-        //        |
-        //        D
+            auto uv     = lerp(start1, end1, l.y);
+            auto vertex = add_vertex(mesh, {face, uv});
 
-        auto uv       = lerp(CD.start, CD.end, l.y);
-        auto point    = mesh_point{face, uv};
-        auto point_id = (int)points.size();
-        points.push_back(point);
-
-        auto vertex_id = add_vertex(mesh, point);
-
-        intersections[{AB.polygon, AB.segment}].push_back({vertex_id, l.x});
-        intersections[{CD.polygon, CD.segment}].push_back({vertex_id, l.y});
+            insert(poly0.points, s0 + 1, uv);
+            insert(poly0.vertices, s0 + 1, vertex);
+            insert(poly1.points, s1 + 1, uv);
+            insert(poly1.vertices, s1 + 1, vertex);
+            num_added += 1;
+            s1 += 1;
+          }
+          s0 += num_added;
+        }
       }
     }
   }
-
-  for (auto& [key, isecs] : intersections) {
-    // Ordiniamo le intersezioni sulla lunghezza del segmento.
-    sort(isecs.begin(), isecs.end(),
-        [](auto& a, auto& b) { return a.lerp < b.lerp; });
-  }
-  return intersections;
 }
 
 inline vec2i make_edge_key(const vec2i& edge) {
@@ -287,6 +384,19 @@ inline tuple<vec2i, float> get_mesh_edge(
     return {vec2i{triangle.y, triangle.z}, uv.y};  // point on edge (yz)
   else
     return {zero2i, -1};
+}
+
+inline vec2i get_edge(const vec3i& triangle, int k) {
+  if (k == 0)
+    return {triangle.x, triangle.y};
+  else if (k == 1)
+    return {triangle.y, triangle.z};
+  else if (k == 2)
+    return {triangle.z, triangle.x};
+  else {
+    assert(0);
+    return {-1, -1};
+  }
 }
 
 // (Previous implementation) Simple Delaunay Triangulation
@@ -340,15 +450,17 @@ inline vector<vec3i> constrained_triangulation(
     vector<vec2f> nodes, const vector<vec2i>& edges) {
   for (auto& n : nodes) n *= 1e9;
 
-  auto cdt = CDT::Triangulation<float>(CDT::FindingClosestPoint::ClosestRandom);
+  auto cdt = CDT::Triangulation<double>(
+      CDT::FindingClosestPoint::ClosestRandom);
   cdt.insertVertices(
-      nodes.begin(), nodes.end(), [](const vec2f& point) { return point.x; },
-      [](const vec2f& point) { return point.y; });
+      nodes.begin(), nodes.end(),
+      [](const vec2f& point) -> double { return point.x; },
+      [](const vec2f& point) -> double { return point.y; });
   cdt.insertEdges(
       edges.begin(), edges.end(), [](const vec2i& edge) { return edge.x; },
       [](const vec2i& edge) { return edge.y; });
 
-  cdt.eraseSuperTriangle();
+  cdt.eraseOuterTriangles();
   auto triangles = vector<vec3i>();
   triangles.reserve(cdt.triangles.size());
 
@@ -362,24 +474,11 @@ inline vector<vec3i> constrained_triangulation(
     auto& c           = nodes[verts.z];
     auto  orientation = cross(b - a, c - b);
     if (fabs(orientation) < 0.00001) {
-      printf("Detected collinearity\n");
+      printf("Collinear\n");
       continue;
     }
-
     triangles.push_back(verts);
   }
-
-  // Area of whole triangle must be 1.
-  //  auto real_area = cross(nodes[1] - nodes[0], nodes[2] - nodes[0]);
-  //  assert(fabs(real_area - 1) < 0.001);
-  //
-  //  // Check total area.
-  //  auto area = 0.0f;
-  //  for (auto& tr : triangles) {
-  //    area += cross(nodes[tr.y] - nodes[tr.x], nodes[tr.z] - nodes[tr.x]);
-  //  }
-  //  assert(fabs(area - real_area) < 0.001);
-
   return triangles;
 }
 
@@ -387,15 +486,17 @@ inline void update_face_edgemap(unordered_map<vec2i, vec2i>& face_edgemap,
     const vec2i& edge, const int face) {
   auto key = make_edge_key(edge);
 
-  if (face_edgemap.find(key) != face_edgemap.end()) {
-    auto& faces = face_edgemap[key];
-    if (faces.x == -1) {
-      assert(faces.y == -1);
-      faces.x = face;
-    } else {
-      assert(faces.y == -1);
-      faces.y = face;
-    }
+  auto it = face_edgemap.find(key);
+  if (it == face_edgemap.end()) {
+    //   auto& faces = face_edgemap[key];
+    // }
+    //   if (faces.x == -1) {
+    //     assert(faces.y == -1);
+    //     faces.x = face;
+    face_edgemap.insert(it, {key, {face, -1}});
+  } else {
+    // assert(faces.y == -1);
+    it->second.y = face;
   }
 }
 
@@ -455,6 +556,77 @@ vector<int> flood_fill(const bool_mesh& mesh, const vector<int>& start,
   return result;
 }
 
+template <typename F>
+vector<int> flood_fill(
+    const bool_mesh& mesh, const vector<int>& start, F&& check) {
+  auto visited = vector<bool>(mesh.adjacencies.size(), false);
+
+  auto result = vector<int>();
+  auto stack  = start;
+
+  while (!stack.empty()) {
+    auto face = stack.back();
+    stack.pop_back();
+
+    if (visited[face]) continue;
+    visited[face] = true;
+
+    result.push_back(face);
+
+    for (auto neighbor : mesh.adjacencies[face]) {
+      if (neighbor < 0 || visited[neighbor]) continue;
+      if (check(face, neighbor)) stack.push_back(neighbor);
+    }
+  }
+
+  return result;
+}
+
+static auto debug_result  = vector<int>();
+static auto debug_visited = vector<bool>{};
+static auto debug_stack   = vector<int>{};
+static auto debug_restart = true;
+
+template <typename F>
+void flood_fill_debug(
+    const bool_mesh& mesh, const vector<int>& start, F&& check) {
+  int face = -1;
+  if (debug_stack.empty()) {
+    debug_restart = true;
+    return;
+  }
+  while (!debug_stack.empty()) {
+    auto f = debug_stack.back();
+    debug_stack.pop_back();
+    if (debug_visited[f]) continue;
+    face = f;
+    break;
+  }
+  if (face == -1) return;
+
+  debug_visited[face] = true;
+
+  debug_result.push_back(face);
+
+  auto tag = mesh.tags[face];
+  auto adj = mesh.adjacencies[face];
+  printf("\nfrom %d: tag(%d %d %d) adj(%d %d %d)\n", face, tag[0], tag[1],
+      tag[2], adj[0], adj[1], adj[2]);
+
+  for (auto neighbor : mesh.adjacencies[face]) {
+    if (neighbor < 0 || debug_visited[neighbor]) continue;
+    auto tag = mesh.tags[neighbor];
+    auto adj = mesh.adjacencies[neighbor];
+    if (check(face, neighbor)) {
+      debug_stack.push_back(neighbor);
+      printf("ok   %d: tag(%d %d %d) adj(%d %d %d)\n", neighbor, tag[0], tag[1],
+          tag[2], adj[0], adj[1], adj[2]);
+    }
+    printf("no   %d: tag(%d %d %d) adj(%d %d %d)\n", neighbor, tag[0], tag[1],
+        tag[2], adj[0], adj[1], adj[2]);
+  }
+}
+
 // // Polygon operations (from previous implementation)
 // inline void polygon_and(const vector<cell_polygon>& cells,
 //     vector<int>& cell_ids, const int polygon) {
@@ -482,7 +654,8 @@ vector<int> flood_fill(const bool_mesh& mesh, const vector<int>& start,
 // }
 
 // inline void polygon_common(
-//     const vector<cell_polygon>& cells, vector<int>& cell_ids, const int num)
+//     const vector<cell_polygon>& cells, vector<int>& cell_ids, const int
+//     num)
 //     {
 //   if (num < 1) return;
 

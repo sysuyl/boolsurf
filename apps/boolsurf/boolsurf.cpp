@@ -19,6 +19,7 @@ void save_test(app_state* app, const string& filename) {
 }
 
 void init_from_test(app_state* app) {
+  app->state.polygons.clear();
   auto& points = app->state.points;
   points       = app->test.points;
   for (auto& polygon : app->test.polygons) {
@@ -41,10 +42,9 @@ struct triangle_segment {
   vec2f end   = {};
 };
 
-void debug_draw(app_state* app, int face,
-    const vector<triangle_segment>& segments, const string& header = "") {
+void debug_draw(app_state* app, int face, const vector<vec2i>& edges,
+    const string& header = "") {
   static int count = 0;
-  auto&      n     = debug_nodes[face];
   auto&      is    = debug_indices[face];
   //  auto       e     = vec2i{find_idx(is, edge_key.x), find_idx(is,
   //  edge_key.y)};
@@ -55,17 +55,39 @@ void debug_draw(app_state* app, int face,
   if (header.size()) {
     ext0 = "-" + header + ext0;
   }
-  auto edges = vector<vec2i>{};
-  for (auto& s : segments) {
-    auto e = vec2i{find_idx(is, s.start_vertex), find_idx(is, s.end_vertex)};
-    edges.push_back({e.x, e.y});
-  }
+  //  auto edges = vector<vec2i>{};
+  //  for (auto& s : segments) {
+  //    auto e = vec2i{find_idx(is, s.start_vertex), find_idx(is,
+  //    s.end_vertex)}; edges.push_back({e.x, e.y});
+  //  }
   debug_edges[face] = edges;
 
   save_triangulation(replace_extension(base, ext0), face);
 
   save_test(app, "data/tests/crash.json");
   count += 1;
+}
+
+void debug_cells(app_state* app) {
+  printf("Debugging cell: %d\n", app->current_patch);
+  for (auto i = 0; i < app->cell_patches.size(); i++) {
+    auto idx = app->cell_patches[i];
+
+    app->glscene->instances[idx]->hidden = (i == app->current_patch) ? false
+                                                                     : true;
+  }
+
+  app->current_patch = (app->current_patch + 1) % app->cell_patches.size();
+}
+
+void debug_borders(app_state* app) {
+  printf("Debugging cell: %d\n", app->current_border);
+  for (auto i = 0; i < app->state.polygons.size(); i++) {
+    app->state.polygons[i].inner_shape->hidden = (i != app->current_border);
+    app->state.polygons[i].outer_shape->hidden = (i != app->current_border);
+  }
+
+  app->current_border = (app->current_border + 1) % app->state.polygons.size();
 }
 
 #include <yocto_gui/ext/imgui/imgui.h>
@@ -168,19 +190,21 @@ void mouse_input(app_state* app, const gui_input& input) {
   if (!isec.hit) return;
   auto point              = mesh_point{isec.element, isec.uv};
   app->last_clicked_point = point;
+  debug_restart           = true;
 
-  if (!input.modifier_alt) return;
-  commit_state(app);
+  if (input.modifier_alt) {
+    commit_state(app);
 
-  // Add point index to last polygon.
-  auto polygon_id = app->state.polygons.size() - 1;
-  app->state.polygons[polygon_id].points.push_back(app->state.points.size());
+    // Add point index to last polygon.
+    auto polygon_id = (int)app->state.polygons.size() - 1;
+    app->state.polygons[polygon_id].points.push_back(app->state.points.size());
 
-  // Add point to state.
-  app->state.points.push_back(point);
+    // Add point to state.
+    app->state.points.push_back(point);
 
-  // TODO(giacomo): recomputing all paths of the polygon at every click is bad
-  update_polygon(app, polygon_id);
+    // TODO(giacomo): recomputing all paths of the polygon at every click is bad
+    update_polygon(app, polygon_id);
+  }
 }
 
 void do_the_thing(app_state* app) {
@@ -191,148 +215,116 @@ void do_the_thing(app_state* app) {
   // Hashgrid from triangle idx to <polygon idx, segment idx,
   // segment start uv, segment end uv> to handle intersections and
   // self-intersections
-  auto hashgrid = compute_hashgrid(state.polygons);
+
+  // Compute all new vertices
+  auto vertices = vector<vector<int>>(state.polygons.size());
+  for (int i = 0; i < state.polygons.size(); i++) {
+    auto& segments = state.polygons[i].segments;
+    vertices[i].resize(segments.size());
+
+    for (auto s = 0; s < segments.size(); s++) {
+      vertices[i][s] = add_vertex(
+          app->mesh, {segments[s].face, segments[s].end});
+    }
+  }
+
+  auto hashgrid = compute_hashgrid(state.polygons, vertices);
+
+  // auto yy = hashgrid[139767];
+  // auto draw_hashgrid = [&](int face) {
+  //   auto& nodes     = debug_nodes[face];
+  //   auto& triangles = debug_triangles[face];
+  //   auto& indices   = debug_indices[face];
+
+  //   nodes          = {{0, 0}, {0, 1}, {1, 0}};
+  //   triangles      = {{0, 1, 2}};
+  //   auto [a, b, c] = app->mesh.triangles[face];
+  //   indices        = {a, b, c};
+
+  //   int idx = 3;
+  //   for (auto& polyline : hashgrid[face]) {
+  //     nodes += polyline.points;
+  //     indices += polyline.vertices;
+  //     for (int i = 0; i < polyline.points.size() - 1; i++) {
+  //       triangles += vec3i{idx, idx + 1, idx + 1};
+  //       idx += 1;
+  //     }
+  //     idx += 1;
+  //   }
+  //   debug_draw(app, face, {});
+  // };
 
   // Mappa segmento (polygon_id, segment_id) a lista di intersezioni.
   // Per ogni faccia dell'hashgrid, calcoliamo le intersezioni fra i segmenti
   // contenuti.
-  auto intersections = compute_intersections(hashgrid, app->mesh, state.points);
 
-  // Mappa ogni faccia alla lista di triangle_segments di quella faccia.
-  auto triangle_segments = unordered_map<int, vector<triangle_segment>>{};
-
-  // Aggiungiamo gli estremi dei segmenti come vertici della mesh.
-  // Dobbiamo inserire nei punti giusti anche i punti di intersezione che
-  // spezzano i segmenti.
-  // Inoltre popoliamo triangle_segments.
-  for (auto polygon_id = 0; polygon_id < state.polygons.size(); polygon_id++) {
-    auto& segments = state.polygons[polygon_id].segments;
-
-    auto vertices = vector<int>(segments.size());
-    for (auto i = 0; i < segments.size(); i++) {
-      vertices[i] = add_vertex(
-          app->mesh, {segments[i].face, segments[i].start});
-    }
-
-    // Per ogni segmento del poligono.
-    for (auto segment_id = 0; segment_id < segments.size(); segment_id++) {
-      auto& segment = segments[segment_id];
-
-      auto start_uv     = segment.start;
-      auto start_vertex = vertices[segment_id];
-
-      // Se questo segmento aveva una o piu' interesezioni con altri segmenti...
-      if (intersections.find({polygon_id, segment_id}) != intersections.end()) {
-        auto& isecs = intersections[{polygon_id, segment_id}];
-
-        // Popoliamo triangle_segments.
-        for (auto& [end_vertex, l] : isecs) {
-          auto end_uv = lerp(segment.start, segment.end, l);
-          if (start_vertex != end_vertex) {
-            triangle_segments[segment.face].push_back(
-                {polygon_id, start_vertex, end_vertex, start_uv, end_uv});
-          }
-
-          // Accorcio il segmento corrente.
-          start_uv     = end_uv;
-          start_vertex = end_vertex;
-        }
-      }
-
-      auto end_uv = segment.end;
-
-      // L'indice del prossimo vertice che aggiungeremo al prossimo giro.
-      auto end_vertex = vertices[(segment_id + 1) % vertices.size()];
-
-      // auto is_vertex_uv = [](const vec2f& uv) {
-      //   return uv == vec2f{0, 0} || uv == vec2f{1, 0} || uv == vec2f{0, 1};
-      // };
-      // if (is_vertex_uv(start_uv) && is_vertex_uv(end_uv)) {
-      //   continue;
-      // }
-
-      if (start_vertex < original_vertices && end_vertex < original_vertices) {
-        continue;
-      }
-
-      if (start_vertex == end_vertex) {
-        continue;
-      }
-
-      triangle_segments[segment.face].push_back(
-          {polygon_id, start_vertex, end_vertex, start_uv, end_uv});
-    }
-  }
-
-  // Adesso possiamo triangolare ogni faccia.
-
-  //(marzia) collapse the triangle_segments iterations
-  // Not now, they're useful while debugging
+  compute_intersections(hashgrid, app->mesh);
 
   debug_triangles.clear();
   debug_nodes.clear();
   debug_indices.clear();
 
   // Mappa a ogni edge generato le due facce generate adiacenti.
-  auto face_edgemap = unordered_map<vec2i, vec2i>{};
-  for (auto& [face, segments] : triangle_segments) {
+  auto face_edgemap       = unordered_map<vec2i, vec2i>{};
+  auto triangulated_faces = unordered_map<int, vector<int>>{};
+
+  for (auto& [face, polylines] : hashgrid) {
     auto [a, b, c] = app->mesh.triangles[face];
-    auto nodes     = vector<vec2f>{{0, 0}, {1, 0}, {0, 1}};
+
+    // Nodi locali al triangolo.
+    auto nodes = vector<vec2f>{{0, 0}, {1, 0}, {0, 1}};
 
     // Mappa i nodi locali ai vertici della mesh.
     auto indices = vector<int>{a, b, c};
 
-    // Lista di archi-vincolo locali
+    // Lista di edge-vincolo locali
     auto edges      = vector<vec2i>();
     auto edgemap    = unordered_map<vec2i, vector<tuple<int, float>>>();
     edgemap[{0, 1}] = {};
     edgemap[{1, 2}] = {};
     edgemap[{0, 2}] = {};
 
-    // Per ogni segmento della faccia.
-    for (auto s = 0; s < segments.size(); s++) {
-      auto& [polygon_id, start_vertex, end_vertex, start_uv, end_uv] =
-          segments[s];
+    for (auto& polyline : polylines) {
+      for (auto i = 0; i < polyline.points.size(); i++) {
+        auto uv     = polyline.points[i];
+        auto vertex = polyline.vertices[i];
 
-      // Aggiungi senza duplicati. Aggiornando indices insieme a nodes,
-      // manteniamo la corrispondenza.
-      auto edge_start = find_idx(indices, start_vertex);
-      auto edge_end   = find_idx(indices, end_vertex);
+        auto local_vertex = find_idx(indices, vertex);
+        if (local_vertex == -1) {
+          indices.push_back(vertex);
+          nodes.push_back(uv);
+          local_vertex = (int)indices.size() - 1;
+        }
 
-      if (edge_start == -1) {
-        edge_start = (int)indices.size();
-        nodes.push_back(start_uv);
-        indices.push_back(start_vertex);
+        if (i != 0) {
+          auto vertex_start       = polyline.vertices[i - 1];
+          auto uv_start           = polyline.points[i - 1];
+          auto local_vertex_start = find_idx(indices, vertex_start);
 
-        auto [tri_edge, l] = get_mesh_edge({0, 1, 2}, start_uv);
-        if (tri_edge != zero2i) {
-          auto tri_edge_key = make_edge_key(tri_edge);
-          if (tri_edge_key != tri_edge) l = 1.0f - l;
-          edgemap[tri_edge_key].push_back({edge_start, l});
+          auto [tri_edge, l] = get_mesh_edge({0, 1, 2}, uv_start);
+          if (tri_edge != zero2i) {
+            auto tri_edge_key = make_edge_key(tri_edge);
+            if (tri_edge_key != tri_edge) l = 1.0f - l;
+            edgemap[tri_edge_key].push_back({local_vertex_start, l});
+          }
+
+          tie(tri_edge, l) = get_mesh_edge({0, 1, 2}, uv);
+          if (tri_edge != zero2i) {
+            auto tri_edge_key = make_edge_key(tri_edge);
+            if (tri_edge_key != tri_edge) l = 1.0f - l;
+            edgemap[tri_edge_key].push_back({local_vertex, l});
+          }
+
+          if (vertex_start < original_vertices && vertex < original_vertices) {
+            triangulated_faces[face] = {face};
+          }
+
+          edges.push_back({local_vertex_start, local_vertex});
         }
       }
-
-      if (edge_end == -1) {
-        edge_end = (int)indices.size();
-        nodes.push_back(end_uv);
-        indices.push_back(end_vertex);
-
-        auto [tri_edge, l] = get_mesh_edge({0, 1, 2}, end_uv);
-        if (tri_edge != zero2i) {
-          auto tri_edge_key = make_edge_key(tri_edge);
-          if (tri_edge_key != tri_edge) l = 1.0f - l;
-          edgemap[tri_edge_key].push_back({edge_end, l});
-        }
-      }
-
-      // Per adesso, ad ogni nuovo edge associamo due facce adiacenti nulle.
-      // Ora serve per debugging.
-      auto edge          = make_edge_key({start_vertex, end_vertex});
-      face_edgemap[edge] = {-1, -1};
-
-      edges.push_back({edge_start, edge_end});
     }
 
+    // Aggiungiamo gli edge di vincolo sia per i lati che per le polilinee
     for (auto& [tri_edge, points] : edgemap) {
       if (points.size() == 0) {
         edges.push_back(tri_edge);
@@ -365,25 +357,29 @@ void do_the_thing(app_state* app) {
     debug_indices[face]   = indices;
     debug_triangles[face] = triangles;
 
-    for (auto ee : edges) {
-      auto found = false;
-      for (auto& tr : triangles) {
-        int k = 0;
-        for (k = 0; k < 3; k++) {
-          auto edge = vec2i{tr[k], tr[(k + 1) % 3]};
-          if (make_edge_key(edge) == make_edge_key(ee)) {
-            found = true;
-            break;
-          }
-        }
-      }
-      if (!found) {
-        debug_draw(app, face, segments);
-        assert(0);
-      }
-    }
+    // for (auto ee : edges) {
+    //   auto found = false;
+    //   if (ee.x == ee.y) continue;  // TODO: why?
+    //   for (auto& tr : triangles) {
+    //     int k = 0;
+    //     for (k = 0; k < 3; k++) {
+    //       auto edge = vec2i{tr[k], tr[(k + 1) % 3]};
+    //       if (make_edge_key(edge) == make_edge_key(ee)) {
+    //         found = true;
+    //         break;
+    //       }
+    //     }
+    //   }
+    //   if (!found) {
+    //     debug_draw(app, face, {});
+    //     auto xx = hashgrid[face];
+    //     assert(0);
+    //   }
+    // }
 
     // Aggiungiamo i nuovi triangoli e aggiorniamo la face_edgemap.
+    triangulated_faces[face].clear();
+
     for (auto i = 0; i < triangles.size(); i++) {
       auto& [x, y, z] = triangles[i];
       auto v0         = indices[x];
@@ -396,6 +392,8 @@ void do_the_thing(app_state* app) {
       update_face_edgemap(face_edgemap, {v0, v1}, triangle_idx);
       update_face_edgemap(face_edgemap, {v1, v2}, triangle_idx);
       update_face_edgemap(face_edgemap, {v2, v0}, triangle_idx);
+
+      triangulated_faces[face].push_back(triangle_idx);
     }
 
     // Rendi triangolo originale degenere per farlo sparire.
@@ -410,42 +408,67 @@ void do_the_thing(app_state* app) {
   }
 
   // Creiamo inner_faces e outer_faces di ogni poligono.
-  for (auto& [face, segments] : triangle_segments) {
-    for (auto i = 0; i < segments.size(); i++) {
-      auto& [polygon, start_vertex, end_vertex, start_vu, end_uv] = segments[i];
-      auto edge     = vec2i{start_vertex, end_vertex};
-      auto edge_key = make_edge_key(edge);
+  for (auto& [face, polylines] : hashgrid) {
+    for (auto& polyline : polylines) {
+      // TODO(giacomo): gestire caso in cui polyline sia chiusa...
+      for (auto i = 0; i < polyline.vertices.size() - 1; i++) {
+        auto edge     = vec2i{polyline.vertices[i], polyline.vertices[i + 1]};
+        auto edge_key = make_edge_key(edge);
 
-      auto faces = face_edgemap.at(edge_key);
+        auto faces = vec2i{-1, -1};
+        auto it    = face_edgemap.find(edge_key);
+        if (it == face_edgemap.end()) {
+          auto& t_faces = triangulated_faces.at(face);
+          for (auto f : t_faces) {
+            auto& tr = app->mesh.triangles[f];
+            for (auto k = 0; k < 3; k++) {
+              auto e = make_edge_key(get_edge(tr, k));
+              if (edge_key == e) {
+                auto neigh = app->mesh.adjacencies[f][k];
+                faces      = {f, neigh};
+                goto update;
+              }
+            }
+          }
+        } else {
+          faces = it->second;
+        }
 
-      if (faces.x == -1 || faces.y == -1) {
-        auto qualcosa = hashgrid[face];
+      update:
+        if (faces.x == -1 || faces.y == -1) {
+          auto qualcosa = hashgrid[face];
 
-        debug_draw(app, face, segments);
+          debug_draw(app, face, {});
 
-        auto ff = app->mesh.adjacencies[face][1];
-        debug_draw(app, ff, segments, "other");
+          auto ff = app->mesh.adjacencies[face][1];
+          debug_draw(app, ff, {}, "other");
 
-        assert(0);
+          assert(0);
+        }
+
+        // Il triangolo di sinistra ha lo stesso orientamento del poligono.
+        auto& [a, b, c] = app->mesh.triangles[faces.x];
+
+        // Controlliamo che l'edge si nello stesso verso del poligono. Se non
+        // e' cosi, invertiamo.
+        if ((edge == vec2i{b, a}) || (edge == vec2i{c, b}) ||
+            (edge == vec2i{a, c})) {
+          swap(faces.x, faces.y);
+        }
+
+        auto polygon = polyline.polygon;
+        if (faces.x != -1)
+          state.polygons[polygon].inner_faces.push_back(faces.x);
+        if (faces.y != -1)
+          state.polygons[polygon].outer_faces.push_back(faces.y);
       }
-
-      // Il triangolo di sinistra ha lo stesso orientamento del poligono.
-      auto& [a, b, c] = app->mesh.triangles[faces.x];
-
-      // Controlliamo che l'edge si nello stesso verso del poligono. Se non
-      // e' cosi, invertiamo.
-      if ((edge == vec2i{b, a}) || (edge == vec2i{c, b}) ||
-          (edge == vec2i{a, c})) {
-        swap(faces.x, faces.y);
-      }
-
-      if (faces.x != -1) state.polygons[polygon].inner_faces.push_back(faces.x);
-      if (faces.y != -1) state.polygons[polygon].outer_faces.push_back(faces.y);
     }
   }
 
   // Removing face duplicates
+  // TODO(giacomo): check if we can avoid this
   for (auto i = 1; i < state.polygons.size(); i++) {
+    if (!state.polygons[i].points.size()) continue;
     auto& inner = state.polygons[i].inner_faces;
     auto& outer = state.polygons[i].outer_faces;
 
@@ -454,6 +477,17 @@ void do_the_thing(app_state* app) {
 
     sort(outer.begin(), outer.end());
     outer.erase(unique(outer.begin(), outer.end()), outer.end());
+  }
+
+  // Draw inner and outer faces
+  for (auto i = 0; i < state.polygons.size(); i++) {
+    auto& polygon               = state.polygons[i];
+    auto  a                     = app->materials.red;
+    auto  b                     = app->materials.green;
+    polygon.inner_shape         = add_patch_shape(app, polygon.inner_faces, a);
+    polygon.outer_shape         = add_patch_shape(app, polygon.outer_faces, b);
+    polygon.inner_shape->hidden = true;
+    polygon.outer_shape->hidden = true;
   }
 
   app->mesh.normals = compute_normals(app->mesh.triangles, app->mesh.positions);
@@ -467,13 +501,35 @@ void do_the_thing(app_state* app) {
 
   app->mesh_instance->hidden = true;
 
-  auto tags          = compute_face_tags(app->mesh, state.polygons);
+  app->mesh.tags = compute_face_tags(app->mesh, state.polygons);
+  auto& tags     = app->mesh.tags;
+
+  for (int i = 0; i < tags.size(); i++) {
+    for (int k = 0; k < 3; k++) {
+      if (tags[i][k] == 0) continue;
+      auto found = false;
+      for (int n = 0; n < 3; n++) {
+        auto neighbor = app->mesh.adjacencies[i][n];
+        auto id       = find_in_vec(tags[neighbor], -tags[i][k]);
+        if (id != -1) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        assert(0);
+        exit(0);
+      }
+    }
+  }
+
   auto face_polygons = unordered_map<int, vector<int>>();
 
   auto cells      = vector<vector<int>>();
   auto cell_faces = unordered_map<int, vector<int>>();
 
   for (auto p = 1; p < state.polygons.size(); p++) {
+    if (!state.polygons[p].points.size()) continue;
     auto check = [&](int face, int polygon) {
       return find_in_vec(tags[face], polygon) == -1;
     };
@@ -505,54 +561,10 @@ void do_the_thing(app_state* app) {
 
     auto color =
         app->cell_materials[(i + 1) % app->cell_materials.size()]->color;
-    add_patch_shape(app, cell_faces[i], color, 0.00025f * (i + 1));
+
+    app->cell_patches.push_back((int)app->glscene->instances.size());
+    add_patch_shape(app, cell_faces[i], color);
   }
-
-  // Previous Implementation
-  // auto graph = compute_graph(
-  //     app->state.points.size(), edge_map, counterclockwise);
-  // // print_graph(graph);
-
-  // auto edge_info  = compute_edge_info(edge_map, app->state.polygons);
-  // auto components = compute_connected_components(graph);
-
-  // for (auto& component : components) {
-  //   auto cells = compute_cells(
-  //       component, app->state.points, app->mesh,
-  //       app->state.polygons.size());
-  //   // draw_arrangement(app->glscene, app->mesh, app->cell_materials,
-  //   //     app->state.points, arrangement);
-
-  //   print_graph(component);
-  //   print_cells(cells);
-
-  //   auto dual_graph = compute_dual_graph(cells, edge_info);
-  //   // print_dual_graph(dual_graph);
-  //   auto outer_face = compute_outer_face(dual_graph);
-
-  //   visit_dual_graph(dual_graph, cells, outer_face);
-  // }
-
-  // Boolean operation example
-  // auto ids = vector<int>(arrangement.size(), 0);
-  // for (auto i = 0; i < arrangement.size(); i++)
-  //   if (!arrangement[i].embedding[1]) ids[i] = 1;
-
-  // polygon_and(arrangement, ids, 0);
-  // // polygon_or(arrangement, ids, 2);
-
-  // auto result = vector<cell_polygon>();
-  // for (auto i = 0; i < ids.size(); i++) {
-  //   if (ids[i]) {
-  //     result.push_back(arrangement[i]);
-  //     for (auto a : arrangement[i].points) printf("%d ", a);
-  //   }
-  //   printf("\n");
-  // }
-
-  // draw_arrangement(
-  //     app->glscene, app->mesh, app->cell_materials, app->state.points,
-  //     result);
 }
 
 void key_input(app_state* app, const gui_input& input) {
@@ -564,6 +576,7 @@ void key_input(app_state* app, const gui_input& input) {
       case (int)gui_key('Z'): {
         undo_state(app);
       } break;
+
       case (int)gui_key('Y'): {
         redo_state(app);
       } break;
@@ -571,32 +584,79 @@ void key_input(app_state* app, const gui_input& input) {
       case (int)gui_key('I'): {
         do_the_thing(app);
       } break;
-        // case (int)gui_key('L'): {
-        //   for (auto& [_, patches] : app->patch_in)
-        //     for (auto p : patches)
-        //       app->glscene->instances[p]->hidden =
-        //           !app->glscene->instances[p]->hidden;
-        // } break;
-        // case (int)gui_key('R'): {
-        //   for (auto& [_, patches] : app->patch_out)
-        //     for (auto p : patches)
-        //       app->glscene->instances[p]->hidden =
-        //           !app->glscene->instances[p]->hidden;
-        // } break;
-        // case (int)gui_key('N'): {
-        //   for (auto& [key, patches] : app->patch_in)
-        //     for (auto p : patches)
-        //       app->glscene->instances[p]->hidden =
-        //           (key == app->current_polygon) ? false : true;
 
-        //   for (auto& [key, patches] : app->patch_out)
-        //     for (auto p : patches)
-        //       app->glscene->instances[p]->hidden =
-        //           (key == app->current_polygon) ? false : true;
+      case (int)gui_key('N'): {
+        debug_cells(app);
+      } break;
 
-        //   app->current_polygon = (app->current_polygon + 1) %
-        //                          app->state.polygons.size();
-        // } break;
+      case (int)gui_key('B'): {
+        debug_borders(app);
+      } break;
+
+      case (int)gui_key('F'): {
+      press:
+        auto add = [&](int face, int neighbor) -> bool {
+          for (int k = 0; k < 3; k++) {
+            if (app->mesh.tags[face][k] == 0) continue;
+            if (find_in_vec(
+                    app->mesh.tags[neighbor], -app->mesh.tags[face][k]) != -1)
+              return false;
+          }
+          return true;
+        };
+        auto start = app->last_clicked_point.face;
+
+        if (debug_restart) {
+          debug_visited = vector<bool>(app->mesh.adjacencies.size(), false);
+          debug_stack   = {start};
+          debug_result.clear();
+          debug_restart = false;
+        }
+        flood_fill_debug(app->mesh, {start}, add);
+        auto visited = debug_result;
+
+        for (int i = 0; i < visited.size(); i++) {
+          auto tag = app->mesh.tags[visited[i]];
+          auto adj = app->mesh.adjacencies[visited[i]];
+          // printf("%d: tag(%d %d %d) adj(%d %d %d)\n", visited[i], tag[0],
+          //     tag[1], tag[2], adj[0], adj[1], adj[2]);
+        }
+
+        if (app->temp_patch) {
+          set_patch_shape(app->temp_patch->shape, app->mesh, visited);
+        } else {
+          app->temp_patch = add_patch_shape(app, visited, app->materials.blue);
+        }
+        app->temp_patch->depth_test = ogl_depth_test::always;
+      } break;
+
+      case (int)gui_key('G'): {
+        auto add = [&](int face, int neighbor) -> bool {
+          for (int k = 0; k < 3; k++) {
+            if (app->mesh.tags[face][k] == 0) continue;
+            if (find_in_vec(
+                    app->mesh.tags[neighbor], -app->mesh.tags[face][k]) != -1)
+              return false;
+          }
+          return true;
+        };
+        auto start   = app->last_clicked_point.face;
+        auto visited = flood_fill(app->mesh, {start}, add);
+
+        for (int i = 0; i < visited.size(); i++) {
+          auto tag = app->mesh.tags[visited[i]];
+          auto adj = app->mesh.adjacencies[visited[i]];
+          printf("%d: tag(%d %d %d) adj(%d %d %d)\n", visited[i], tag[0],
+              tag[1], tag[2], adj[0], adj[1], adj[2]);
+        }
+
+        if (app->temp_patch) {
+          set_patch_shape(app->temp_patch->shape, app->mesh, visited);
+        } else {
+          app->temp_patch = add_patch_shape(app, visited, app->materials.blue);
+        }
+        app->temp_patch->depth_test = ogl_depth_test::always;
+      } break;
 
       case (int)gui_key('C'): {
         auto old_camera = app->glcamera;
