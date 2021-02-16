@@ -203,8 +203,9 @@ struct hashgrid_polyline {
   vector<vec2f> points   = {};
   vector<int>   vertices = {};
 };
+using mesh_hashgrid = unordered_map<int, vector<hashgrid_polyline>>;
 
-inline unordered_map<int, vector<hashgrid_polyline>> compute_hashgrid(
+inline mesh_hashgrid compute_hashgrid(
     const vector<mesh_polygon>& polygons, const vector<vector<int>>& vertices) {
   auto hashgrid = unordered_map<int, vector<hashgrid_polyline>>{};
 
@@ -380,6 +381,15 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
 
     result.push_back(cell);
   }
+}
+
+inline vector<mesh_cell> make_mesh_cells(
+    const bool_mesh& mesh, const vector<vec3i>& tags) {
+  auto cell_stack = vector<mesh_cell>{{}};
+  auto starts     = vector<int>{0};
+  auto result     = vector<mesh_cell>{};
+  flood_fill_new(result, cell_stack, starts, mesh);
+  return result;
 }
 
 template <typename T>
