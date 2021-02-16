@@ -223,11 +223,6 @@ void do_the_thing(app_state* app) {
     vertices[i].resize(segments.size());
 
     for (auto s = 0; s < segments.size(); s++) {
-      if (segments[s].face == 139767) {
-        printf("\n%d\n", s);
-        printf("%f %f\n", segments[s].start.x, segments[s].start.y);
-        printf("%f %f\n", segments[s].end.x, segments[s].end.y);
-      }
       vertices[i][s] = add_vertex(
           app->mesh, {segments[s].face, segments[s].end});
     }
@@ -235,41 +230,35 @@ void do_the_thing(app_state* app) {
 
   auto hashgrid = compute_hashgrid(state.polygons, vertices);
 
-  auto yy = hashgrid[139767];
+  // auto yy = hashgrid[139767];
+  // auto draw_hashgrid = [&](int face) {
+  //   auto& nodes     = debug_nodes[face];
+  //   auto& triangles = debug_triangles[face];
+  //   auto& indices   = debug_indices[face];
 
-  auto draw_hashgrid = [&](int face) {
-    auto& nodes     = debug_nodes[face];
-    auto& triangles = debug_triangles[face];
-    auto& indices   = debug_indices[face];
+  //   nodes          = {{0, 0}, {0, 1}, {1, 0}};
+  //   triangles      = {{0, 1, 2}};
+  //   auto [a, b, c] = app->mesh.triangles[face];
+  //   indices        = {a, b, c};
 
-    nodes          = {{0, 0}, {0, 1}, {1, 0}};
-    triangles      = {{0, 1, 2}};
-    auto [a, b, c] = app->mesh.triangles[face];
-    indices        = {a, b, c};
-
-    int idx = 3;
-    for (auto& polyline : hashgrid[face]) {
-      nodes += polyline.points;
-      indices += polyline.vertices;
-      for (int i = 0; i < polyline.points.size() - 1; i++) {
-        triangles += vec3i{idx, idx + 1, idx + 1};
-        idx += 1;
-      }
-      idx += 1;
-    }
-
-    debug_draw(app, face, {});
-  };
-
+  //   int idx = 3;
+  //   for (auto& polyline : hashgrid[face]) {
+  //     nodes += polyline.points;
+  //     indices += polyline.vertices;
+  //     for (int i = 0; i < polyline.points.size() - 1; i++) {
+  //       triangles += vec3i{idx, idx + 1, idx + 1};
+  //       idx += 1;
+  //     }
+  //     idx += 1;
+  //   }
+  //   debug_draw(app, face, {});
+  // };
 
   // Mappa segmento (polygon_id, segment_id) a lista di intersezioni.
   // Per ogni faccia dell'hashgrid, calcoliamo le intersezioni fra i segmenti
   // contenuti.
 
   compute_intersections(hashgrid, app->mesh);
-  auto zz = hashgrid[139767];
-    draw_hashgrid(139767);
-    assert(0);
 
   debug_triangles.clear();
   debug_nodes.clear();
@@ -286,13 +275,7 @@ void do_the_thing(app_state* app) {
     // Mappa i nodi locali ai vertici della mesh.
     auto indices = vector<int>{a, b, c};
 
-    // Edges locali
-    // auto edge_set = unordered_set<vec2i>{};
-    // edge_set.insert({0, 1});
-    // edge_set.insert({0, 2});
-    // edge_set.insert({1, 2});
-
-    // Lista di archi-vincolo locali
+    // Lista di edge-vincolo locali
     auto edges      = vector<vec2i>();
     auto edgemap    = unordered_map<vec2i, vector<tuple<int, float>>>();
     edgemap[{0, 1}] = {};
@@ -315,9 +298,6 @@ void do_the_thing(app_state* app) {
           auto vertex_start       = polyline.vertices[i - 1];
           auto uv_start           = polyline.points[i - 1];
           auto local_vertex_start = find_idx(indices, vertex_start);
-          //          auto edge = make_edge_key({local_vertex_start,
-          //          local_vertex});
-          // edge_set.insert(edge);
 
           auto [tri_edge, l] = get_mesh_edge({0, 1, 2}, uv_start);
           if (tri_edge != zero2i) {
@@ -499,19 +479,6 @@ void do_the_thing(app_state* app) {
 
   app->mesh.tags = compute_face_tags(app->mesh, state.polygons);
   auto& tags     = app->mesh.tags;
-
-  // Check if face is both outside and inside
-  for (int i = 0; i < tags.size(); i++) {
-    for (int k = 0; k < 2; k++) {
-      if (tags[i][k] == 0) continue;
-      for (int j = k + 1; j < 3; j++) {
-        if (tags[i][j] == -tags[i][k]) {
-          printf("error i: %d\n", i);
-          assert(0);
-        }
-      }
-    }
-  }
 
   for (int i = 0; i < tags.size(); i++) {
     for (int k = 0; k < 3; k++) {
