@@ -301,6 +301,28 @@ inline void insert(vector<T>& vec, size_t i, const T& x) {
   vec.insert(vec.begin() + i, x);
 }
 
+inline bool check_tags(const bool_mesh& mesh) {
+  for (int i = 0; i < mesh.triangles.size(); i++) {
+    auto face = i;
+    auto tr   = mesh.triangles[face];
+    if (tr == vec3i{0, 0, 0}) continue;
+    for (int k = 0; k < 3; k++) {
+      auto neighbor = mesh.adjacencies[face][k];
+      if (neighbor == -1) continue;
+      auto n0 = mesh.adjacencies[face];
+      auto n1 = mesh.adjacencies[neighbor];
+      auto kk = find_in_vec(mesh.adjacencies[neighbor], face);
+      assert(kk != -1);
+
+      auto tags0 = mesh.tags[face];
+      auto tags1 = mesh.tags[neighbor];
+      auto tag0  = tags0[k];
+      auto tag1  = tags1[kk];
+      assert(tag0 == -tag1);
+    }
+  }
+  return true;
+}
 inline void compute_intersections(
     unordered_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
   for (auto& [face, polylines] : hashgrid) {
