@@ -592,9 +592,19 @@ void do_the_thing(app_state* app) {
         app->cell_materials[(i + 1) % app->cell_materials.size()]->color;
     app->cell_patches.push_back((int)app->glscene->instances.size());
     add_patch_shape(app, cell.faces, color);
+    printf("[cell %d]\n", i);
+    printf("  faces: %d\n", (int)cell.faces.size());
+    printf("  in: ");
+    for (auto& p : cell.inner_polygons) printf("%d", p);
+    printf("\n");
+    printf("  out: ");
+    for (auto& p : cell.outer_polygons) printf("%d", p);
+    printf("\n\n");
   }
+
 #endif
 
+  // assert(0);
   // // Inverting face_polygons map
   // for (auto& [face, polygons] : face_polygons) {
   //   auto idx = find_idx(cells, polygons);
