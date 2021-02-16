@@ -16,3 +16,5 @@ testsr/
 site/
 tests/sculpting1
 apps/boolsurf/ext
+apps/display
+data/tests
