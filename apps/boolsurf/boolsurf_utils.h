@@ -211,20 +211,6 @@ struct hashgrid_polyline {
   vector<int>   vertices = {};
 };
 
-inline pair<int, vec2f> add_vertex_new(
-    bool_mesh& mesh, const mesh_point& point) {
-  float eps = 0.00001;
-  auto  uv  = point.uv;
-  auto  tr  = mesh.triangles[point.face];
-  if (uv.x < eps && uv.y < eps) return {tr.x, {0, 0}};
-  if (uv.x > 1 - eps && uv.y < eps) return {tr.y, {1, 0}};
-  if (uv.y > 1 - eps && uv.x < eps) return {tr.z, {1, 1}};
-  auto vertex = (int)mesh.positions.size();
-  auto pos    = eval_position(mesh.triangles, mesh.positions, point);
-  mesh.positions.push_back(pos);
-  return {vertex, uv};
-}
-
 inline unordered_map<int, vector<hashgrid_polyline>> compute_hashgrid(
     const vector<mesh_polygon>& polygons, const vector<vector<int>>& vertices) {
   auto hashgrid = unordered_map<int, vector<hashgrid_polyline>>{};
@@ -295,6 +281,20 @@ inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
   return vertex;
 }
 
+inline vector<vector<int>> add_vertices(
+    bool_mesh& mesh, const vector<mesh_polygon>& polygons) {
+  auto vertices = vector<vector<int>>(polygons.size());
+  for (int i = 0; i < polygons.size(); i++) {
+    auto& segments = polygons[i].segments;
+    vertices[i].resize(segments.size());
+
+    for (auto s = 0; s < segments.size(); s++) {
+      vertices[i][s] = add_vertex(mesh, {segments[s].face, segments[s].end});
+    }
+  }
+  return vertices;
+}
+
 // TODO: put in utils
 template <typename T>
 inline void insert(vector<T>& vec, size_t i, const T& x) {
@@ -330,8 +330,8 @@ struct mesh_cell {
   unordered_set<int> inner_polygons = {};
 };
 
-void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells, vector<int>& starts,
-    const bool_mesh& mesh) {
+void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
+    vector<int>& starts, const bool_mesh& mesh) {
   auto visited = vector<bool>(mesh.adjacencies.size(), false);
 
   // consume tast stack

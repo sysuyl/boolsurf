@@ -268,16 +268,7 @@ void do_the_thing(app_state* app) {
   // self-intersections
 
   // Compute all new vertices
-  auto vertices = vector<vector<int>>(state.polygons.size());
-  for (int i = 0; i < state.polygons.size(); i++) {
-    auto& segments = state.polygons[i].segments;
-    vertices[i].resize(segments.size());
-
-    for (auto s = 0; s < segments.size(); s++) {
-      vertices[i][s] = add_vertex(
-          app->mesh, {segments[s].face, segments[s].end});
-    }
-  }
+  auto vertices = add_vertices(app->mesh, state.polygons);
 
   auto hashgrid = compute_hashgrid(state.polygons, vertices);
 
