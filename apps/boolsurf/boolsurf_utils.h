@@ -330,7 +330,7 @@ struct mesh_cell {
   unordered_set<int> inner_polygons = {};
 };
 
-void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
+void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells, vector<int>& starts,
     const bool_mesh& mesh) {
   auto visited = vector<bool>(mesh.adjacencies.size(), false);
 

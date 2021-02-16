@@ -434,7 +434,7 @@ void do_the_thing(app_state* app) {
     }
   }
 
-  app->mesh.tags = vector<vec3i>(app->mesh.triangles.size(), zero3i);
+  app->mesh.tags        = vector<vec3i>(app->mesh.triangles.size(), zero3i);
   app->mesh.adjacencies = face_adjacencies(app->mesh.triangles);
 
   // Creiamo inner_faces e outer_faces di ogni poligono.
@@ -540,7 +540,6 @@ void do_the_thing(app_state* app) {
   // app->mesh.tags = compute_face_tags(app->mesh, state.polygons);
   auto& tags = app->mesh.tags;
 
-  check_tags(app->mesh);
   //  for (int i = 0; i < tags.size(); i++) {
   //    for (int k = 0; k < 3; k++) {
   //      if (tags[i][k] == 0) continue;
@@ -580,28 +579,44 @@ void do_the_thing(app_state* app) {
     for (auto i : visited_in) face_polygons[i].push_back(p);
   }
 
-  // Inverting face_polygons map
-  for (auto& [face, polygons] : face_polygons) {
-    auto idx = find_idx(cells, polygons);
-    if (idx == -1) {
-      idx = (int)cells.size();
-      cells.push_back(polygons);
-    }
+#if 1
+  check_tags(app->mesh);
+  auto cell_stack = vector<mesh_cell>{{}};
+  auto starts     = vector<int>{0};
+  auto result     = vector<mesh_cell>{};
+  flood_fill_new(result, cell_stack, starts, app->mesh);
 
-    cell_faces[idx].push_back(face);
-  }
-
-  for (auto i = 0; i < cells.size(); i++) {
-    printf("Cell: %d -> ", i);
-    for (auto c : cells[i]) printf("%d ", c);
-    printf("\n\t Faces: %d \n", cell_faces[i].size());
-
-    auto color =
+  for (int i = 0; i < result.size(); i++) {
+    auto& cell = result[i];
+    auto  color =
         app->cell_materials[(i + 1) % app->cell_materials.size()]->color;
-
     app->cell_patches.push_back((int)app->glscene->instances.size());
-    add_patch_shape(app, cell_faces[i], color);
+    add_patch_shape(app, cell.faces, color);
   }
+#endif
+
+  // // Inverting face_polygons map
+  // for (auto& [face, polygons] : face_polygons) {
+  //   auto idx = find_idx(cells, polygons);
+  //   if (idx == -1) {
+  //     idx = (int)cells.size();
+  //     cells.push_back(polygons);
+  //   }
+
+  //   cell_faces[idx].push_back(face);
+  // }
+
+  // for (auto i = 0; i < cells.size(); i++) {
+  //   printf("Cell: %d -> ", i);
+  //   for (auto c : cells[i]) printf("%d ", c);
+  //   printf("\n\t Faces: %d \n", cell_faces[i].size());
+
+  //   auto color =
+  //       app->cell_materials[(i + 1) % app->cell_materials.size()]->color;
+
+  //   app->cell_patches.push_back((int)app->glscene->instances.size());
+  //   add_patch_shape(app, cell_faces[i], color);
+  // }
 }
 
 void key_input(app_state* app, const gui_input& input) {
