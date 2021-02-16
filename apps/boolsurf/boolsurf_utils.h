@@ -8,7 +8,6 @@
 #include <unordered_set>
 
 #include "ext/CDT/CDT/include/CDT.h"
-#include "ext/delaunator.cpp"
 
 using namespace yocto;
 using namespace std;
@@ -76,12 +75,6 @@ inline vector<T> operator+(const vector<T>& a, const vector<T>& b) {
 
 inline vec3f eval_position(const bool_mesh& mesh, const mesh_point& point) {
   return eval_position(mesh.triangles, mesh.positions, point);
-}
-
-// (marzia) Not Used
-inline bool is_closed(const mesh_polygon& polygon) {
-  if (polygon.points.size() < 3) return false;
-  return (polygon.points.front() == polygon.points.back());
 }
 
 inline bool_mesh init_mesh(const generic_shape* shape) {
@@ -295,35 +288,6 @@ inline vector<vector<int>> add_vertices(
   return vertices;
 }
 
-// TODO: put in utils
-template <typename T>
-inline void insert(vector<T>& vec, size_t i, const T& x) {
-  vec.insert(vec.begin() + i, x);
-}
-
-inline bool check_tags(const bool_mesh& mesh) {
-  for (int i = 0; i < mesh.triangles.size(); i++) {
-    auto face = i;
-    auto tr   = mesh.triangles[face];
-    if (tr == vec3i{0, 0, 0}) continue;
-    for (int k = 0; k < 3; k++) {
-      auto neighbor = mesh.adjacencies[face][k];
-      if (neighbor == -1) continue;
-      auto n0 = mesh.adjacencies[face];
-      auto n1 = mesh.adjacencies[neighbor];
-      auto kk = find_in_vec(mesh.adjacencies[neighbor], face);
-      assert(kk != -1);
-
-      auto tags0 = mesh.tags[face];
-      auto tags1 = mesh.tags[neighbor];
-      auto tag0  = tags0[k];
-      auto tag1  = tags1[kk];
-      assert(tag0 == -tag1);
-    }
-  }
-  return true;
-}
-
 struct mesh_cell {
   vector<int>        faces          = {};
   unordered_set<int> outer_polygons = {};
@@ -416,6 +380,11 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
 
     result.push_back(cell);
   }
+}
+
+template <typename T>
+inline void insert(vector<T>& vec, size_t i, const T& x) {
+  vec.insert(vec.begin() + i, x);
 }
 
 inline void compute_intersections(
@@ -516,55 +485,10 @@ inline vec2i get_edge(const vec3i& triangle, int k) {
   }
 }
 
-// (Previous implementation) Simple Delaunay Triangulation
-inline vector<vec3i> triangulate(const vector<vec2f>& nodes) {
-  auto coords = vector<double>();
-  coords.reserve(nodes.size() * 2);
-  for (auto& node : nodes) {
-    coords.push_back(node.x);
-    coords.push_back(node.y);
-  }
-
-  auto dt        = delaunator::Delaunator(coords);
-  auto triangles = vector<vec3i>();
-  triangles.reserve(dt.triangles.size() / 3);
-  for (int i = 0; i < dt.triangles.size(); i += 3) {
-    auto verts = vec3i{(int)dt.triangles[i], (int)dt.triangles[i + 2],
-        (int)dt.triangles[i + 1]};
-
-    // Check collinearity
-    auto& a    = nodes[verts.x];
-    auto& b    = nodes[verts.y];
-    auto& c    = nodes[verts.z];
-    auto  area = cross(b - a, c - a);
-    if (fabs(area) < 0.00001) {
-      printf("heyyyy\n");
-      continue;
-    }
-    // if (fabs(orientation) < 0.00001) {
-    //   continue;
-    // }
-
-    triangles.push_back(verts);
-  }
-
-  // // Area of whole triangle must be 1.
-  // auto real_area = cross(nodes[1] - nodes[0], nodes[2] - nodes[0]);
-  // assert(fabs(real_area - 1) < 0.001);
-
-  // // Check total area.
-  // auto area = 0.0f;
-  // for (auto& tr : triangles) {
-  //   area += cross(nodes[tr.y] - nodes[tr.x], nodes[tr.z] - nodes[tr.x]);
-  // }
-  // assert(fabs(area - real_area) < 0.001);
-
-  return triangles;
-}
-
 // Constrained Delaunay Triangulation
 inline vector<vec3i> constrained_triangulation(
     vector<vec2f> nodes, const vector<vec2i>& edges) {
+  // Queso purtroppo serve.
   for (auto& n : nodes) n *= 1e9;
 
   auto cdt = CDT::Triangulation<double>(
@@ -585,13 +509,13 @@ inline vector<vec3i> constrained_triangulation(
     auto verts = vec3i{
         (int)tri.vertices[0], (int)tri.vertices[1], (int)tri.vertices[2]};
 
-    // Check collinearity
+    // TODO: serve?
     auto& a           = nodes[verts.x];
     auto& b           = nodes[verts.y];
     auto& c           = nodes[verts.z];
     auto  orientation = cross(b - a, c - b);
     if (fabs(orientation) < 0.00001) {
-      printf("Collinear\n");
+      printf("Collinear (ma serve?)\n");
       continue;
     }
     triangles.push_back(verts);
@@ -602,44 +526,12 @@ inline vector<vec3i> constrained_triangulation(
 inline void update_face_edgemap(unordered_map<vec2i, vec2i>& face_edgemap,
     const vec2i& edge, const int face) {
   auto key = make_edge_key(edge);
-
-  auto it = face_edgemap.find(key);
+  auto it  = face_edgemap.find(key);
   if (it == face_edgemap.end()) {
-    //   auto& faces = face_edgemap[key];
-    // }
-    //   if (faces.x == -1) {
-    //     assert(faces.y == -1);
-    //     faces.x = face;
     face_edgemap.insert(it, {key, {face, -1}});
   } else {
-    // assert(faces.y == -1);
     it->second.y = face;
   }
-}
-
-inline vector<vec3i> compute_face_tags(
-    const bool_mesh& mesh, const vector<mesh_polygon>& polygons) {
-  auto tags = vector<vec3i>(mesh.triangles.size(), zero3i);
-  for (auto p = 1; p < polygons.size(); p++) {
-    for (auto f : polygons[p].inner_faces) {
-      for (auto k = 0; k < 3; k++) {
-        if (tags[f][k] == 0) {
-          tags[f][k] = -p;
-          break;
-        }
-      }
-    }
-
-    for (auto f : polygons[p].outer_faces) {
-      for (auto k = 0; k < 3; k++) {
-        if (tags[f][k] == 0) {
-          tags[f][k] = p;
-          break;
-        }
-      }
-    }
-  }
-  return tags;
 }
 
 template <typename F>
@@ -699,6 +591,29 @@ vector<int> flood_fill(
   return result;
 }
 
+inline bool check_tags(const bool_mesh& mesh) {
+  for (int i = 0; i < mesh.triangles.size(); i++) {
+    auto face = i;
+    auto tr   = mesh.triangles[face];
+    if (tr == vec3i{0, 0, 0}) continue;
+    for (int k = 0; k < 3; k++) {
+      auto neighbor = mesh.adjacencies[face][k];
+      if (neighbor == -1) continue;
+      auto n0 = mesh.adjacencies[face];
+      auto n1 = mesh.adjacencies[neighbor];
+      auto kk = find_in_vec(mesh.adjacencies[neighbor], face);
+      assert(kk != -1);
+
+      auto tags0 = mesh.tags[face];
+      auto tags1 = mesh.tags[neighbor];
+      auto tag0  = tags0[k];
+      auto tag1  = tags1[kk];
+      assert(tag0 == -tag1);
+    }
+  }
+  return true;
+}
+
 static auto debug_result  = vector<int>();
 static auto debug_visited = vector<bool>{};
 static auto debug_stack   = vector<int>{};
@@ -743,44 +658,3 @@ void flood_fill_debug(
         tag[2], adj[0], adj[1], adj[2]);
   }
 }
-
-// // Polygon operations (from previous implementation)
-// inline void polygon_and(const vector<cell_polygon>& cells,
-//     vector<int>& cell_ids, const int polygon) {
-//   for (auto i = 0; i < cells.size(); i++) {
-//     auto& label = cells[i].embedding[polygon];
-//     cell_ids[i] = cell_ids[i] && label;
-//   }
-// }
-
-// inline void polygon_or(const vector<cell_polygon>& cells, vector<int>&
-// cell_ids,
-//     const int polygon) {
-//   for (auto i = 0; i < cells.size(); i++) {
-//     auto& label = cells[i].embedding[polygon];
-//     cell_ids[i] = cell_ids[i] || label;
-//   }
-// }
-
-// inline void polygon_not(const vector<cell_polygon>& cells,
-//     vector<int>& cell_ids, const int polygon) {
-//   for (auto i = 0; i < cells.size(); i++) {
-//     auto& label = cells[i].embedding[polygon];
-//     cell_ids[i] = !label;
-//   }
-// }
-
-// inline void polygon_common(
-//     const vector<cell_polygon>& cells, vector<int>& cell_ids, const int
-//     num)
-//     {
-//   if (num < 1) return;
-
-//   for (auto i = 0; i < cells.size(); i++) {
-//     auto  sum   = 0;
-//     auto& label = cells[i].embedding;
-//     for (auto& l : label) sum += l;
-//     cell_ids[i] = sum >= num;
-//   }
-//   return;
-// }
