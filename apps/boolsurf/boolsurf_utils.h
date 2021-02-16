@@ -437,15 +437,17 @@ inline vector<vec3i> constrained_triangulation(
     vector<vec2f> nodes, const vector<vec2i>& edges) {
   for (auto& n : nodes) n *= 1e9;
 
-  auto cdt = CDT::Triangulation<float>(CDT::FindingClosestPoint::ClosestRandom);
+  auto cdt = CDT::Triangulation<double>(
+      CDT::FindingClosestPoint::ClosestRandom);
   cdt.insertVertices(
-      nodes.begin(), nodes.end(), [](const vec2f& point) { return point.x; },
-      [](const vec2f& point) { return point.y; });
+      nodes.begin(), nodes.end(),
+      [](const vec2f& point) -> double { return point.x; },
+      [](const vec2f& point) -> double { return point.y; });
   cdt.insertEdges(
       edges.begin(), edges.end(), [](const vec2i& edge) { return edge.x; },
       [](const vec2i& edge) { return edge.y; });
 
-  cdt.eraseSuperTriangle();
+  cdt.eraseOuterTriangles();
   auto triangles = vector<vec3i>();
   triangles.reserve(cdt.triangles.size());
 
