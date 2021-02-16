@@ -332,44 +332,13 @@ void do_the_thing(app_state* app) {
             if (tri_edge_key != tri_edge) l = 1.0f - l;
             edgemap[tri_edge_key].push_back({local_vertex, l});
           }
+
+          edges.push_back({local_vertex_start, local_vertex});
         }
       }
     }
 
-    // Aggiungi senza duplicati. Aggiornando indices insieme a nodes,
-    // manteniamo la corrispondenza.
-    // auto edge_start = find_idx(indices, start_vertex);
-    // auto edge_end   = find_idx(indices, end_vertex);
-
-    // if (edge_start == -1) {
-    //   edge_start = (int)indices.size();
-    //   nodes.push_back(start_uv);
-    //   indices.push_back(start_vertex);
-
-    //   auto [tri_edge, l] = get_mesh_edge({0, 1, 2}, start_uv);
-    //   if (tri_edge != zero2i) {
-    //     auto tri_edge_key = make_edge_key(tri_edge);
-    //     if (tri_edge_key != tri_edge) l = 1.0f - l;
-    //     edgemap[tri_edge_key].push_back({edge_start, l});
-    //   }
-    // }
-
-    // if (edge_end == -1) {
-    //   edge_end = (int)indices.size();
-    //   nodes.push_back(end_uv);
-    //   indices.push_back(end_vertex);
-
-    //   auto [tri_edge, l] = get_mesh_edge({0, 1, 2}, end_uv);
-    //   if (tri_edge != zero2i) {
-    //     auto tri_edge_key = make_edge_key(tri_edge);
-    //     if (tri_edge_key != tri_edge) l = 1.0f - l;
-    //     edgemap[tri_edge_key].push_back({edge_end, l});
-    //   }
-    // }
-
-    // edges.push_back({edge_start, edge_end});
-    // }
-
+    // Aggiungiamo gli edge di vincolo sia per i lati che per le polilinee
     for (auto& [tri_edge, points] : edgemap) {
       if (points.size() == 0) {
         edges.push_back(tri_edge);

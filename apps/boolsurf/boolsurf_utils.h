@@ -461,24 +461,11 @@ inline vector<vec3i> constrained_triangulation(
     auto& c           = nodes[verts.z];
     auto  orientation = cross(b - a, c - b);
     if (fabs(orientation) < 0.00001) {
-      printf("Detected collinearity\n");
-      //      continue;
+      printf("Collinear\n");
+      continue;
     }
-
     triangles.push_back(verts);
   }
-
-  // Area of whole triangle must be 1.
-  //  auto real_area = cross(nodes[1] - nodes[0], nodes[2] - nodes[0]);
-  //  assert(fabs(real_area - 1) < 0.001);
-  //
-  //  // Check total area.
-  //  auto area = 0.0f;
-  //  for (auto& tr : triangles) {
-  //    area += cross(nodes[tr.y] - nodes[tr.x], nodes[tr.z] - nodes[tr.x]);
-  //  }
-  //  assert(fabs(area - real_area) < 0.001);
-
   return triangles;
 }
 
