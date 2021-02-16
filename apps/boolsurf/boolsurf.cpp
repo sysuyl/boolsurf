@@ -229,8 +229,8 @@ void mouse_input(app_state* app, const gui_input& input) {
   auto point              = mesh_point{isec.element, isec.uv};
   app->last_clicked_point = point;
 
-  auto point_original     = mesh_point{isec_original.element, isec_original.uv};
-  app->last_clicked_point = point_original;
+  auto point_original = mesh_point{isec_original.element, isec_original.uv};
+  app->last_clicked_point_original = point_original;
 
   for (int i = 0; i < app->arrangement.size(); i++) {
     auto& cell = app->arrangement[i];

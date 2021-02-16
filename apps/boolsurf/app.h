@@ -357,7 +357,7 @@ tuple<shape_intersection, shape_intersection> intersect_shapes(
   auto isec = intersect_triangles_bvh(
       app->bvh, app->mesh.triangles, app->mesh.positions, ray);
 
-  return {isec_original, isec};
+  return {isec, isec_original};
 }
 
 shade_instance* add_patch_shape(
