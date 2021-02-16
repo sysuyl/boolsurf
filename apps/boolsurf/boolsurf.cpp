@@ -332,27 +332,11 @@ vector<vec3i> face_tags(const bool_mesh& mesh, const mesh_hashgrid& hashgrid,
   return tags;
 }
 
-void do_the_thing(app_state* app) {
-  auto& state             = app->state;
-  auto  original_vertices = app->mesh.positions.size();
-
-  auto vertices = add_vertices(app->mesh, state.polygons);
-
-  auto hashgrid = compute_hashgrid(state.polygons, vertices);
-  compute_intersections(hashgrid, app->mesh);
-
-#ifdef MY_DEBUG
-  debug_triangles.clear();
-  debug_nodes.clear();
-  debug_indices.clear();
-#endif
-
-  // Mappa a ogni edge generato le due facce generate adiacenti.
-  auto face_edgemap       = unordered_map<vec2i, vec2i>{};
-  auto triangulated_faces = unordered_map<int, vector<int>>{};
-
+void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
+    unordered_map<int, vector<int>>& triangulated_faces,
+    const mesh_hashgrid& hashgrid, int original_vertices) {
   for (auto& [face, polylines] : hashgrid) {
-    auto [a, b, c] = app->mesh.triangles[face];
+    auto [a, b, c] = mesh.triangles[face];
 
     // Nodi locali al triangolo.
     auto nodes = vector<vec2f>{{0, 0}, {1, 0}, {0, 1}};
@@ -452,8 +436,8 @@ void do_the_thing(app_state* app) {
       auto v1         = indices[y];
       auto v2         = indices[z];
 
-      auto triangle_idx = (int)app->mesh.triangles.size();
-      app->mesh.triangles.push_back({v0, v1, v2});
+      auto triangle_idx = (int)mesh.triangles.size();
+      mesh.triangles.push_back({v0, v1, v2});
 
       update_face_edgemap(face_edgemap, {v0, v1}, triangle_idx);
       update_face_edgemap(face_edgemap, {v1, v2}, triangle_idx);
@@ -463,20 +447,38 @@ void do_the_thing(app_state* app) {
     }
 
     // Rendi triangolo originale degenere per farlo sparire.
-    app->mesh.triangles[face] = {0, 0, 0};
+    mesh.triangles[face] = {0, 0, 0};
   }
+}
 
+void do_the_thing(app_state* app) {
+  auto& polygons          = app->state.polygons;
+  auto  original_vertices = app->mesh.positions.size();
+
+  auto vertices = add_vertices(app->mesh, polygons);
+
+  auto hashgrid = compute_hashgrid(polygons, vertices);
+  compute_intersections(hashgrid, app->mesh);
+
+  // Mappa a ogni edge generato le due facce generate adiacenti.
+  auto face_edgemap       = unordered_map<vec2i, vec2i>{};
+  auto triangulated_faces = unordered_map<int, vector<int>>{};
+  triangulate(
+      app->mesh, face_edgemap, triangulated_faces, hashgrid, original_vertices);
+
+  // Ricalcola adiacenza e calcola tags
   app->mesh.adjacencies = face_adjacencies(app->mesh.triangles);
   app->mesh.tags        = face_tags(
       app->mesh, hashgrid, face_edgemap, triangulated_faces);
-
   check_tags(app->mesh);
+
+  // Trova le celle via flood-fill
   app->arrangement = make_mesh_cells(app->mesh, app->mesh.tags);
 
 #if DRAW_BORDER_FACES
   // Draw inner and outer faces
-  for (auto i = 0; i < state.polygons.size(); i++) {
-    auto& polygon               = state.polygons[i];
+  for (auto i = 0; i < polygons.size(); i++) {
+    auto& polygon               = polygons[i];
     auto  a                     = app->materials.red;
     auto  b                     = app->materials.green;
     polygon.inner_shape         = add_patch_shape(app, polygon.inner_faces, a);
@@ -490,45 +492,21 @@ void do_the_thing(app_state* app) {
   auto cells      = vector<vector<int>>();
   auto cell_faces = unordered_map<int, vector<int>>();
 
-  for (auto p = 1; p < state.polygons.size(); p++) {
-    if (!state.polygons[p].points.size()) continue;
+  for (auto p = 1; p < polygons.size(); p++) {
+    if (!polygons[p].points.size()) continue;
     auto check = [&](int face, int polygon) {
       return find_in_vec(app->mesh.tags[face], polygon) == -1;
     };
 
-    auto start_out   = state.polygons[p].outer_faces;
+    auto start_out   = polygons[p].outer_faces;
     auto visited_out = flood_fill(app->mesh, start_out, -p, check);
     for (auto o : visited_out) face_polygons[o].push_back(-p);
 
-    auto start_in   = state.polygons[p].inner_faces;
+    auto start_in   = polygons[p].inner_faces;
     auto visited_in = flood_fill(app->mesh, start_in, p, check);
     for (auto i : visited_in) face_polygons[i].push_back(p);
   }
 #endif
-
-  // assert(0);
-  // // Inverting face_polygons map
-  // for (auto& [face, polygons] : face_polygons) {
-  //   auto idx = find_idx(cells, polygons);
-  //   if (idx == -1) {
-  //     idx = (int)cells.size();
-  //     cells.push_back(polygons);
-  //   }
-
-  //   cell_faces[idx].push_back(face);
-  // }
-
-  // for (auto i = 0; i < cells.size(); i++) {
-  //   printf("Cell: %d -> ", i);
-  //   for (auto c : cells[i]) printf("%d ", c);
-  //   printf("\n\t Faces: %d \n", cell_faces[i].size());
-
-  //   auto color =
-  //       app->cell_materials[(i + 1) % app->cell_materials.size()]->color;
-
-  //   app->cell_patches.push_back((int)app->glscene->instances.size());
-  //   add_patch_shape(app, cell_faces[i], color);
-  // }
 }
 
 void key_input(app_state* app, const gui_input& input) {
@@ -546,6 +524,12 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key('I'): {
+#ifdef MY_DEBUG
+        debug_triangles.clear();
+        debug_nodes.clear();
+        debug_indices.clear();
+#endif
+
         do_the_thing(app);
 
         for (int i = 0; i < app->arrangement.size(); i++) {
@@ -637,12 +621,12 @@ void key_input(app_state* app, const gui_input& input) {
         auto start   = app->last_clicked_point.face;
         auto visited = flood_fill(app->mesh, {start}, add);
 
-        for (int i = 0; i < visited.size(); i++) {
-          auto tag = app->mesh.tags[visited[i]];
-          auto adj = app->mesh.adjacencies[visited[i]];
-          printf("%d: tag(%d %d %d) adj(%d %d %d)\n", visited[i], tag[0],
-              tag[1], tag[2], adj[0], adj[1], adj[2]);
-        }
+        // for (int i = 0; i < visited.size(); i++) {
+        //   auto tag = app->mesh.tags[visited[i]];
+        //   auto adj = app->mesh.adjacencies[visited[i]];
+        //   printf("%d: tag(%d %d %d) adj(%d %d %d)\n", visited[i], tag[0],
+        //       tag[1], tag[2], adj[0], adj[1], adj[2]);
+        // }
 
         if (app->temp_patch) {
           set_patch_shape(app->temp_patch->shape, app->mesh, visited);
