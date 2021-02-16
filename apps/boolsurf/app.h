@@ -50,8 +50,10 @@ struct app_state {
   shape_bvh bvh_original  = {};
 
   edit_state         state         = {};
+  vector<mesh_cell>  arrangement   = {};
   vector<edit_state> history       = {};
   int                history_index = 0;
+  int                selected_cell = -1;
 
   // rendering state
   shade_scene*    glscene           = new shade_scene{};
@@ -362,7 +364,7 @@ shade_instance* add_patch_shape(
     app_state* app, const vector<int>& faces, const vec3f& color) {
   auto patch_shape    = add_shape(app->glscene, {}, {}, {}, {}, {}, {}, {}, {});
   auto patch_material = add_material(
-      app->glscene, {0, 0, 0}, color * 0.1, 1, 0, 0.4);  // @Leak
+      app->glscene, {0, 0, 0}, color, 1, 0, 0.4);  // @Leak
   set_patch_shape(patch_shape, app->mesh, faces);
   return add_instance(app->glscene, identity3x4f, patch_shape, patch_material);
 }

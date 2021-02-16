@@ -192,6 +192,21 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
 
+  if (app->selected_cell >= 0 && begin_header(widgets, "cell info")) {
+    auto& cell = app->arrangement[app->selected_cell];
+    draw_label(widgets, "cell", to_string(app->selected_cell));
+    draw_label(widgets, "faces", to_string(cell.faces.size()));
+
+    auto s = ""s;
+    for (auto& p : cell.inner_polygons) s += to_string(p) + " ";
+    draw_label(widgets, "in", s);
+
+    s = ""s;
+    for (auto& p : cell.outer_polygons) s += to_string(p) + " ";
+    draw_label(widgets, "out", s);
+    end_header(widgets);
+  }
+
   end_imgui(widgets);
 }
 
@@ -216,6 +231,15 @@ void mouse_input(app_state* app, const gui_input& input) {
 
   auto point_original     = mesh_point{isec_original.element, isec_original.uv};
   app->last_clicked_point = point_original;
+
+  for (int i = 0; i < app->arrangement.size(); i++) {
+    auto& cell = app->arrangement[i];
+    auto  it   = find_idx(cell.faces, point.face);
+    if (it != -1) {
+      app->selected_cell = i;
+      break;
+    }
+  }
 
   debug_restart = true;
 
@@ -581,9 +605,10 @@ void do_the_thing(app_state* app) {
 
 #if 1
   check_tags(app->mesh);
-  auto cell_stack = vector<mesh_cell>{{}};
-  auto starts     = vector<int>{0};
-  auto result     = vector<mesh_cell>{};
+  auto cell_stack  = vector<mesh_cell>{{}};
+  auto starts      = vector<int>{0};
+  app->arrangement = {};
+  auto& result     = app->arrangement;
   flood_fill_new(result, cell_stack, starts, app->mesh);
 
   for (int i = 0; i < result.size(); i++) {
