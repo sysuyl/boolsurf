@@ -265,7 +265,9 @@ void do_the_thing(app_state* app) {
   debug_indices.clear();
 
   // Mappa a ogni edge generato le due facce generate adiacenti.
-  auto face_edgemap = unordered_map<vec2i, vec2i>{};
+  auto face_edgemap       = unordered_map<vec2i, vec2i>{};
+  auto triangulated_faces = unordered_map<int, vector<int>>{};
+
   for (auto& [face, polylines] : hashgrid) {
     auto [a, b, c] = app->mesh.triangles[face];
 
@@ -313,6 +315,10 @@ void do_the_thing(app_state* app) {
             edgemap[tri_edge_key].push_back({local_vertex, l});
           }
 
+          if (vertex_start < original_vertices && vertex < original_vertices) {
+            triangulated_faces[face] = {face};
+          }
+
           edges.push_back({local_vertex_start, local_vertex});
         }
       }
@@ -346,33 +352,34 @@ void do_the_thing(app_state* app) {
     }
 
     if (nodes.size() == 3) continue;
-    // auto edges            = vector<vec2i>(edge_set.begin(), edge_set.end());
     auto triangles        = constrained_triangulation(nodes, edges);
     debug_nodes[face]     = nodes;
     debug_indices[face]   = indices;
     debug_triangles[face] = triangles;
 
-    for (auto ee : edges) {
-      auto found = false;
-      if (ee.x == ee.y) continue;  // TODO: why?
-      for (auto& tr : triangles) {
-        int k = 0;
-        for (k = 0; k < 3; k++) {
-          auto edge = vec2i{tr[k], tr[(k + 1) % 3]};
-          if (make_edge_key(edge) == make_edge_key(ee)) {
-            found = true;
-            break;
-          }
-        }
-      }
-      if (!found) {
-        debug_draw(app, face, {});
-        auto xx = hashgrid[face];
-        assert(0);
-      }
-    }
+    // for (auto ee : edges) {
+    //   auto found = false;
+    //   if (ee.x == ee.y) continue;  // TODO: why?
+    //   for (auto& tr : triangles) {
+    //     int k = 0;
+    //     for (k = 0; k < 3; k++) {
+    //       auto edge = vec2i{tr[k], tr[(k + 1) % 3]};
+    //       if (make_edge_key(edge) == make_edge_key(ee)) {
+    //         found = true;
+    //         break;
+    //       }
+    //     }
+    //   }
+    //   if (!found) {
+    //     debug_draw(app, face, {});
+    //     auto xx = hashgrid[face];
+    //     assert(0);
+    //   }
+    // }
 
     // Aggiungiamo i nuovi triangoli e aggiorniamo la face_edgemap.
+    triangulated_faces[face].clear();
+
     for (auto i = 0; i < triangles.size(); i++) {
       auto& [x, y, z] = triangles[i];
       auto v0         = indices[x];
@@ -385,6 +392,8 @@ void do_the_thing(app_state* app) {
       update_face_edgemap(face_edgemap, {v0, v1}, triangle_idx);
       update_face_edgemap(face_edgemap, {v1, v2}, triangle_idx);
       update_face_edgemap(face_edgemap, {v2, v0}, triangle_idx);
+
+      triangulated_faces[face].push_back(triangle_idx);
     }
 
     // Rendi triangolo originale degenere per farlo sparire.
@@ -407,10 +416,25 @@ void do_the_thing(app_state* app) {
         auto edge_key = make_edge_key(edge);
 
         auto faces = vec2i{-1, -1};
-        if (face_edgemap.count(edge_key)) {
-          faces = face_edgemap.at(edge_key);
+        auto it    = face_edgemap.find(edge_key);
+        if (it == face_edgemap.end()) {
+          auto& t_faces = triangulated_faces.at(face);
+          for (auto f : t_faces) {
+            auto& tr = app->mesh.triangles[f];
+            for (auto k = 0; k < 3; k++) {
+              auto e = make_edge_key(get_edge(tr, k));
+              if (edge_key == e) {
+                auto neigh = app->mesh.adjacencies[f][k];
+                faces      = {f, neigh};
+                goto update;
+              }
+            }
+          }
+        } else {
+          faces = it->second;
         }
 
+      update:
         if (faces.x == -1 || faces.y == -1) {
           auto qualcosa = hashgrid[face];
 
@@ -500,11 +524,6 @@ void do_the_thing(app_state* app) {
   }
 
   auto face_polygons = unordered_map<int, vector<int>>();
-
-  for (auto& tag : tags) {
-    if (tag == zero3i) continue;
-    printf("Tag: %d %d %d\n", tag[0], tag[1], tag[2]);
-  }
 
   auto cells      = vector<vector<int>>();
   auto cell_faces = unordered_map<int, vector<int>>();
