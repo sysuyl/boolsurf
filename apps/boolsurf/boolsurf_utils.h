@@ -337,11 +337,11 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
           continue;
         }
 
-        if (auto it = seen.find(t); it == seen.end()) {
-          seen.insert(t);
-        } else {
-          continue;
-        }
+        // if (auto it = seen.find(t); it == seen.end()) {
+        //   seen.insert(t);
+        // } else {
+        //   continue;
+        // }
 
         auto& new_cell = cells.emplace_back();
         starts.push_back(neighbor);
@@ -379,7 +379,9 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
       }
     }
 
-    result.push_back(cell);
+    if (cell.faces.size()) {
+      result.push_back(cell);
+    }
   }
 }
 
