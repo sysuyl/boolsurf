@@ -332,7 +332,7 @@ vector<vec3i> face_tags(const bool_mesh& mesh, const mesh_hashgrid& hashgrid,
   return tags;
 }
 
-using Triangulation_Border = array<vector<pair<int, float>>, 3>;
+using Triangulation_Border = array<vector<int>, 3>;
 
 void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
     unordered_map<int, vector<int>>&          triangulated_faces,
@@ -349,7 +349,8 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
 
     // Lista di edge-vincolo locali
     auto  edges   = vector<vec2i>();
-    auto& edgemap = borders[face];
+    auto  edgemap = array<vector<pair<int, float>>, 3>{};
+    auto& border  = borders[face];
 
     for (auto& polyline : polylines) {
       for (auto i = 0; i < polyline.points.size(); i++) {
@@ -416,11 +417,19 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
       edges.push_back({tri_edge.x, first});
       edges.push_back({last, tri_edge.y});
 
+      //      borders[k].push_back(indices[tri_edge.x]);
+
       for (auto i = 0; i < points.size() - 1; i++) {
         auto& [start, l] = points[i];
         auto& [end, l1]  = points[i + 1];
         edges.push_back({start, end});
       }
+      //
+      //      for (auto& p : points) {
+      //        borders[k] += indices[p.first];
+      //      }
+      //
+      //      borders[k].push_back(indices[tri_edge.y]);
     }
 
     if (nodes.size() == 3) continue;
@@ -434,6 +443,18 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
 
     // Aggiungiamo i nuovi triangoli e aggiorniamo la face_edgemap.
     triangulated_faces[face].clear();
+
+    auto adjacency = face_adjacencies(triangles);
+    for (auto& adj : adjacency) {
+      for (auto& x : adj) {
+        if (x == -1) {
+          x = -2;
+        } else {
+          x += (int)mesh.triangles.size();
+        }
+      }
+    }
+    mesh.adjacencies += adjacency;
 
     for (auto i = 0; i < triangles.size(); i++) {
       auto& [x, y, z] = triangles[i];
@@ -452,13 +473,15 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
     }
 
     // Rendi triangolo originale degenere per farlo sparire.
-    mesh.triangles[face] = {0, 0, 0};
+//    mesh.triangles[face] = {0, 0, 0};
   }
 }
 
 void do_the_thing(app_state* app) {
-  auto& polygons          = app->state.polygons;
-  auto  original_vertices = app->mesh.positions.size();
+  auto& polygons           = app->state.polygons;
+  auto  original_triangles = app->mesh.triangles.size();
+  auto  original_vertices  = app->mesh.positions.size();
+  auto& mesh               = app->mesh;
 
   auto vertices = add_vertices(app->mesh, polygons);
 
@@ -473,9 +496,61 @@ void do_the_thing(app_state* app) {
   triangulate(app->mesh, face_edgemap, triangulated_faces, hashgrid, borders,
       original_vertices);
 
+  auto border_edgemap = unordered_map<vec2i, int>{};
+  border_edgemap.reserve(triangulated_faces.size() * 6);
+
+  for (auto& [face, triangles] : triangulated_faces) {
+    auto triangles_vec3i = vector<vec3i>(triangles.size());
+    for (int i = 0; i < triangles.size(); i++) {
+      triangles_vec3i[i] = mesh.triangles[triangles[i]];
+    }
+
+    for (int i = 0; i < triangles.size(); i++) {
+      auto& adj = mesh.adjacencies[triangles[i]];
+      for (int k = 0; k < 3; k++) {
+        if (adj[k] != -2) continue;
+
+        auto edge = get_edge(triangles_vec3i[i], k);
+
+        if (edge.x < original_vertices && edge.y < original_vertices) {
+          for (int kk = 0; kk < 3; kk++) {
+            auto edge0 = get_edge(mesh.triangles[face], kk);
+            if (make_edge_key(edge) == make_edge_key(edge0)) {
+              auto neighbor = mesh.adjacencies[face][kk];
+              mesh.adjacencies[triangles[i]][k] = neighbor;
+
+              auto it = find_in_vec(mesh.adjacencies[neighbor], face);
+              mesh.adjacencies[neighbor][it] = triangles[i];
+            }
+          }
+          continue;
+        }
+
+        auto edge_key = make_edge_key(edge);
+        auto it       = border_edgemap.find(edge_key);
+        if (it == border_edgemap.end()) {
+          border_edgemap.insert(it, {edge_key, triangles[i]});
+        } else {
+          auto neighbor                     = it->second;
+          mesh.adjacencies[triangles[i]][k] = neighbor;
+          for (int kk = 0; kk < 3; ++kk) {
+            auto edge2 = get_edge(mesh.triangles[neighbor], kk);
+            edge2      = make_edge_key(edge2);
+            if (edge2 == edge_key) {
+              mesh.adjacencies[neighbor][kk] = triangles[i];
+              // border_edgemap.erase(it);
+              break;
+            }
+          }
+        }
+      }
+    }
+      mesh.triangles[face] = {0,0,0};
+  }
+
   // Ricalcola adiacenza e calcola tags
-  app->mesh.adjacencies = face_adjacencies(app->mesh.triangles);
-  app->mesh.tags        = face_tags(
+  // app->mesh.adjacencies = face_adjacencies(app->mesh.triangles);
+  app->mesh.tags = face_tags(
       app->mesh, hashgrid, face_edgemap, triangulated_faces);
   check_tags(app->mesh);
 
