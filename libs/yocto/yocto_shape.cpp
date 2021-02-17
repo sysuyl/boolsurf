@@ -412,7 +412,7 @@ vector<vec3i> face_adjacencies(const vector<vec3i>& triangles) {
   };
   auto adjacencies = vector<vec3i>{triangles.size(), vec3i{-1, -1, -1}};
   auto edge_map    = unordered_map<vec2i, int>();
-  edge_map.reserve((size_t)(triangles.size() * 1.5));
+  edge_map.reserve((size_t)(triangles.size() * 3));
   for (int i = 0; i < triangles.size(); ++i) {
     for (int k = 0; k < 3; ++k) {
       auto edge = get_edge(triangles[i], k);

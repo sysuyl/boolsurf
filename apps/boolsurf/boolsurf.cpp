@@ -332,9 +332,12 @@ vector<vec3i> face_tags(const bool_mesh& mesh, const mesh_hashgrid& hashgrid,
   return tags;
 }
 
+using Triangulation_Border = array<vector<pair<int, float>>, 3>;
+
 void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
     unordered_map<int, vector<int>>& triangulated_faces,
-    const mesh_hashgrid& hashgrid, int original_vertices) {
+    const mesh_hashgrid& hashgrid, unordered_map<int, Triangulation_Border>& borders,
+    int original_vertices) {
   for (auto& [face, polylines] : hashgrid) {
     auto [a, b, c] = mesh.triangles[face];
 
@@ -345,11 +348,8 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
     auto indices = vector<int>{a, b, c};
 
     // Lista di edge-vincolo locali
-    auto edges      = vector<vec2i>();
-    auto edgemap    = unordered_map<vec2i, vector<tuple<int, float>>>();
-    edgemap[{0, 1}] = {};
-    edgemap[{1, 2}] = {};
-    edgemap[{0, 2}] = {};
+    auto  edges   = vector<vec2i>();
+    auto& edgemap = borders[face];
 
     for (auto& polyline : polylines) {
       for (auto i = 0; i < polyline.points.size(); i++) {
@@ -368,18 +368,14 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
           auto uv_start           = polyline.points[i - 1];
           auto local_vertex_start = find_idx(indices, vertex_start);
 
-          auto [tri_edge, l] = get_mesh_edge({0, 1, 2}, uv_start);
-          if (tri_edge != zero2i) {
-            auto tri_edge_key = make_edge_key(tri_edge);
-            if (tri_edge_key != tri_edge) l = 1.0f - l;
-            edgemap[tri_edge_key].push_back({local_vertex_start, l});
+          auto [k, l] = get_mesh_edge(uv_start);
+          if (k != -1) {
+            edgemap[k].push_back({local_vertex_start, l});
           }
 
-          tie(tri_edge, l) = get_mesh_edge({0, 1, 2}, uv);
-          if (tri_edge != zero2i) {
-            auto tri_edge_key = make_edge_key(tri_edge);
-            if (tri_edge_key != tri_edge) l = 1.0f - l;
-            edgemap[tri_edge_key].push_back({local_vertex, l});
+          tie(k, l) = get_mesh_edge(uv);
+          if (k != -1) {
+            edgemap[k].push_back({local_vertex, l});
           }
 
           if (vertex_start < original_vertices && vertex < original_vertices) {
@@ -391,64 +387,74 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
       }
     }
 
+    auto xxx = [](int k) -> vec2i {
+      if (k == 0) return {0, 1};
+      if (k == 1) return {1, 2};
+      if (k == 2) return {2, 0};
+      return {-1, -1};
+    };
     // Aggiungiamo gli edge di vincolo sia per i lati che per le polilinee
-    for (auto& [tri_edge, points] : edgemap) {
+    // for (auto& [tri_edge, points] : edgemap) {
+    for (int k = 0; k < 3; k++) {
+      auto tri_edge = xxx(k);
+        auto& points = edgemap[k];
       if (points.size() == 0) {
         edges.push_back(tri_edge);
         continue;
       }
+    
 
-      if (points.size() > 1) {
-        sort(points.begin(), points.end(), [](auto& a, auto& b) {
-          auto& [node_a, l_a] = a;
-          auto& [node_b, l_b] = b;
-          return l_a < l_b;
-        });
-      }
-
-      auto& [first, l] = points.front();
-      auto& [last, l1] = points.back();
-      edges.push_back({tri_edge.x, first});
-      edges.push_back({last, tri_edge.y});
-
-      for (auto i = 0; i < points.size() - 1; i++) {
-        auto& [start, l] = points[i];
-        auto& [end, l1]  = points[i + 1];
-        edges.push_back({start, end});
-      }
+    if (points.size() > 1) {
+      sort(points.begin(), points.end(), [](auto& a, auto& b) {
+        auto& [node_a, l_a] = a;
+        auto& [node_b, l_b] = b;
+        return l_a < l_b;
+      });
     }
 
-    if (nodes.size() == 3) continue;
-    auto triangles = constrained_triangulation(nodes, edges);
+    auto& [first, l] = points.front();
+    auto& [last, l1] = points.back();
+    edges.push_back({tri_edge.x, first});
+    edges.push_back({last, tri_edge.y});
+
+    for (auto i = 0; i < points.size() - 1; i++) {
+      auto& [start, l] = points[i];
+      auto& [end, l1]  = points[i + 1];
+      edges.push_back({start, end});
+    }
+  }
+
+  if (nodes.size() == 3) continue;
+  auto triangles = constrained_triangulation(nodes, edges);
 
 #ifdef MY_DEBUG
-    debug_nodes[face]     = nodes;
-    debug_indices[face]   = indices;
-    debug_triangles[face] = triangles;
+  debug_nodes[face]     = nodes;
+  debug_indices[face]   = indices;
+  debug_triangles[face] = triangles;
 #endif
 
-    // Aggiungiamo i nuovi triangoli e aggiorniamo la face_edgemap.
-    triangulated_faces[face].clear();
+  // Aggiungiamo i nuovi triangoli e aggiorniamo la face_edgemap.
+  triangulated_faces[face].clear();
 
-    for (auto i = 0; i < triangles.size(); i++) {
-      auto& [x, y, z] = triangles[i];
-      auto v0         = indices[x];
-      auto v1         = indices[y];
-      auto v2         = indices[z];
+  for (auto i = 0; i < triangles.size(); i++) {
+    auto& [x, y, z] = triangles[i];
+    auto v0         = indices[x];
+    auto v1         = indices[y];
+    auto v2         = indices[z];
 
-      auto triangle_idx = (int)mesh.triangles.size();
-      mesh.triangles.push_back({v0, v1, v2});
+    auto triangle_idx = (int)mesh.triangles.size();
+    mesh.triangles.push_back({v0, v1, v2});
 
-      update_face_edgemap(face_edgemap, {v0, v1}, triangle_idx);
-      update_face_edgemap(face_edgemap, {v1, v2}, triangle_idx);
-      update_face_edgemap(face_edgemap, {v2, v0}, triangle_idx);
+    update_face_edgemap(face_edgemap, {v0, v1}, triangle_idx);
+    update_face_edgemap(face_edgemap, {v1, v2}, triangle_idx);
+    update_face_edgemap(face_edgemap, {v2, v0}, triangle_idx);
 
-      triangulated_faces[face].push_back(triangle_idx);
-    }
-
-    // Rendi triangolo originale degenere per farlo sparire.
-    mesh.triangles[face] = {0, 0, 0};
+    triangulated_faces[face].push_back(triangle_idx);
   }
+
+  // Rendi triangolo originale degenere per farlo sparire.
+  mesh.triangles[face] = {0, 0, 0};
+}
 }
 
 void do_the_thing(app_state* app) {
@@ -463,8 +469,10 @@ void do_the_thing(app_state* app) {
   // Mappa a ogni edge generato le due facce generate adiacenti.
   auto face_edgemap       = unordered_map<vec2i, vec2i>{};
   auto triangulated_faces = unordered_map<int, vector<int>>{};
-  triangulate(
-      app->mesh, face_edgemap, triangulated_faces, hashgrid, original_vertices);
+    auto borders = unordered_map<int, Triangulation_Border>{};
+
+      triangulate(app->mesh, face_edgemap, triangulated_faces, hashgrid, borders,
+          original_vertices);
 
   // Ricalcola adiacenza e calcola tags
   app->mesh.adjacencies = face_adjacencies(app->mesh.triangles);

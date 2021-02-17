@@ -349,7 +349,7 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
         new_cell.inner_polygons = cell.inner_polygons;
         new_cell.outer_polygons = cell.outer_polygons;
         if (t > 0) {
-          // entering in cell t.
+          // entering in polygon t.
 
           // old cell was outside from t
           cell.outer_polygons.insert(t);
@@ -482,6 +482,17 @@ inline tuple<vec2i, float> get_mesh_edge(
     return {vec2i{triangle.y, triangle.z}, uv.y};  // point on edge (yz)
   else
     return {zero2i, -1};
+}
+
+inline pair<int, float> get_mesh_edge(const vec2f& uv) {
+  if (uv.y == 0)
+    return {0, uv.x};  // point on edge(xy)
+  else if (uv.x == 0)
+    return {2, 1.0f - uv.y};  // point on edge (xz)
+  else if (fabs(uv.x + uv.y - 1.0f) < 0.0001)
+    return {1, uv.y};  // point on edge (yz)
+  else
+    return {-1, -1};
 }
 
 inline vec2i get_edge(const vec3i& triangle, int k) {
