@@ -292,14 +292,15 @@ inline vector<vector<int>> add_vertices(
 }
 
 struct mesh_cell {
-  vector<int>        faces          = {};
-  unordered_set<int> outer_polygons = {};
+  vector<int> faces = {};
+  // unordered_set<int> outer_polygons = {};
   unordered_set<int> inner_polygons = {};
+  unordered_set<int> adjacent_cells = {};
 };
 
 void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
     vector<int>& starts, const bool_mesh& mesh) {
-  auto visited = vector<bool>(mesh.adjacencies.size(), false);
+  auto tags = vector<int>(mesh.triangles.size(), -1);
 
   // consume tast stack
   while (cells.size()) {
@@ -310,22 +311,34 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
     auto stack = vector<int>{starts.back()};
     starts.pop_back();
 
-    unordered_set<int> seen = {};
+    unordered_set<int> seen    = {};
+    auto               cell_id = result.size();
 
     while (!stack.empty()) {
       auto face = stack.back();
       stack.pop_back();
 
-      if (visited[face]) continue;
-      visited[face] = true;
+      if (tags[face] >= 0) continue;
+      tags[face] = cell_id;
 
       cell.faces.push_back(face);
 
       for (int k = 0; k < 3; k++) {
         auto neighbor = mesh.adjacencies[face][k];
-        if (neighbor < 0 || visited[neighbor]) continue;
-
+        if (neighbor < 0) continue;
         auto t = mesh.tags[face][k];
+
+        auto neighbor_cell = tags[neighbor];
+        if (neighbor_cell >= 0) {
+            if(neighbor_cell == cell_id) continue;
+            
+        if (t > 0) {
+            cell.adjacent_cells.insert(neighbor_cell);
+          } else {
+              result[neighbor_cell].adjacent_cells.insert(cell_id);
+          }
+          continue;
+        }
 
         auto t3 = mesh.tags[face];
         auto p3 = mesh.tags[neighbor];
@@ -339,52 +352,41 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
           continue;
         }
 
-        // if (auto it = seen.find(t); it == seen.end()) {
-        //   seen.insert(t);
-        // } else {
-        //   continue;
-        // }
-
-        auto& new_cell = cells.emplace_back();
+        auto  new_cell_id = (int)cells.size();
+        auto& new_cell    = cells.emplace_back();
         starts.push_back(neighbor);
 
-        new_cell.inner_polygons = cell.inner_polygons;
-        new_cell.outer_polygons = cell.outer_polygons;
         if (t > 0) {
           // entering in polygon t.
-
-          // old cell was outside from t
-          cell.outer_polygons.insert(t);
-
-          // new cell is not outside t
-          if (auto it = new_cell.outer_polygons.find(t);
-              it != new_cell.outer_polygons.end()) {
-            new_cell.outer_polygons.erase(it);
-          }
-
-          new_cell.inner_polygons.insert(t);
+          cell.adjacent_cells.insert(new_cell_id);
+          // if (tags[neighbor])
+          //   // new cell is inside t
+          //   cell.adjacent_cells.insert(cell_id);
+          // new_cell.inner_polygons.insert(t);
         } else {
           t = -t;
+          new_cell.adjacent_cells.insert(cell_id);
           // exiting from cell t.
 
-          // old cell was inside t
-          cell.inner_polygons.insert(t);
-
-          // new cell is not inside t
-          if (auto it = new_cell.inner_polygons.find(t);
-              it != new_cell.inner_polygons.end()) {
-            new_cell.inner_polygons.erase(it);
-          }
-
-          new_cell.outer_polygons.insert(t);
+          // cell is inside t
+          // cell.inner_polygons.insert(t);
         }
       }
     }
 
-    if (cell.faces.size()) {
-      result.push_back(cell);
-    }
+     if (cell.faces.size()) {
+//       mapping.push_back(result.size());
+       result.push_back(cell);
+     }
   }
+
+  // for (auto& cell : result) {
+  //   auto temp = unordered_set<int>{};
+  //   for (auto& c : cell.adjacent_cells) {
+  //     temp.insert(find_idx(mapping, c));
+  //   }
+  //   swap(temp, cell.adjacent_cells);
+  // }
 }
 
 inline vector<mesh_cell> make_mesh_cells(

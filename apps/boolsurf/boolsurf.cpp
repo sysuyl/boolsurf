@@ -201,9 +201,9 @@ void draw_widgets(app_state* app, const gui_input& input) {
     for (auto& p : cell.inner_polygons) s += to_string(p) + " ";
     draw_label(widgets, "in", s);
 
-    s = ""s;
-    for (auto& p : cell.outer_polygons) s += to_string(p) + " ";
-    draw_label(widgets, "out", s);
+    //    s = ""s;
+    //    for (auto& p : cell.outer_polygons) s += to_string(p) + " ";
+    //    draw_label(widgets, "out", s);
     end_header(widgets);
   }
 
@@ -565,8 +565,13 @@ void key_input(app_state* app, const gui_input& input) {
           printf("  in: ");
           for (auto& p : cell.inner_polygons) printf("%d ", p);
           printf("\n");
-          printf("  out: ");
-          for (auto& p : cell.outer_polygons) printf("%d ", p);
+
+          printf("  adjacent cells: ");
+          for (auto& c : cell.adjacent_cells) printf("%d ", c);
+
+          //          printf("\n");
+          //          printf("  out: ");
+          //          for (auto& p : cell.outer_polygons) printf("%d ", p);
           printf("\n\n");
         }
 
