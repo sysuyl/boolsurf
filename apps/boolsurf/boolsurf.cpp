@@ -332,12 +332,9 @@ vector<vec3i> face_tags(const bool_mesh& mesh, const mesh_hashgrid& hashgrid,
   return tags;
 }
 
-using Triangulation_Border = array<vector<int>, 3>;
-
 void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
-    unordered_map<int, vector<int>>&          triangulated_faces,
-    const mesh_hashgrid&                      hashgrid,
-    unordered_map<int, Triangulation_Border>& borders, int original_vertices) {
+    unordered_map<int, vector<int>>& triangulated_faces,
+    const mesh_hashgrid&             hashgrid) {
   for (auto& [face, polylines] : hashgrid) {
     auto [a, b, c] = mesh.triangles[face];
 
@@ -348,9 +345,8 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
     auto indices = vector<int>{a, b, c};
 
     // Lista di edge-vincolo locali
-    auto  edges   = vector<vec2i>();
-    auto  edgemap = array<vector<pair<int, float>>, 3>{};
-    auto& border  = borders[face];
+    auto edges   = vector<vec2i>();
+    auto edgemap = array<vector<pair<int, float>>, 3>{};
 
     for (auto& polyline : polylines) {
       for (auto i = 0; i < polyline.points.size(); i++) {
@@ -379,7 +375,8 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
             edgemap[k].push_back({local_vertex, l});
           }
 
-          if (vertex_start < original_vertices && vertex < original_vertices) {
+          if (vertex_start < mesh.original_positions &&
+              vertex < mesh.original_positions) {
             triangulated_faces[face] = {face};
           }
 
@@ -388,16 +385,17 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
       }
     }
 
-    auto xxx = [](int k) -> vec2i {
+    auto get_triangle_edge = [](int k) -> vec2i {
       if (k == 0) return {0, 1};
       if (k == 1) return {1, 2};
       if (k == 2) return {2, 0};
       return {-1, -1};
     };
+
     // Aggiungiamo gli edge di vincolo sia per i lati che per le polilinee
     // for (auto& [tri_edge, points] : edgemap) {
     for (int k = 0; k < 3; k++) {
-      auto  tri_edge = xxx(k);
+      auto  tri_edge = get_triangle_edge(k);
       auto& points   = edgemap[k];
       if (points.size() == 0) {
         edges.push_back(tri_edge);
@@ -417,19 +415,11 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
       edges.push_back({tri_edge.x, first});
       edges.push_back({last, tri_edge.y});
 
-      //      borders[k].push_back(indices[tri_edge.x]);
-
       for (auto i = 0; i < points.size() - 1; i++) {
         auto& [start, l] = points[i];
         auto& [end, l1]  = points[i + 1];
         edges.push_back({start, end});
       }
-      //
-      //      for (auto& p : points) {
-      //        borders[k] += indices[p.first];
-      //      }
-      //
-      //      borders[k].push_back(indices[tri_edge.y]);
     }
 
     if (nodes.size() == 3) continue;
@@ -471,41 +461,35 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
 
       triangulated_faces[face].push_back(triangle_idx);
     }
-
-    // Rendi triangolo originale degenere per farlo sparire.
-    //    mesh.triangles[face] = {0, 0, 0};
   }
 }
 
 void do_the_thing(app_state* app) {
-  auto& polygons           = app->state.polygons;
-  auto  original_triangles = app->mesh.triangles.size();
-  auto  original_vertices  = app->mesh.positions.size();
-  auto& mesh               = app->mesh;
+  auto& polygons = app->state.polygons;
+  auto& mesh     = app->mesh;
 
-  auto vertices = add_vertices(app->mesh, polygons);
+  auto original_vertices = mesh.positions.size();
+
+  auto vertices = add_vertices(mesh, polygons);
 
   auto hashgrid = compute_hashgrid(polygons, vertices);
-  compute_intersections(hashgrid, app->mesh);
+  compute_intersections(hashgrid, mesh);
 
   // Mappa a ogni edge generato le due facce generate adiacenti.
   auto face_edgemap       = unordered_map<vec2i, vec2i>{};
   auto triangulated_faces = unordered_map<int, vector<int>>{};
-  auto borders            = unordered_map<int, Triangulation_Border>{};
 
-  triangulate(app->mesh, face_edgemap, triangulated_faces, hashgrid, borders,
-      original_vertices);
+  triangulate(mesh, face_edgemap, triangulated_faces, hashgrid);
 
-  update_face_adjacencies(mesh, triangulated_faces, original_vertices);
+  update_face_adjacencies(mesh, triangulated_faces);
 
   // Ricalcola adiacenza e calcola tags
-  // app->mesh.adjacencies = face_adjacencies(app->mesh.triangles);
-  app->mesh.tags = face_tags(
-      app->mesh, hashgrid, face_edgemap, triangulated_faces);
-  check_tags(app->mesh);
+  // mesh.adjacencies = face_adjacencies(mesh.triangles);
+  mesh.tags = face_tags(mesh, hashgrid, face_edgemap, triangulated_faces);
+  check_tags(mesh);
 
   // Trova le celle via flood-fill
-  app->arrangement = make_mesh_cells(app->mesh, app->mesh.tags);
+  app->arrangement = make_mesh_cells(mesh, mesh.tags);
 
 #if DRAW_BORDER_FACES
   // Draw inner and outer faces
@@ -527,15 +511,15 @@ void do_the_thing(app_state* app) {
   for (auto p = 1; p < polygons.size(); p++) {
     if (!polygons[p].points.size()) continue;
     auto check = [&](int face, int polygon) {
-      return find_in_vec(app->mesh.tags[face], polygon) == -1;
+      return find_in_vec(mesh.tags[face], polygon) == -1;
     };
 
     auto start_out   = polygons[p].outer_faces;
-    auto visited_out = flood_fill(app->mesh, start_out, -p, check);
+    auto visited_out = flood_fill(mesh, start_out, -p, check);
     for (auto o : visited_out) face_polygons[o].push_back(-p);
 
     auto start_in   = polygons[p].inner_faces;
-    auto visited_in = flood_fill(app->mesh, start_in, p, check);
+    auto visited_in = flood_fill(mesh, start_in, p, check);
     for (auto i : visited_in) face_polygons[i].push_back(p);
   }
 #endif
@@ -604,7 +588,6 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key('F'): {
-        // press:
         auto add = [&](int face, int neighbor) -> bool {
           for (int k = 0; k < 3; k++) {
             if (app->mesh.tags[face][k] == 0) continue;

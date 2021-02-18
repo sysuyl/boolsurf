@@ -13,12 +13,13 @@ using namespace yocto;
 using namespace std;
 
 struct bool_mesh {
-  vector<vec3i>        triangles   = {};
-  vector<vec3i>        adjacencies = {};
-  vector<vec3f>        positions   = {};
-  vector<vec3f>        normals     = {};
-  dual_geodesic_solver dual_solver = {};
-  vector<vec3i>        tags        = {};
+  vector<vec3i>        triangles          = {};
+  vector<vec3i>        adjacencies        = {};
+  vector<vec3f>        positions          = {};
+  vector<vec3f>        normals            = {};
+  dual_geodesic_solver dual_solver        = {};
+  vector<vec3i>        tags               = {};
+  int                  original_positions = -1;
 };
 
 struct mesh_segment {
@@ -78,11 +79,12 @@ inline vec3f eval_position(const bool_mesh& mesh, const mesh_point& point) {
 }
 
 inline bool_mesh init_mesh(const generic_shape* shape) {
-  auto mesh        = bool_mesh{};
-  mesh.triangles   = shape->triangles;
-  mesh.positions   = shape->positions;
-  mesh.normals     = shape->normals;
-  mesh.adjacencies = face_adjacencies(mesh.triangles);
+  auto mesh               = bool_mesh{};
+  mesh.triangles          = shape->triangles;
+  mesh.positions          = shape->positions;
+  mesh.normals            = shape->normals;
+  mesh.adjacencies        = face_adjacencies(mesh.triangles);
+  mesh.original_positions = mesh.positions.size();
 
   // Fit shape in [-1, 1]^3
   auto bbox = invalidb3f;
@@ -547,28 +549,39 @@ inline vector<vec3i> constrained_triangulation(
 }
 
 inline void update_face_adjacencies(bool_mesh& mesh,
-    const unordered_map<int, vector<int>>&     triangulated_faces,
-    const int                                  original_vertices) {
+    const unordered_map<int, vector<int>>&     triangulated_faces) {
+  // Aggiorniamo le adiacenze per i triangoli che sono stati processati
   auto border_edgemap = unordered_map<vec2i, int>{};
   border_edgemap.reserve(triangulated_faces.size() * 6);
 
+  // Per ogni triangolo processato elaboro tutti i suoi sottotriangoli
   for (auto& [face, triangles] : triangulated_faces) {
+    // Converto il triangolo in triplette di vertici
     auto triangles_vec3i = vector<vec3i>(triangles.size());
     for (int i = 0; i < triangles.size(); i++) {
       triangles_vec3i[i] = mesh.triangles[triangles[i]];
     }
 
     for (int i = 0; i < triangles.size(); i++) {
+      // Guardo se nell'adiacenza ci sono dei triangoli mancanti
+      // (segnati con -2 per non confonderli con dei -1 già presenti nella mesh
+      // originale)
       auto& adj = mesh.adjacencies[triangles[i]];
       for (int k = 0; k < 3; k++) {
         if (adj[k] != -2) continue;
 
+        // Prendo l'edge di bordo corrispondente ad un -2
         auto edge = get_edge(triangles_vec3i[i], k);
 
-        if (edge.x < original_vertices && edge.y < original_vertices) {
+        // Se è un arco della mesh originale lo processo subito
+        if (edge.x < mesh.original_positions &&
+            edge.y < mesh.original_positions) {
+          // Cerco il triangolo adiancete al triangolo originale su quel lato
           for (int kk = 0; kk < 3; kk++) {
             auto edge0 = get_edge(mesh.triangles[face], kk);
             if (make_edge_key(edge) == make_edge_key(edge0)) {
+              // Aggiorno direttamente l'adiacenza nel nuovo triangolo e del
+              // vicino
               auto neighbor                     = mesh.adjacencies[face][kk];
               mesh.adjacencies[triangles[i]][k] = neighbor;
 
@@ -579,8 +592,13 @@ inline void update_face_adjacencies(bool_mesh& mesh,
           continue;
         }
 
+        // Se non è un arco della mesh originale
         auto edge_key = make_edge_key(edge);
         auto it       = border_edgemap.find(edge_key);
+
+        // Se non l'ho mai incontrato salvo in una mappa l'edge ed il triangolo
+        // corrispondente Se l'ho già incontrato ricostruisco l'adiacenza tra il
+        // triangolo corrente e il neighbor già trovato
         if (it == border_edgemap.end()) {
           border_edgemap.insert(it, {edge_key, triangles[i]});
         } else {
@@ -597,6 +615,8 @@ inline void update_face_adjacencies(bool_mesh& mesh,
         }
       }
     }
+
+    // Rendo il triangolo originale degenere per farlo sparire.
     mesh.triangles[face] = {0, 0, 0};
   }
 }
