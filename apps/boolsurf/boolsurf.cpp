@@ -194,16 +194,13 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
   if (app->selected_cell >= 0 && begin_header(widgets, "cell info")) {
     auto& cell = app->arrangement[app->selected_cell];
-    draw_label(widgets, "cell", to_string(app->selected_cell));
     draw_label(widgets, "faces", to_string(cell.faces.size()));
+    draw_label(widgets, "cell", to_string(app->selected_cell));
 
     auto s = ""s;
-    for (auto& p : cell.inner_polygons) s += to_string(p) + " ";
-    draw_label(widgets, "in", s);
+    for (auto& p : cell.adjacent_cells) s += to_string(p) + " ";
+    draw_label(widgets, "adj", s);
 
-    //    s = ""s;
-    //    for (auto& p : cell.outer_polygons) s += to_string(p) + " ";
-    //    draw_label(widgets, "out", s);
     end_header(widgets);
   }
 

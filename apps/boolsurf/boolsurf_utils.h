@@ -311,8 +311,7 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
     auto stack = vector<int>{starts.back()};
     starts.pop_back();
 
-    unordered_set<int> seen    = {};
-    auto               cell_id = result.size();
+    auto cell_id = result.size();
 
     while (!stack.empty()) {
       auto face = stack.back();
@@ -330,19 +329,19 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
 
         auto neighbor_cell = tags[neighbor];
         if (neighbor_cell >= 0) {
-            if(neighbor_cell == cell_id) continue;
-            
-        if (t > 0) {
+          if (neighbor_cell == cell_id) continue;
+
+          if (t > 0) {
             cell.adjacent_cells.insert(neighbor_cell);
           } else {
-              result[neighbor_cell].adjacent_cells.insert(cell_id);
+            result[neighbor_cell].adjacent_cells.insert(cell_id);
           }
           continue;
         }
 
-        auto t3 = mesh.tags[face];
-        auto p3 = mesh.tags[neighbor];
         if (find_in_vec(mesh.tags[neighbor], -t) == -1) {
+          auto t3 = mesh.tags[face];
+          auto p3 = mesh.tags[neighbor];
           // assert(0);
           continue;
         }
@@ -352,41 +351,15 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
           continue;
         }
 
-        auto  new_cell_id = (int)cells.size();
-        auto& new_cell    = cells.emplace_back();
+        auto& new_cell = cells.emplace_back();
         starts.push_back(neighbor);
-
-        if (t > 0) {
-          // entering in polygon t.
-          cell.adjacent_cells.insert(new_cell_id);
-          // if (tags[neighbor])
-          //   // new cell is inside t
-          //   cell.adjacent_cells.insert(cell_id);
-          // new_cell.inner_polygons.insert(t);
-        } else {
-          t = -t;
-          new_cell.adjacent_cells.insert(cell_id);
-          // exiting from cell t.
-
-          // cell is inside t
-          // cell.inner_polygons.insert(t);
-        }
       }
     }
 
-     if (cell.faces.size()) {
-//       mapping.push_back(result.size());
-       result.push_back(cell);
-     }
+    if (cell.faces.size()) {
+      result.push_back(cell);
+    }
   }
-
-  // for (auto& cell : result) {
-  //   auto temp = unordered_set<int>{};
-  //   for (auto& c : cell.adjacent_cells) {
-  //     temp.insert(find_idx(mapping, c));
-  //   }
-  //   swap(temp, cell.adjacent_cells);
-  // }
 }
 
 inline vector<mesh_cell> make_mesh_cells(
