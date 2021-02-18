@@ -615,9 +615,6 @@ inline void update_face_adjacencies(bool_mesh& mesh,
         }
       }
     }
-
-    // Rendo il triangolo originale degenere per farlo sparire.
-    mesh.triangles[face] = {0, 0, 0};
   }
 }
 

@@ -484,9 +484,15 @@ void do_the_thing(app_state* app) {
   update_face_adjacencies(mesh, triangulated_faces);
 
   // Ricalcola adiacenza e calcola tags
-  // mesh.adjacencies = face_adjacencies(mesh.triangles);
-  mesh.tags = face_tags(mesh, hashgrid, face_edgemap, triangulated_faces);
-  check_tags(mesh);
+  app->mesh.tags = face_tags(
+      app->mesh, hashgrid, face_edgemap, triangulated_faces);
+
+  for (auto& [face, triangles] : triangulated_faces) {
+    if (triangles.size() <= 1) continue;
+    mesh.triangles[face]   = {0, 0, 0};
+    mesh.adjacencies[face] = {-3, -3, -3};
+  }
+  check_tags(app->mesh);
 
   // Trova le celle via flood-fill
   app->arrangement = make_mesh_cells(mesh, mesh.tags);
