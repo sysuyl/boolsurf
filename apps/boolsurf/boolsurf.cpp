@@ -604,7 +604,7 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key('F'): {
-      press:
+        // press:
         auto add = [&](int face, int neighbor) -> bool {
           for (int k = 0; k < 3; k++) {
             if (app->mesh.tags[face][k] == 0) continue;
