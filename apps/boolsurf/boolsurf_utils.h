@@ -292,11 +292,11 @@ inline vector<vector<int>> add_vertices(
 }
 
 struct mesh_cell {
-  vector<int>        faces          = {};
-  unordered_set<int> adjacent_cells = {};
+  vector<int>          faces          = {};
+  unordered_set<vec2i> adjacent_cells = {};  // {cell_id, crossed_polygon_id}
 
-  unordered_set<int> outer_polygons = {};
-  unordered_set<int> inner_polygons = {};
+  vector<int> outer_polygons = {};
+  vector<int> inner_polygons = {};
 };
 
 void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
@@ -333,9 +333,9 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
           if (neighbor_cell == cell_id) continue;
 
           if (t > 0) {
-            cell.adjacent_cells.insert(neighbor_cell);
+            cell.adjacent_cells.insert({neighbor_cell, t});
           } else {
-            result[neighbor_cell].adjacent_cells.insert(cell_id);
+            result[neighbor_cell].adjacent_cells.insert({cell_id, -t});
           }
           continue;
         }
@@ -376,25 +376,54 @@ inline void print_cell_info(const mesh_cell& cell, int idx) {
   printf("[cell %d]\n", idx);
   printf("  faces: %d\n", (int)cell.faces.size());
   printf("  adjacent cells: ");
-  for (auto& c : cell.adjacent_cells) printf("%d ", c);
+  for (auto& [cell_id, polygon_id] : cell.adjacent_cells)
+    printf("(%d %d) ", cell_id, polygon_id);
   printf("\n");
 
   printf("  in: ");
-  for (auto& p : cell.inner_polygons) printf("%d ", p);
+  for (auto p = 1; p < cell.inner_polygons.size(); p++)
+    printf("%d ", cell.inner_polygons[p]);
   printf("\n");
 
   printf("  out: ");
-  for (auto& p : cell.outer_polygons) printf("%d ", p);
+  for (auto p = 1; p < cell.outer_polygons.size(); p++)
+    printf("%d ", cell.outer_polygons[p]);
   printf("\n\n");
 }
 
-inline int compute_ambient_cell(const vector<mesh_cell> arrangement) {
+inline int compute_ambient_cell(const vector<mesh_cell>& arrangement) {
   auto adjacency = vector<int>(arrangement.size(), 0);
   for (auto& cell : arrangement) {
-    for (auto& adj : cell.adjacent_cells) adjacency[adj] += 1;
+    for (auto& [adj, _] : cell.adjacent_cells) adjacency[adj] += 1;
   }
 
   return find_idx(adjacency, 0);
+}
+
+inline void compute_cell_labels(vector<mesh_cell>& arrangement, int start) {
+  auto visited = vector<bool>(arrangement.size(), false);
+
+  auto stack = vector<int>({start});
+
+  while (!stack.empty()) {
+    auto cell_idx = stack.back();
+    stack.pop_back();
+
+    if (visited[cell_idx]) continue;
+    visited[cell_idx] = true;
+
+    auto& cell = arrangement[cell_idx];
+    for (auto& [adj, polygon] : cell.adjacent_cells) {
+      if (visited[adj]) continue;
+      auto label = cell.inner_polygons;
+      label[polygon] += 1;
+
+      // Update inner polygon label
+      auto& adj_cell          = arrangement[adj];
+      adj_cell.inner_polygons = label;
+      stack.push_back(adj);
+    }
+  }
 }
 
 // inline void visit_dual_graph(const vector<vector<edge>>& dual_graph,
@@ -511,6 +540,7 @@ inline vec2i make_edge_key(const vec2i& edge) {
   return edge;
 };
 
+// (marzia) Not Used
 inline tuple<vec2i, float> get_mesh_edge(
     const vec3i& triangle, const vec2f& uv) {
   if (uv.y == 0)

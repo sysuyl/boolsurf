@@ -194,12 +194,18 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
   if (app->selected_cell >= 0 && begin_header(widgets, "cell info")) {
     auto& cell = app->arrangement[app->selected_cell];
-    draw_label(widgets, "faces", to_string(cell.faces.size()));
     draw_label(widgets, "cell", to_string(app->selected_cell));
+    draw_label(widgets, "faces", to_string(cell.faces.size()));
 
     auto s = ""s;
-    for (auto& p : cell.adjacent_cells) s += to_string(p) + " ";
+    for (auto& [cell_id, _] : cell.adjacent_cells)
+      s += to_string(cell_id) + " ";
     draw_label(widgets, "adj", s);
+
+    s = ""s;
+    for (auto p = 1; p < cell.inner_polygons.size(); p++)
+      s += to_string(cell.inner_polygons[p]) + " ";
+    draw_label(widgets, "inner", s);
 
     end_header(widgets);
   }
@@ -492,9 +498,21 @@ void do_the_thing(app_state* app) {
   check_tags(app->mesh);
 
   // Trova le celle via flood-fill
-  app->arrangement  = make_mesh_cells(mesh, mesh.tags);
-  auto ambient_cell = compute_ambient_cell(app->arrangement);
-  printf("Ambient cell: %d\n", ambient_cell);
+  app->arrangement = make_mesh_cells(mesh, mesh.tags);
+
+  auto ambient_cell_idx = compute_ambient_cell(app->arrangement);
+  printf("Ambient cell: %d\n", ambient_cell_idx);
+
+  assert(ambient_cell_idx != -1);
+
+  for (auto& cell : app->arrangement) {
+    cell.inner_polygons = vector<int>(polygons.size() - 1, 0);
+
+    // Forse non serve
+    // cell.outer_polygons = vector<int>(polygons.size() -1, 0);
+  }
+
+  compute_cell_labels(app->arrangement, ambient_cell_idx);
 
 #if DRAW_BORDER_FACES
   // Draw inner and outer faces
@@ -558,7 +576,7 @@ void key_input(app_state* app, const gui_input& input) {
               app->cell_materials[(i + 1) % app->cell_materials.size()]->color;
           app->cell_patches.push_back((int)app->glscene->instances.size());
           add_patch_shape(app, cell.faces, color);
-          // print_cell_info(cell, i);
+          print_cell_info(cell, i);
         }
 
         // update bvh
