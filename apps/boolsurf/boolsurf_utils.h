@@ -292,10 +292,11 @@ inline vector<vector<int>> add_vertices(
 }
 
 struct mesh_cell {
-  vector<int> faces = {};
-  // unordered_set<int> outer_polygons = {};
-  unordered_set<int> inner_polygons = {};
+  vector<int>        faces          = {};
   unordered_set<int> adjacent_cells = {};
+
+  unordered_set<int> outer_polygons = {};
+  unordered_set<int> inner_polygons = {};
 };
 
 void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
@@ -370,6 +371,67 @@ inline vector<mesh_cell> make_mesh_cells(
   flood_fill_new(result, cell_stack, starts, mesh);
   return result;
 }
+
+inline void print_cell_info(const mesh_cell& cell, int idx) {
+  printf("[cell %d]\n", idx);
+  printf("  faces: %d\n", (int)cell.faces.size());
+  printf("  adjacent cells: ");
+  for (auto& c : cell.adjacent_cells) printf("%d ", c);
+  printf("\n");
+
+  printf("  in: ");
+  for (auto& p : cell.inner_polygons) printf("%d ", p);
+  printf("\n");
+
+  printf("  out: ");
+  for (auto& p : cell.outer_polygons) printf("%d ", p);
+  printf("\n\n");
+}
+
+inline int compute_ambient_cell(const vector<mesh_cell> arrangement) {
+  auto adjacency = vector<int>(arrangement.size(), 0);
+  for (auto& cell : arrangement) {
+    for (auto& adj : cell.adjacent_cells) adjacency[adj] += 1;
+  }
+
+  return find_idx(adjacency, 0);
+}
+
+// inline void visit_dual_graph(const vector<vector<edge>>& dual_graph,
+//     vector<cell_polygon>& cells, int start) {
+//   auto queue   = std::deque<int>{};
+//   auto visited = vector<bool>(dual_graph.size());
+
+//   visited[start] = true;
+//   queue.push_back(start);
+
+//   while (!queue.empty()) {
+//     auto current = queue.front();
+
+//     queue.pop_front();
+//     for (auto adj : dual_graph[current]) {
+//       if (visited[adj.point]) continue;
+//       auto embedding = cells[current].embedding;
+
+//       if (adj.counterclock)
+//         embedding[adj.polygon] -= 1;
+//       else
+//         embedding[adj.polygon] += 1;
+//       cells[adj.point].embedding = embedding;
+//       visited[adj.point]         = true;
+
+//       queue.push_back(adj.point);
+//     }
+//   }
+
+//   printf("Cells: \n");
+//   for (auto i = 0; i < cells.size(); i++) {
+//     printf("%d: Label: ", i);
+//     for (auto& e : cells[i].embedding) printf("%d ", e);
+//     printf("\n");
+//   }
+//   printf("\n");
+// }
 
 template <typename T>
 inline void insert(vector<T>& vec, size_t i, const T& x) {

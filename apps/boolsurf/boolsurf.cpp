@@ -492,7 +492,9 @@ void do_the_thing(app_state* app) {
   check_tags(app->mesh);
 
   // Trova le celle via flood-fill
-  app->arrangement = make_mesh_cells(mesh, mesh.tags);
+  app->arrangement  = make_mesh_cells(mesh, mesh.tags);
+  auto ambient_cell = compute_ambient_cell(app->arrangement);
+  printf("Ambient cell: %d\n", ambient_cell);
 
 #if DRAW_BORDER_FACES
   // Draw inner and outer faces
@@ -548,7 +550,6 @@ void key_input(app_state* app, const gui_input& input) {
         debug_nodes.clear();
         debug_indices.clear();
 #endif
-
         do_the_thing(app);
 
         for (int i = 0; i < app->arrangement.size(); i++) {
@@ -557,19 +558,7 @@ void key_input(app_state* app, const gui_input& input) {
               app->cell_materials[(i + 1) % app->cell_materials.size()]->color;
           app->cell_patches.push_back((int)app->glscene->instances.size());
           add_patch_shape(app, cell.faces, color);
-          printf("[cell %d]\n", i);
-          printf("  faces: %d\n", (int)cell.faces.size());
-          printf("  in: ");
-          for (auto& p : cell.inner_polygons) printf("%d ", p);
-          printf("\n");
-
-          printf("  adjacent cells: ");
-          for (auto& c : cell.adjacent_cells) printf("%d ", c);
-
-          //          printf("\n");
-          //          printf("  out: ");
-          //          for (auto& p : cell.outer_polygons) printf("%d ", p);
-          printf("\n\n");
+          // print_cell_info(cell, i);
         }
 
         // update bvh
