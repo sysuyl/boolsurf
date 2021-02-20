@@ -294,25 +294,23 @@ inline vector<vector<int>> add_vertices(
 struct mesh_cell {
   vector<int>          faces          = {};
   unordered_set<vec2i> adjacent_cells = {};  // {cell_id, crossed_polygon_id}
-
-  vector<int> outer_polygons = {};
   vector<int> inner_polygons = {};
 };
 
-void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
+void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cell_stack,
     vector<int>& starts, const bool_mesh& mesh) {
   auto tags = vector<int>(mesh.triangles.size(), -1);
 
-  // consume tast stack
-  while (cells.size()) {
+  // consume task stack
+  while (cell_stack.size()) {
     // pop element from task stack
-    auto cell = cells.back();
-    cells.pop_back();
+    auto cell = cell_stack.back();
+    cell_stack.pop_back();
 
     auto stack = vector<int>{starts.back()};
     starts.pop_back();
 
-    auto cell_id = result.size();
+    auto cell_id = (int)result.size();
 
     while (!stack.empty()) {
       auto face = stack.back();
@@ -341,9 +339,6 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
         }
 
         if (find_in_vec(mesh.tags[neighbor], -t) == -1) {
-          auto t3 = mesh.tags[face];
-          auto p3 = mesh.tags[neighbor];
-          // assert(0);
           continue;
         }
 
@@ -352,7 +347,7 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cells,
           continue;
         }
 
-        auto& new_cell = cells.emplace_back();
+        cell_stack.push_back({});
         starts.push_back(neighbor);
       }
     }
@@ -385,9 +380,9 @@ inline void print_cell_info(const mesh_cell& cell, int idx) {
     printf("%d ", cell.inner_polygons[p]);
   printf("\n");
 
-  printf("  out: ");
-  for (auto p = 1; p < cell.outer_polygons.size(); p++)
-    printf("%d ", cell.outer_polygons[p]);
+//  printf("  out: ");
+//  for (auto p = 1; p < cell.outer_polygons.size(); p++)
+//    printf("%d ", cell.outer_polygons[p]);
   printf("\n\n");
 }
 

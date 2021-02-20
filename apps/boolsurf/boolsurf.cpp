@@ -507,9 +507,6 @@ void do_the_thing(app_state* app) {
 
   for (auto& cell : app->arrangement) {
     cell.inner_polygons = vector<int>(polygons.size() - 1, 0);
-
-    // Forse non serve
-    // cell.outer_polygons = vector<int>(polygons.size() -1, 0);
   }
 
   compute_cell_labels(app->arrangement, ambient_cell_idx);
