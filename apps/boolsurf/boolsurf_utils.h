@@ -360,7 +360,7 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cell_stack,
           }
         }
       }
-    }
+    }  // End of while
 
     if (cell.faces.size()) {
       result.push_back(cell);
@@ -406,6 +406,80 @@ inline vector<int> find_ambient_cells(const vector<mesh_cell>& cells) {
     if (adjacency[i] == 0) result.push_back(i);
   }
   return result;
+}
+
+inline void fix_self_intersections(
+    vector<mesh_cell>& cells, const vector<int>& start) {
+  auto visited   = vector<bool>(cells.size(), false);
+  auto sequences = unordered_map<int, vector<vector<int>>>();
+
+  struct stack_item {
+    int cell;
+    int polygon;
+  };
+
+  // Init stack
+  auto stack = vector<stack_item>(start.size());
+  for (auto s = 0; s < start.size(); s++) {
+    stack[s] = {start[s], 0};
+  }
+
+  while (!stack.empty()) {
+    auto item = stack.back();
+    stack.pop_back();
+
+    if (visited[item.cell]) continue;
+    visited[item.cell] = true;
+
+    auto& cell = cells[item.cell];
+    for (auto& [neighbor, polygon] : cell.adjacent_cells) {
+      // if (visited[neighbor]) {
+      //   // auto tmp = cell.labels;
+      //   // tmp[polygon] += 1;
+      //   // if (tmp != cells[neighbor].labels) {
+      //   //   for (int i = 0; i < cell.labels.size(); i++) {
+      //   //     // cells[neighbor].labels[i] = yocto::max(
+      //   //     // cells[neighbor].labels[i], tmp[i]);
+      //   //     cells[neighbor].labels[i] = cells[neighbor].labels[i] +
+      //   tmp[i];
+      //   //   }
+      //   // }
+      //   continue;
+      // }
+
+      if (item.polygon == polygon) {
+        auto& polygon_sequences = sequences[polygon];
+
+        auto found = false;
+        for (auto& sequence : polygon_sequences) {
+          if (sequence.back() == item.cell) {
+            sequence.push_back(neighbor);
+            found = true;
+          }
+        }
+
+        if (!found) polygon_sequences.push_back({item.cell, neighbor});
+        // TODO: più sequenze dello stesso polygon?
+      }
+
+      stack.push_back({neighbor, polygon});
+    }
+  }
+
+  for (auto& [polygon, polygon_sequences] : sequences) {
+    for (auto& sequence : polygon_sequences) {
+      for (auto s = 0; s < sequence.size() - 1; s += 2) {
+        auto s1 = sequence[s];
+        auto s2 = sequence[s + 1];
+
+        auto& c1 = cells[s1];
+        auto& c2 = cells[s2];
+
+        c1.adjacent_cells.erase({s2, polygon});
+        c2.adjacent_cells.insert({s1, polygon});
+      }
+    }
+  }
 }
 
 inline void compute_cell_labels(
@@ -665,7 +739,7 @@ inline void update_face_adjacencies(bool_mesh& mesh,
         // Se è un arco della mesh originale lo processo subito
         if (edge.x < mesh.original_positions &&
             edge.y < mesh.original_positions) {
-          // Cerco il triangolo adiancete al triangolo originale su quel lato
+          // Cerco il triangolo adiacente al triangolo originale su quel lato
           for (int kk = 0; kk < 3; kk++) {
             auto edge0 = get_edge(mesh.triangles[face], kk);
             if (make_edge_key(edge) == make_edge_key(edge0)) {

@@ -435,7 +435,6 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
 #endif
 
     // Aggiungiamo i nuovi triangoli e aggiorniamo la face_edgemap.
-    triangulated_faces[face].clear();
 
     auto adjacency = face_adjacencies(triangles);
     for (auto& adj : adjacency) {
@@ -449,6 +448,7 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
     }
     mesh.adjacencies += adjacency;
 
+    triangulated_faces[face].clear();
     for (auto i = 0; i < triangles.size(); i++) {
       auto& [x, y, z] = triangles[i];
       auto v0         = indices[x];
@@ -471,8 +471,6 @@ void do_the_thing(app_state* app) {
   auto& polygons = app->state.polygons;
   auto& mesh     = app->mesh;
 
-  auto original_vertices = mesh.positions.size();
-
   auto vertices = add_vertices(mesh, polygons);
 
   auto hashgrid = compute_hashgrid(polygons, vertices);
@@ -483,7 +481,6 @@ void do_the_thing(app_state* app) {
   auto triangulated_faces = unordered_map<int, vector<int>>{};
 
   triangulate(mesh, face_edgemap, triangulated_faces, hashgrid);
-
   update_face_adjacencies(mesh, triangulated_faces);
 
   // Ricalcola adiacenza e calcola tags
@@ -508,6 +505,16 @@ void do_the_thing(app_state* app) {
   printf("\n");
 
   assert(ambient_cells.size());
+
+  fix_self_intersections(app->arrangement, ambient_cells);
+
+  ambient_cells = find_ambient_cells(app->arrangement);
+
+  printf("New ambient cells: ");
+  for (auto cell : ambient_cells) {
+    printf("%d ", cell);
+  }
+  printf("\n");
 
   for (auto& cell : app->arrangement) {
     cell.labels = vector<int>(polygons.size(), 0);
