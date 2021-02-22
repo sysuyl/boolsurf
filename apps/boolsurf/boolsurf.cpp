@@ -203,8 +203,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
     draw_label(widgets, "adj", s);
 
     s = ""s;
-    for (auto p = 1; p < cell.inner_polygons.size(); p++)
-      s += to_string(cell.inner_polygons[p]) + " ";
+    for (auto p = 1; p < cell.labels.size(); p++)
+      s += to_string(cell.labels[p]) + " ";
     draw_label(widgets, "inner", s);
 
     end_header(widgets);
@@ -510,7 +510,7 @@ void do_the_thing(app_state* app) {
   assert(ambient_cells.size());
 
   for (auto& cell : app->arrangement) {
-    cell.inner_polygons = vector<int>(polygons.size(), 0);
+    cell.labels = vector<int>(polygons.size(), 0);
   }
 
   compute_cell_labels(app->arrangement, ambient_cells);

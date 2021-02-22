@@ -294,12 +294,12 @@ inline vector<vector<int>> add_vertices(
 struct mesh_cell {
   vector<int>          faces          = {};
   unordered_set<vec2i> adjacent_cells = {};  // {cell_id, crossed_polygon_id}
-  vector<int>          inner_polygons = {};
+  vector<int>          labels         = {};
 };
 
 void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cell_stack,
     vector<int>& starts, const bool_mesh& mesh) {
-  auto tags = vector<int>(mesh.triangles.size(), -1);
+  auto cell_tags = vector<int>(mesh.triangles.size(), -1);
 
   // consume task stack
   while (cell_stack.size()) {
@@ -307,48 +307,58 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cell_stack,
     auto cell = cell_stack.back();
     cell_stack.pop_back();
 
-    auto stack = vector<int>{starts.back()};
+    auto face_stack = vector<int>{starts.back()};
     starts.pop_back();
 
     auto cell_id = (int)result.size();
 
-    while (!stack.empty()) {
-      auto face = stack.back();
-      stack.pop_back();
+    while (!face_stack.empty()) {
+      auto face = face_stack.back();
+      face_stack.pop_back();
 
-      if (tags[face] >= 0) continue;
-      tags[face] = cell_id;
+      if (cell_tags[face] >= 0) continue;
+      cell_tags[face] = cell_id;
 
       cell.faces.push_back(face);
 
       for (int k = 0; k < 3; k++) {
         auto neighbor = mesh.adjacencies[face][k];
         if (neighbor < 0) continue;
-        auto t = mesh.tags[face][k];
+        auto p = mesh.tags[face][k];
 
-        auto neighbor_cell = tags[neighbor];
-        if (neighbor_cell >= 0) {
-          if (neighbor_cell == cell_id) continue;
-
-          if (t > 0) {
-            cell.adjacent_cells.insert({neighbor_cell, t});
+        auto neighbor_cell = cell_tags[neighbor];
+        if (neighbor_cell >= 0 && p != 0) {
+          // La faccia neighbor e' gia' stata visitata.
+          if (neighbor_cell == cell_id) {
+            // Sto visitando la stessa cella.
+            if (find_in_vec(mesh.tags[neighbor], -p) != -1) {
+              // Sto attraversando il bordo di un poligono, quindi
+              // connetto la cella a se stessa.
+              cell.adjacent_cells.insert({cell_id, yocto::abs(p)});
+            } else {
+              continue;
+            }
           } else {
-            result[neighbor_cell].adjacent_cells.insert({cell_id, -t});
+            // Non sto visitando la stessa cella.
+            if (p > 0) {
+              // Sto entrando nel poligono p.
+              cell.adjacent_cells.insert({neighbor_cell, p});
+            } else {
+              // Sto uscendo dal poligono p.
+              result[neighbor_cell].adjacent_cells.insert({cell_id, -p});
+            }
           }
-          continue;
+        } else {
+          // La faccia neighbor non e' mai stata visitata.
+          if (p == 0) {
+            // Non sto attraversando il bordo del poligono p.
+            face_stack.push_back(neighbor);
+          } else {
+            // Sto attraversando il bordo del poligono p.
+            cell_stack.push_back({});
+            starts.push_back(neighbor);
+          }
         }
-
-        if (find_in_vec(mesh.tags[neighbor], -t) == -1) {
-          continue;
-        }
-
-        if (t == 0) {
-          stack.push_back(neighbor);
-          continue;
-        }
-
-        cell_stack.push_back({});
-        starts.push_back(neighbor);
       }
     }
 
@@ -376,8 +386,7 @@ inline void print_cell_info(const mesh_cell& cell, int idx) {
   printf("\n");
 
   printf("  in: ");
-  for (auto p = 1; p < cell.inner_polygons.size(); p++)
-    printf("%d ", cell.inner_polygons[p]);
+  for (auto p = 1; p < cell.labels.size(); p++) printf("%d ", cell.labels[p]);
   printf("\n");
 
   //  printf("  out: ");
@@ -404,19 +413,36 @@ inline void compute_cell_labels(
   auto visited = vector<bool>(cells.size(), false);
   auto stack   = start;
 
+  for (auto& c : start) {
+    visited[c] = true;
+  }
+
   while (!stack.empty()) {
     auto cell_id = stack.back();
     stack.pop_back();
 
-    if (visited[cell_id]) continue;
+    // if (visited[cell_id]) {
+    //   continue;
+    // }  // serve??
     visited[cell_id] = true;
 
     auto& cell = cells[cell_id];
     for (auto& [neighbor, polygon] : cell.adjacent_cells) {
-      if (visited[neighbor]) continue;
-      cells[neighbor].inner_polygons = cell.inner_polygons;
-      cells[neighbor].inner_polygons[polygon] += 1;
+      if (visited[neighbor]) {
+        auto tmp = cell.labels;
+        tmp[polygon] += 1;
+        if (tmp != cells[neighbor].labels) {
+          for (int i = 0; i < cell.labels.size(); i++) {
+            cells[neighbor].labels[i] = yocto::max(
+                cells[neighbor].labels[i], tmp[i]);
+          }
+        }
+        continue;
+      }
+      cells[neighbor].labels = cell.labels;
+      cells[neighbor].labels[polygon] += 1;
       stack.push_back(neighbor);
+      visited[neighbor] = true;
     }
   }
 }
