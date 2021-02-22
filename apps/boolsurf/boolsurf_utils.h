@@ -294,7 +294,7 @@ inline vector<vector<int>> add_vertices(
 struct mesh_cell {
   vector<int>          faces          = {};
   unordered_set<vec2i> adjacent_cells = {};  // {cell_id, crossed_polygon_id}
-  vector<int> inner_polygons = {};
+  vector<int>          inner_polygons = {};
 };
 
 void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cell_stack,
@@ -380,43 +380,43 @@ inline void print_cell_info(const mesh_cell& cell, int idx) {
     printf("%d ", cell.inner_polygons[p]);
   printf("\n");
 
-//  printf("  out: ");
-//  for (auto p = 1; p < cell.outer_polygons.size(); p++)
-//    printf("%d ", cell.outer_polygons[p]);
+  //  printf("  out: ");
+  //  for (auto p = 1; p < cell.outer_polygons.size(); p++)
+  //    printf("%d ", cell.outer_polygons[p]);
   printf("\n\n");
 }
 
-inline int compute_ambient_cell(const vector<mesh_cell>& arrangement) {
-  auto adjacency = vector<int>(arrangement.size(), 0);
-  for (auto& cell : arrangement) {
+inline vector<int> find_ambient_cells(const vector<mesh_cell>& cells) {
+  auto adjacency = vector<int>(cells.size(), 0);
+  for (auto& cell : cells) {
     for (auto& [adj, _] : cell.adjacent_cells) adjacency[adj] += 1;
   }
 
-  return find_idx(adjacency, 0);
+  auto result = vector<int>{};
+  for (int i = 0; i < adjacency.size(); i++) {
+    if (adjacency[i] == 0) result.push_back(i);
+  }
+  return result;
 }
 
-inline void compute_cell_labels(vector<mesh_cell>& arrangement, int start) {
-  auto visited = vector<bool>(arrangement.size(), false);
-
-  auto stack = vector<int>({start});
+inline void compute_cell_labels(
+    vector<mesh_cell>& cells, const vector<int>& start) {
+  auto visited = vector<bool>(cells.size(), false);
+  auto stack   = start;
 
   while (!stack.empty()) {
-    auto cell_idx = stack.back();
+    auto cell_id = stack.back();
     stack.pop_back();
 
-    if (visited[cell_idx]) continue;
-    visited[cell_idx] = true;
+    if (visited[cell_id]) continue;
+    visited[cell_id] = true;
 
-    auto& cell = arrangement[cell_idx];
-    for (auto& [adj, polygon] : cell.adjacent_cells) {
-      if (visited[adj]) continue;
-      auto label = cell.inner_polygons;
-      label[polygon] += 1;
-
-      // Update inner polygon label
-      auto& adj_cell          = arrangement[adj];
-      adj_cell.inner_polygons = label;
-      stack.push_back(adj);
+    auto& cell = cells[cell_id];
+    for (auto& [neighbor, polygon] : cell.adjacent_cells) {
+      if (visited[neighbor]) continue;
+      cells[neighbor].inner_polygons = cell.inner_polygons;
+      cells[neighbor].inner_polygons[polygon] += 1;
+      stack.push_back(neighbor);
     }
   }
 }

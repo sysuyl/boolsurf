@@ -500,16 +500,20 @@ void do_the_thing(app_state* app) {
   // Trova le celle via flood-fill
   app->arrangement = make_mesh_cells(mesh, mesh.tags);
 
-  auto ambient_cell_idx = compute_ambient_cell(app->arrangement);
-  printf("Ambient cell: %d\n", ambient_cell_idx);
+  auto ambient_cells = find_ambient_cells(app->arrangement);
+  printf("Ambient cells: ");
+  for (auto cell : ambient_cells) {
+    printf("%d ", cell);
+  }
+  printf("\n");
 
-  assert(ambient_cell_idx != -1);
+  assert(ambient_cells.size());
 
   for (auto& cell : app->arrangement) {
-    cell.inner_polygons = vector<int>(polygons.size() - 1, 0);
+    cell.inner_polygons = vector<int>(polygons.size(), 0);
   }
 
-  compute_cell_labels(app->arrangement, ambient_cell_idx);
+  compute_cell_labels(app->arrangement, ambient_cells);
 
 #if DRAW_BORDER_FACES
   // Draw inner and outer faces
