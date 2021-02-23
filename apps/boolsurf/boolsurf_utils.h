@@ -504,9 +504,9 @@ inline void compute_cell_labels(
         tmp[polygon] += 1;
         if (tmp != cells[neighbor].labels) {
           for (int i = 0; i < cell.labels.size(); i++) {
-            // cells[neighbor].labels[i] = yocto::max(
-            // cells[neighbor].labels[i], tmp[i]);
-            cells[neighbor].labels[i] = cells[neighbor].labels[i] + tmp[i];
+            cells[neighbor].labels[i] = yocto::max(
+                cells[neighbor].labels[i], tmp[i]);
+            // cells[neighbor].labels[i] = cells[neighbor].labels[i] + tmp[i];
           }
         }
         continue;

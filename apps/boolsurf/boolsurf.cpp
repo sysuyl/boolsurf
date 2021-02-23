@@ -10,7 +10,7 @@ using namespace yocto;
 
 void save_test(app_state* app, const string& filename) {
   app->test        = {};
-  app->test.model  = app->filename;
+  app->test.model  = app->model_filename;
   app->test.points = app->state.points;
   for (auto& mesh_polygon : app->state.polygons) {
     app->test.polygons.push_back(mesh_polygon.points);
@@ -150,7 +150,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
   if (begin_header(widgets, "inspect")) {
-    draw_label(widgets, "filename", app->filename);
+    draw_label(widgets, "filename", app->model_filename);
     auto ioshape = app->ioshape;
     draw_label(widgets, "points", std::to_string(ioshape->points.size()));
     draw_label(widgets, "lines", std::to_string(ioshape->lines.size()));
@@ -521,6 +521,8 @@ void do_the_thing(app_state* app) {
   // Trova l'adiacenza fra celle tramite il flood-fill
   app->arrangement = make_mesh_cells(mesh, mesh.tags);
 
+  save_tree_png(app, "0");
+
   // Trova le celle ambiente nel grafo dell'adiacenza delle celle
   auto ambient_cells = find_ambient_cells(app->arrangement);
   printf("Ambient cells: ");
@@ -545,8 +547,9 @@ void do_the_thing(app_state* app) {
   // Calcoliamo il labelling definitivo per effettuare le booleane
   auto label_size = polygons.size();
   if (polygons.back().points.empty()) label_size -= 1;
-
-  compute_cell_labels(app->arrangement, ambient_cells, label_size);
+  
+  compute_cell_labels(app->arrangement, ambient_cells);
+  save_tree_png(app, "1");
 
 #if DRAW_BORDER_FACES
   // Draw inner and outer faces
@@ -606,22 +609,7 @@ void key_input(app_state* app, const gui_input& input) {
 
         for (int i = 0; i < app->arrangement.size(); i++) {
           auto& cell  = app->arrangement[i];
-          auto  color = vec3f{0, 0, 0};
-          int   count = 0;
-          for (int p = 0; p < cell.labels.size(); p++) {
-            auto label = cell.labels[p];
-            if (label > 0) {
-              color +=
-                  app->cell_materials[p % app->cell_materials.size()]->color;
-              count += 1;
-            }
-          }
-          if (count) {
-            color /= count;
-            color += vec3f{1, 1, 1} * 0.1f * yocto::sin(i);
-          } else {
-            color = {0.5, 0.5, 0.5};
-          }
+          auto  color = get_cell_color(app, i);
           app->cell_patches.push_back((int)app->glscene->instances.size());
           add_patch_shape(app, cell.faces, color);
           print_cell_info(cell, i);
@@ -719,7 +707,7 @@ void key_input(app_state* app, const gui_input& input) {
         app->state.points.clear();
         app->state.polygons.clear();
         app->state.polygons.push_back(mesh_polygon{});
-        load_shape(app, app->filename);
+        load_shape(app, app->model_filename);
         clear_scene(app->glscene);
         init_glscene(app, app->glscene, app->mesh, {});
         app->glcamera = old_camera;
@@ -776,12 +764,12 @@ int main(int argc, const char* argv[]) {
   if (extension == ".json") {
     app->test_filename = input;
     load_test(app->test, input);
-    app->filename = app->test.model;
+    app->model_filename = app->test.model;
   } else {
-    app->filename = input;
+    app->model_filename = input;
   }
 
-  load_shape(app, app->filename);
+  load_shape(app, app->model_filename);
 
   init_glscene(app, app->glscene, app->mesh, {});
   if (window->msaa > 1) set_ogl_msaa();

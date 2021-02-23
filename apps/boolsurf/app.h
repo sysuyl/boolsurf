@@ -32,10 +32,10 @@ struct edit_state {
 // Application state
 struct app_state {
   // loading parameters
-  string      filename      = "";
-  string      test_filename = "";
-  bool_test   test          = {};
-  gui_window* window        = nullptr;
+  string      model_filename = "";
+  string      test_filename  = "";
+  bool_test   test           = {};
+  gui_window* window         = nullptr;
 
   // options
   shade_params drawgl_prms = {};
@@ -141,9 +141,9 @@ bool redo_state(app_state* app) {
 }
 
 void load_shape(app_state* app, const string& filename) {
-  app->filename = filename;
-  auto error    = ""s;
-  if (!load_shape(app->filename, *app->ioshape, error)) {
+  app->model_filename = filename;
+  auto error          = ""s;
+  if (!load_shape(app->model_filename, *app->ioshape, error)) {
     printf("Error loading shape: %s\n", error.c_str());
     return;
   }
@@ -245,7 +245,7 @@ void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh,
       {1, 0, 0},
       {0, 0.5, 0},
       {0, 0, 1},
-      {0, 1, 1},
+      {0, 0.5, 1},
       {1, 1, 0},
       {1, 0, 1},
       {0.5, 0, 0},
@@ -317,9 +317,9 @@ void update_camera(app_state* app, const gui_input& input) {
 
 void drop(app_state* app, const gui_input& input) {
   if (input.dropped.size()) {
-    app->filename = input.dropped[0];
+    app->model_filename = input.dropped[0];
     clear_scene(app->glscene);
-    load_shape(app, app->filename);
+    load_shape(app, app->model_filename);
     init_glscene(app, app->glscene, app->mesh, {});
     return;
   }
@@ -374,4 +374,86 @@ shade_instance* add_patch_shape(
   auto patch_shape = add_shape(app->glscene, {}, {}, {}, {}, {}, {}, {}, {});
   set_patch_shape(patch_shape, app->mesh, faces);
   return add_instance(app->glscene, identity3x4f, patch_shape, material);
+}
+
+inline vec3f get_polygon_color(const app_state* app, int polygon) {
+  return app->cell_materials[polygon % app->cell_materials.size()]->color;
+}
+
+inline vec3f get_cell_color(const app_state* app, int cell_id) {
+  auto  color = vec3f{0, 0, 0};
+  auto& cell  = app->arrangement[cell_id];
+  int   count = 0;
+  for (int p = 0; p < cell.labels.size(); p++) {
+    auto label = cell.labels[p];
+    if (label > 0) {
+      color += get_polygon_color(app, p);
+      count += 1;
+    }
+  }
+  if (count > 0) {
+    color /= count;
+    color += vec3f{1, 1, 1} * 0.1f * yocto::sin(cell_id);
+  } else {
+    color = {0.9, 0.9, 0.9};
+  }
+  return color;
+}
+
+#include <yocto/yocto_color.h>
+
+inline string tree_to_string(
+    const app_state* app, const vector<mesh_cell>& cells) {
+  string result = "digraph {\n";
+  result += "forcelabels=true\n";
+
+  for (int i = 0; i < cells.size(); i++) {
+    auto& cell  = cells[i];
+    auto  color = rgb_to_hsv(get_cell_color(app, i));
+    char  str[1024];
+    sprintf(str, "%d [label=\"%d\" style=filled fillcolor=\"%f %f %f\"]\n", i,
+        i, color.x, color.y, color.z);
+    result += std::string(str);
+
+    // if (cell.adjacent_cells.empty()) {
+    //   result += std::to_string(i) + "\n";
+
+    //   sprintf(str, "%d [label=\"%d\"]\n", i, i);
+    //   // sprintf(str, "%d [label=\"sphere\n%.1f %.1f %.1f %.1f\"]\n", i,
+    //   //     tree.nodes[i].primitive.params[0],
+    //   //     tree.nodes[i].primitive.params[1],
+    //   //     tree.nodes[i].primitive.params[2],
+    //   //     tree.nodes[i].primitive.params[3]);
+    //   result += std::string(str);
+    // } else {
+    for (auto [neighbor, polygon] : cell.adjacent_cells) {
+      int  c     = neighbor;
+      auto color = rgb_to_hsv(get_polygon_color(app, polygon));
+      // result += std::to_string(i) + " -" + std::to_string(c) + "\n";
+      sprintf(str, "%d -> %d [ label=\"%d\" color=\"%f %f %f\"]\n", i, c,
+          polygon, color.x, color.y, color.z);
+      result += std::string(str);
+
+      // sprintf(str, "%d [label=\"%d\"]\n", i, i);
+      // sprintf(str, "%d [label=\"%s\n%.1f %.1f\"]\n", i,
+      //     tree.nodes[i].name.c_str(), tree.nodes[i].operation.blend,
+      //     tree.nodes[i].operation.softness);
+      // result += std::string(str);
+    }
+    // }
+  }
+  result += "}\n";
+  return result;
+}
+
+inline void save_tree_png(const app_state* app, const string& extra) {
+  auto  graph = replace_extension(app->test_filename, extra + ".txt");
+  FILE* file  = fopen(graph.c_str(), "w");
+  fprintf(file, "%s", tree_to_string(app, app->arrangement).c_str());
+  fclose(file);
+
+  auto image = replace_extension(app->test_filename, extra + ".png");
+  auto cmd   = "dot -Tpng "s + graph + " > " + image;
+  printf("%s\n", cmd.c_str());
+  system(cmd.c_str());
 }
