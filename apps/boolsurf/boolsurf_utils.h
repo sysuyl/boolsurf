@@ -385,13 +385,10 @@ inline void print_cell_info(const mesh_cell& cell, int idx) {
     printf("(%d %d) ", cell_id, polygon_id);
   printf("\n");
 
-  printf("  in: ");
+  printf("  label: ");
   for (auto p = 1; p < cell.labels.size(); p++) printf("%d ", cell.labels[p]);
   printf("\n");
 
-  //  printf("  out: ");
-  //  for (auto p = 1; p < cell.outer_polygons.size(); p++)
-  //    printf("%d ", cell.outer_polygons[p]);
   printf("\n\n");
 }
 
@@ -418,7 +415,7 @@ inline void fix_self_intersections(
     int polygon;
   };
 
-  // Init stack
+  // Inizializzazione dello stack
   auto stack = vector<stack_item>(start.size());
   for (auto s = 0; s < start.size(); s++) {
     stack[s] = {start[s], 0};
@@ -447,9 +444,12 @@ inline void fix_self_intersections(
       //   continue;
       // }
 
+      // Individuo diverse catene per ogni poligono
       if (item.polygon == polygon) {
         auto& polygon_sequences = sequences[polygon];
 
+        // Se una catena già esistente termina con il nodo padre di neighbor
+        // allora aggiungo neighbor alla catena
         auto found = false;
         for (auto& sequence : polygon_sequences) {
           if (sequence.back() == item.cell) {
@@ -458,25 +458,24 @@ inline void fix_self_intersections(
           }
         }
 
+        // Se non ho trovato una catena già esistente allora la creo nuova
         if (!found) polygon_sequences.push_back({item.cell, neighbor});
-        // TODO: più sequenze dello stesso polygon?
       }
 
       stack.push_back({neighbor, polygon});
     }
   }
 
+  // Invertiamo gli archi dispari della catena
   for (auto& [polygon, polygon_sequences] : sequences) {
     for (auto& sequence : polygon_sequences) {
       for (auto s = 0; s < sequence.size() - 1; s += 2) {
         auto s1 = sequence[s];
         auto s2 = sequence[s + 1];
 
-        auto& c1 = cells[s1];
-        auto& c2 = cells[s2];
-
-        c1.adjacent_cells.erase({s2, polygon});
-        c2.adjacent_cells.insert({s1, polygon});
+        // Eliminiamo l'arco in un verso e lo creiamo nell'altro
+        cells[s1].adjacent_cells.erase({s2, polygon});
+        cells[s2].adjacent_cells.insert({s1, polygon});
       }
     }
   }
@@ -676,7 +675,7 @@ inline vec2i get_edge(const vec3i& triangle, int k) {
 // Constrained Delaunay Triangulation
 inline vector<vec3i> constrained_triangulation(
     vector<vec2f> nodes, const vector<vec2i>& edges) {
-  // Queso purtroppo serve.
+  // Questo purtroppo serve.
   for (auto& n : nodes) n *= 1e9;
 
   auto cdt = CDT::Triangulation<double>(

@@ -205,7 +205,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     s = ""s;
     for (auto p = 1; p < cell.labels.size(); p++)
       s += to_string(cell.labels[p]) + " ";
-    draw_label(widgets, "inner", s);
+    draw_label(widgets, "label", s);
 
     end_header(widgets);
   }
@@ -348,14 +348,20 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
     auto indices = vector<int>{a, b, c};
 
     // Lista di edge-vincolo locali
-    auto edges   = vector<vec2i>();
+    auto edges = vector<vec2i>();
+
+    // Mappa che va da lato del triangolo k = 1, 2, 3 e a lista di nodi e lerp
+    // corrispondenti su quel lato (serve per creare ulteriori vincoli)
     auto edgemap = array<vector<pair<int, float>>, 3>{};
 
+    // Scorriamo su tutti i nodi che compongono le polilinee
     for (auto& polyline : polylines) {
       for (auto i = 0; i < polyline.points.size(); i++) {
         auto uv     = polyline.points[i];
         auto vertex = polyline.vertices[i];
 
+        // Aggiungiamo un nuovo vertice se non è già presente nella lista dei
+        // nodi
         auto local_vertex = find_idx(indices, vertex);
         if (local_vertex == -1) {
           indices.push_back(vertex);
@@ -363,11 +369,15 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
           local_vertex = (int)indices.size() - 1;
         }
 
+        // Se non stiamo processando il primo nodo allora consideriamo anche il
+        // nodo precedente e creiamo gli archi
         if (i != 0) {
           auto vertex_start       = polyline.vertices[i - 1];
           auto uv_start           = polyline.points[i - 1];
           auto local_vertex_start = find_idx(indices, vertex_start);
 
+          // Se i nodi sono su un lato k != -1 di un triangolo allora li
+          // salviamo nella edgemap
           auto [k, l] = get_mesh_edge(uv_start);
           if (k != -1) {
             edgemap[k].push_back({local_vertex_start, l});
@@ -378,11 +388,15 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
             edgemap[k].push_back({local_vertex, l});
           }
 
+          // Se l'arco che ho trovato è un arco originale della mesh allora
+          // salviamo la faccia corrispondente nel mapping da facce originale a
+          // facce triangolate
           if (vertex_start < mesh.original_positions &&
               vertex < mesh.original_positions) {
             triangulated_faces[face] = {face};
           }
 
+          // Aggiungiamo l'edge ai vincoli
           edges.push_back({local_vertex_start, local_vertex});
         }
       }
@@ -395,16 +409,20 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
       return {-1, -1};
     };
 
-    // Aggiungiamo gli edge di vincolo sia per i lati che per le polilinee
-    // for (auto& [tri_edge, points] : edgemap) {
+    // Aggiungiamo gli edge di vincolo sia per i lati del triangolo
     for (int k = 0; k < 3; k++) {
       auto  tri_edge = get_triangle_edge(k);
       auto& points   = edgemap[k];
+
+      // Se sul lato non ci sono altri punti allora aggiungiamo il lato stesso
+      // ai vincoli
       if (points.size() == 0) {
         edges.push_back(tri_edge);
         continue;
       }
 
+      // Se ci sono punti allora li ordiniamo per lerp crescente e creiamo i
+      // vari vincoli
       if (points.size() > 1) {
         sort(points.begin(), points.end(), [](auto& a, auto& b) {
           auto& [node_a, l_a] = a;
@@ -425,6 +443,8 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
       }
     }
 
+    // Se nel triangolo non ho più di tre nodi allora non serve la
+    // triangolazione
     if (nodes.size() == 3) continue;
     auto triangles = constrained_triangulation(nodes, edges);
 
@@ -434,8 +454,7 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
     debug_triangles[face] = triangles;
 #endif
 
-    // Aggiungiamo i nuovi triangoli e aggiorniamo la face_edgemap.
-
+    // Calcoliamo l'adiacenza locale e la trasformiamo in globale
     auto adjacency = face_adjacencies(triangles);
     for (auto& adj : adjacency) {
       for (auto& x : adj) {
@@ -448,6 +467,8 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
     }
     mesh.adjacencies += adjacency;
 
+    // Aggiungiamo i nuovi triangoli alla mesh e aggiorniamo la face_edgemap
+    // corrispondente
     triangulated_faces[face].clear();
     for (auto i = 0; i < triangles.size(); i++) {
       auto& [x, y, z] = triangles[i];
@@ -480,23 +501,27 @@ void do_the_thing(app_state* app) {
   auto face_edgemap       = unordered_map<vec2i, vec2i>{};
   auto triangulated_faces = unordered_map<int, vector<int>>{};
 
+  // Triangolazione e aggiornamento dell'adiacenza
   triangulate(mesh, face_edgemap, triangulated_faces, hashgrid);
   update_face_adjacencies(mesh, triangulated_faces);
 
-  // Ricalcola adiacenza e calcola tags
+  // Calcola i tags per ogni faccia
   app->mesh.tags = face_tags(
       app->mesh, hashgrid, face_edgemap, triangulated_faces);
 
+  // Annulliamo le facce che sono già state triangolate
   for (auto& [face, triangles] : triangulated_faces) {
     if (triangles.size() <= 1) continue;
     mesh.triangles[face]   = {0, 0, 0};
     mesh.adjacencies[face] = {-3, -3, -3};
   }
+
   check_tags(app->mesh);
 
-  // Trova le celle via flood-fill
+  // Trova l'adiacenza fra celle tramite il flood-fill
   app->arrangement = make_mesh_cells(mesh, mesh.tags);
 
+  // Trova le celle ambiente nel grafo dell'adiacenza delle celle
   auto ambient_cells = find_ambient_cells(app->arrangement);
   printf("Ambient cells: ");
   for (auto cell : ambient_cells) {
@@ -506,8 +531,9 @@ void do_the_thing(app_state* app) {
 
   assert(ambient_cells.size());
 
+  // Fixiamo il grafo delle adiancenze tra celle e ricalcoliamo le celle
+  // ambiente
   fix_self_intersections(app->arrangement, ambient_cells);
-
   ambient_cells = find_ambient_cells(app->arrangement);
 
   printf("New ambient cells: ");
@@ -516,10 +542,10 @@ void do_the_thing(app_state* app) {
   }
   printf("\n");
 
+  // Calcoliamo il labelling definitivo per effettuare le booleane
   for (auto& cell : app->arrangement) {
     cell.labels = vector<int>(polygons.size(), 0);
   }
-
   compute_cell_labels(app->arrangement, ambient_cells);
 
 #if DRAW_BORDER_FACES
