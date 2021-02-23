@@ -547,8 +547,8 @@ void do_the_thing(app_state* app) {
   // Calcoliamo il labelling definitivo per effettuare le booleane
   auto label_size = polygons.size();
   if (polygons.back().points.empty()) label_size -= 1;
-  
-  compute_cell_labels(app->arrangement, ambient_cells);
+
+  compute_cell_labels(app->arrangement, ambient_cells, label_size);
   save_tree_png(app, "1");
 
 #if DRAW_BORDER_FACES
