@@ -4,13 +4,18 @@
 #include <yocto/yocto_shape.h>
 
 #include <cassert>
-#include <deque>
-#include <unordered_set>
 
 #include "ext/CDT/CDT/include/CDT.h"
 
 using namespace yocto;
 using namespace std;
+
+#include "ext/robin_hood.h"
+template <typename Key, typename Value>
+using hash_map = robin_hood::unordered_flat_map<Key, Value>;
+
+template <typename Key>
+using hash_set = robin_hood::unordered_flat_set<Key>;
 
 struct bool_mesh {
   vector<vec3i>        triangles          = {};
@@ -205,11 +210,11 @@ struct hashgrid_polyline {
   vector<vec2f> points   = {};
   vector<int>   vertices = {};
 };
-using mesh_hashgrid = unordered_map<int, vector<hashgrid_polyline>>;
+using mesh_hashgrid = hash_map<int, vector<hashgrid_polyline>>;
 
 inline mesh_hashgrid compute_hashgrid(
     const vector<mesh_polygon>& polygons, const vector<vector<int>>& vertices) {
-  auto hashgrid = unordered_map<int, vector<hashgrid_polyline>>{};
+  auto hashgrid = hash_map<int, vector<hashgrid_polyline>>{};
 
   for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
     auto& polygon   = polygons[polygon_id];
@@ -292,9 +297,9 @@ inline vector<vector<int>> add_vertices(
 }
 
 struct mesh_cell {
-  vector<int>          faces          = {};
-  unordered_set<vec2i> adjacent_cells = {};  // {cell_id, crossed_polygon_id}
-  vector<int>          labels         = {};
+  vector<int>     faces          = {};
+  hash_set<vec2i> adjacent_cells = {};  // {cell_id, crossed_polygon_id}
+  vector<int>     labels         = {};
 };
 
 void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cell_stack,
@@ -408,7 +413,7 @@ inline vector<int> find_ambient_cells(const vector<mesh_cell>& cells) {
 inline void fix_self_intersections(
     vector<mesh_cell>& cells, const vector<int>& start) {
   auto visited   = vector<bool>(cells.size(), false);
-  auto sequences = unordered_map<int, vector<vector<int>>>();
+  auto sequences = hash_map<int, vector<vector<int>>>();
 
   struct stack_item {
     int cell;
@@ -561,7 +566,7 @@ inline void insert(vector<T>& vec, size_t i, const T& x) {
 }
 
 inline void compute_intersections(
-    unordered_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
+    hash_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
   for (auto& [face, polylines] : hashgrid) {
     // Check for polyline self interesctions
     for (auto p0 = 0; p0 < polylines.size(); p0++) {
@@ -708,10 +713,10 @@ inline vector<vec3i> constrained_triangulation(
   return triangles;
 }
 
-inline void update_face_adjacencies(bool_mesh& mesh,
-    const unordered_map<int, vector<int>>&     triangulated_faces) {
+inline void update_face_adjacencies(
+    bool_mesh& mesh, const hash_map<int, vector<int>>& triangulated_faces) {
   // Aggiorniamo le adiacenze per i triangoli che sono stati processati
-  auto border_edgemap = unordered_map<vec2i, int>{};
+  auto border_edgemap = hash_map<vec2i, int>{};
   border_edgemap.reserve(triangulated_faces.size() * 6);
 
   // Per ogni triangolo processato elaboro tutti i suoi sottotriangoli
@@ -760,7 +765,8 @@ inline void update_face_adjacencies(bool_mesh& mesh,
         // corrispondente Se l'ho già incontrato ricostruisco l'adiacenza tra il
         // triangolo corrente e il neighbor già trovato
         if (it == border_edgemap.end()) {
-          border_edgemap.insert(it, {edge_key, triangles[i]});
+          //          border_edgemap.insert(it, {edge_key, triangles[i]});
+          border_edgemap[edge_key] = triangles[i];  // TODO(giacomo): ?
         } else {
           auto neighbor                     = it->second;
           mesh.adjacencies[triangles[i]][k] = neighbor;
@@ -778,12 +784,13 @@ inline void update_face_adjacencies(bool_mesh& mesh,
   }
 }
 
-inline void update_face_edgemap(unordered_map<vec2i, vec2i>& face_edgemap,
-    const vec2i& edge, const int face) {
+inline void update_face_edgemap(
+    hash_map<vec2i, vec2i>& face_edgemap, const vec2i& edge, const int face) {
   auto key = make_edge_key(edge);
   auto it  = face_edgemap.find(key);
   if (it == face_edgemap.end()) {
-    face_edgemap.insert(it, {key, {face, -1}});
+    //    face_edgemap.insert(it, {key, {face, -1}});
+    face_edgemap[key] = {face, -1};  // TODO(giacomo): ?
   } else {
     it->second.y = face;
   }

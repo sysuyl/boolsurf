@@ -262,8 +262,8 @@ void mouse_input(app_state* app, const gui_input& input) {
 }
 
 vector<vec3i> face_tags(const bool_mesh& mesh, const mesh_hashgrid& hashgrid,
-    const unordered_map<vec2i, vec2i>&     face_edgemap,
-    const unordered_map<int, vector<int>>& triangulated_faces) {
+    const hash_map<vec2i, vec2i>&     face_edgemap,
+    const hash_map<int, vector<int>>& triangulated_faces) {
   auto tags = vector<vec3i>(mesh.triangles.size(), zero3i);
 
   for (auto& [face, polylines] : hashgrid) {
@@ -335,9 +335,9 @@ vector<vec3i> face_tags(const bool_mesh& mesh, const mesh_hashgrid& hashgrid,
   return tags;
 }
 
-void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
-    unordered_map<int, vector<int>>& triangulated_faces,
-    const mesh_hashgrid&             hashgrid) {
+void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
+    hash_map<int, vector<int>>& triangulated_faces,
+    const mesh_hashgrid&        hashgrid) {
   for (auto& [face, polylines] : hashgrid) {
     auto [a, b, c] = mesh.triangles[face];
 
@@ -498,8 +498,8 @@ void do_the_thing(app_state* app) {
   compute_intersections(hashgrid, mesh);
 
   // Mappa a ogni edge generato le due facce generate adiacenti.
-  auto face_edgemap       = unordered_map<vec2i, vec2i>{};
-  auto triangulated_faces = unordered_map<int, vector<int>>{};
+  auto face_edgemap       = hash_map<vec2i, vec2i>{};
+  auto triangulated_faces = hash_map<int, vector<int>>{};
 
   // Triangolazione e aggiornamento dell'adiacenza
   triangulate(mesh, face_edgemap, triangulated_faces, hashgrid);
@@ -563,10 +563,10 @@ void do_the_thing(app_state* app) {
     polygon.outer_shape->hidden = true;
   }
 
-  auto face_polygons = unordered_map<int, vector<int>>();
+  auto face_polygons = hash_map<int, vector<int>>();
 
   auto cells      = vector<vector<int>>();
-  auto cell_faces = unordered_map<int, vector<int>>();
+  auto cell_faces = hash_map<int, vector<int>>();
 
   for (auto p = 1; p < polygons.size(); p++) {
     if (!polygons[p].points.size()) continue;

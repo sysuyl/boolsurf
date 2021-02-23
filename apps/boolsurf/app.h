@@ -12,9 +12,6 @@
 #include <yocto_gui/yocto_shade.h>
 #include <yocto_gui/yocto_window.h>
 
-#include <unordered_map>
-#include <unordered_set>
-
 #include "boolsurf_utils.h"
 #include "ext/earcut.hpp"
 #include "io.h"
