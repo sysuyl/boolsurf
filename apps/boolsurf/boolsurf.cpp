@@ -605,9 +605,23 @@ void key_input(app_state* app, const gui_input& input) {
         do_the_thing(app);
 
         for (int i = 0; i < app->arrangement.size(); i++) {
-          auto& cell = app->arrangement[i];
-          auto  color =
-              app->cell_materials[(i + 1) % app->cell_materials.size()]->color;
+          auto& cell  = app->arrangement[i];
+          auto  color = vec3f{0, 0, 0};
+          int   count = 0;
+          for (int p = 0; p < cell.labels.size(); p++) {
+            auto label = cell.labels[p];
+            if (label > 0) {
+              color +=
+                  app->cell_materials[p % app->cell_materials.size()]->color;
+              count += 1;
+            }
+          }
+          if (count) {
+            color /= count;
+            color += vec3f{1, 1, 1} * 0.1f * yocto::sin(i);
+          } else {
+            color = {0.5, 0.5, 0.5};
+          }
           app->cell_patches.push_back((int)app->glscene->instances.size());
           add_patch_shape(app, cell.faces, color);
           print_cell_info(cell, i);

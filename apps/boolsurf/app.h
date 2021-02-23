@@ -241,9 +241,9 @@ void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh,
   set_unlit(app->paths_material, true);
 
   auto colors = vector<vec3f>{
-      {0, 0, 0},  // REMEMBER IT
+      {0.5, 0.5, 0.5},  // REMEMBER IT
       {1, 0, 0},
-      {0, 1, 0},
+      {0, 0.5, 0},
       {0, 0, 1},
       {0, 1, 1},
       {1, 1, 0},
