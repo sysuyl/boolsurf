@@ -543,10 +543,10 @@ void do_the_thing(app_state* app) {
   printf("\n");
 
   // Calcoliamo il labelling definitivo per effettuare le booleane
-  for (auto& cell : app->arrangement) {
-    cell.labels = vector<int>(polygons.size(), 0);
-  }
-  compute_cell_labels(app->arrangement, ambient_cells);
+  auto label_size = polygons.size();
+  if (polygons.back().points.empty()) label_size -= 1;
+
+  compute_cell_labels(app->arrangement, ambient_cells, label_size);
 
 #if DRAW_BORDER_FACES
   // Draw inner and outer faces

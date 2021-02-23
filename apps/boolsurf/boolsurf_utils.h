@@ -482,21 +482,19 @@ inline void fix_self_intersections(
 }
 
 inline void compute_cell_labels(
-    vector<mesh_cell>& cells, const vector<int>& start) {
+    vector<mesh_cell>& cells, const vector<int>& start, int label_size) {
   auto visited = vector<bool>(cells.size(), false);
   auto stack   = start;
 
   for (auto& c : start) {
-    visited[c] = true;
+    visited[c]      = true;
+    cells[c].labels = vector<int>(label_size, 0);
   }
 
   while (!stack.empty()) {
     auto cell_id = stack.back();
     stack.pop_back();
 
-    // if (visited[cell_id]) {
-    //   continue;
-    // }  // serve??
     visited[cell_id] = true;
 
     auto& cell = cells[cell_id];
