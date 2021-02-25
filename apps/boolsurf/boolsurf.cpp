@@ -522,6 +522,12 @@ void do_the_thing(app_state* app) {
   app->arrangement = make_mesh_cells(mesh, mesh.tags);
 
   save_tree_png(app, "0");
+  auto cycles = compute_graph_cycles(app->arrangement);
+  for (auto& cycle : cycles) {
+    printf("Cycle: ");
+    for (auto& c : cycle) printf("(%d %d) ", c.x, c.y);
+    printf("\n");
+  }
 
   // Trova le celle ambiente nel grafo dell'adiacenza delle celle
   auto ambient_cells = find_ambient_cells(app->arrangement);
@@ -532,20 +538,6 @@ void do_the_thing(app_state* app) {
   printf("\n");
 
   assert(ambient_cells.size());
-
-  // Fixiamo il grafo delle adiancenze tra celle e ricalcoliamo le celle
-  // ambiente
-
-  // (marzia) Maybe remove this
-  // fix_self_intersections(app->arrangement, ambient_cells);
-
-  ambient_cells = find_ambient_cells(app->arrangement);
-
-  printf("New ambient cells: ");
-  for (auto cell : ambient_cells) {
-    printf("%d ", cell);
-  }
-  printf("\n");
 
   // Calcoliamo il labelling definitivo per effettuare le booleane
   auto label_size = polygons.size();

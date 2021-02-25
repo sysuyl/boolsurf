@@ -486,6 +486,62 @@ inline void fix_self_intersections(
   }
 }
 
+inline void compute_cycles(const vector<mesh_cell>& cells, int node,
+    vec2i parent, vector<int>& visited, vector<vec2i>& parents,
+    vector<vector<vec2i>>& cycles) {
+  // Se il nodo il considerazione è già stato completamente visitato allora
+  // terminiamo
+  if (visited[node] == 2) return;
+
+  // Se il nodo in considerazione non è stato completamente visitato e lo stiamo
+  // rivisitando ora allora abbiamo trovato un ciclo
+  if (visited[node] == 1) {
+    auto  cycle   = vector<vec2i>();
+    auto& current = parent;
+    cycle.push_back(current);
+
+    // Risalgo l'albero della visita fino a che non trovo lo stesso nodo e salvo
+    // il ciclo individuato
+    while (current.x != node) {
+      auto prev = parents[current.x];
+
+      // (marzia) check: è vero che ho un ciclo corretto se il verso
+      // (entrante/uscente) è lo stesso per tutti gli archi?
+      if (sign(prev.y) != sign(current.y)) return;
+      current = prev;
+      cycle.push_back(current);
+    }
+
+    cycles.push_back(cycle);
+    return;
+  }
+
+  // Settiamo il padre del nodo attuale e iniziamo ad esplorare i suoi vicini
+  parents[node] = parent;
+  visited[node] = 1;
+
+  for (auto& [neighbor, polygon] : cells[node].adjacent_cells) {
+    // Se stiamo percorrendo lo stesso arco ma al contrario allora continuo,
+    // altrimenti esploriamo il vicino
+    if (neighbor == parent.x && polygon == -parent.y) continue;
+    compute_cycles(cells, neighbor, {node, polygon}, visited, parents, cycles);
+  }
+
+  // Settiamo il nodo attuale come completamente visitato
+  visited[node] = 2;
+}
+
+inline vector<vector<vec2i>> compute_graph_cycles(
+    const vector<mesh_cell>& cells) {
+  auto visited        = vector<int>(cells.size(), 0);
+  auto parents        = vector<vec2i>(cells.size());
+  auto cycles         = vector<vector<vec2i>>();
+  auto start_node     = 0;
+  auto invalid_parent = vec2i{-1, -1};
+  compute_cycles(cells, start_node, invalid_parent, visited, parents, cycles);
+  return cycles;
+}
+
 inline void compute_cell_labels(
     vector<mesh_cell>& cells, const vector<int>& start, int label_size) {
   auto visited = vector<bool>(cells.size(), false);
