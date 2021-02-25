@@ -535,7 +535,10 @@ void do_the_thing(app_state* app) {
 
   // Fixiamo il grafo delle adiancenze tra celle e ricalcoliamo le celle
   // ambiente
-  fix_self_intersections(app->arrangement, ambient_cells);
+
+  // (marzia) Maybe remove this
+  // fix_self_intersections(app->arrangement, ambient_cells);
+
   ambient_cells = find_ambient_cells(app->arrangement);
 
   printf("New ambient cells: ");

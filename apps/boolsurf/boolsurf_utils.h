@@ -522,6 +522,12 @@ inline void compute_cell_labels(
       visited[neighbor] = true;
     }
   }
+
+  for (auto& cell : cells) {
+    for (auto& label : cell.labels) {
+      label = label % 2;
+    }
+  }
 }
 
 // inline void visit_dual_graph(const vector<vector<edge>>& dual_graph,
