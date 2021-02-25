@@ -342,10 +342,12 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cell_stack,
             // Non sto visitando la stessa cella.
             if (p > 0) {
               // Sto entrando nel poligono p.
-              cell.adjacent_cells.insert({neighbor_cell, p});
+              cell.adjacent_cells.insert({neighbor_cell, +p});
+              result[neighbor_cell].adjacent_cells.insert({cell_id, -p});
             } else {
               // Sto uscendo dal poligono p.
               result[neighbor_cell].adjacent_cells.insert({cell_id, -p});
+              cell.adjacent_cells.insert({neighbor_cell, +p});
             }
           }
         } else {
@@ -395,7 +397,9 @@ inline void print_cell_info(const mesh_cell& cell, int idx) {
 inline vector<int> find_ambient_cells(const vector<mesh_cell>& cells) {
   auto adjacency = vector<int>(cells.size(), 0);
   for (auto& cell : cells) {
-    for (auto& [adj, _] : cell.adjacent_cells) adjacency[adj] += 1;
+    for (auto& [adj, p] : cell.adjacent_cells) {
+      if (p > 0) adjacency[adj] += 1;
+    }
   }
 
   auto result = vector<int>{};
@@ -444,6 +448,7 @@ inline void fix_self_intersections(
       //   continue;
       // }
 
+      // TODO: non serve piu'?
       // Individuo diverse catene per ogni poligono
       if (item.polygon == polygon) {
         auto& polygon_sequences = sequences[polygon];
@@ -501,7 +506,7 @@ inline void compute_cell_labels(
     for (auto& [neighbor, polygon] : cell.adjacent_cells) {
       if (visited[neighbor]) {
         auto tmp = cell.labels;
-        tmp[polygon] += 1;
+        tmp[yocto::abs(polygon)] += polygon > 0 ? 1 : -1;
         if (tmp != cells[neighbor].labels) {
           for (int i = 0; i < cell.labels.size(); i++) {
             cells[neighbor].labels[i] = yocto::max(
@@ -512,7 +517,7 @@ inline void compute_cell_labels(
         continue;
       }
       cells[neighbor].labels = cell.labels;
-      cells[neighbor].labels[polygon] += 1;
+      cells[neighbor].labels[yocto::abs(polygon)] += polygon > 0 ? 1 : -1;
       stack.push_back(neighbor);
       visited[neighbor] = true;
     }

@@ -415,44 +415,28 @@ inline string tree_to_string(
         i, color.x, color.y, color.z);
     result += std::string(str);
 
-    // if (cell.adjacent_cells.empty()) {
-    //   result += std::to_string(i) + "\n";
-
-    //   sprintf(str, "%d [label=\"%d\"]\n", i, i);
-    //   // sprintf(str, "%d [label=\"sphere\n%.1f %.1f %.1f %.1f\"]\n", i,
-    //   //     tree.nodes[i].primitive.params[0],
-    //   //     tree.nodes[i].primitive.params[1],
-    //   //     tree.nodes[i].primitive.params[2],
-    //   //     tree.nodes[i].primitive.params[3]);
-    //   result += std::string(str);
-    // } else {
     for (auto [neighbor, polygon] : cell.adjacent_cells) {
+      if (polygon < 0) continue;
       int  c     = neighbor;
       auto color = rgb_to_hsv(get_polygon_color(app, polygon));
-      // result += std::to_string(i) + " -" + std::to_string(c) + "\n";
       sprintf(str, "%d -> %d [ label=\"%d\" color=\"%f %f %f\"]\n", i, c,
           polygon, color.x, color.y, color.z);
       result += std::string(str);
-
-      // sprintf(str, "%d [label=\"%d\"]\n", i, i);
-      // sprintf(str, "%d [label=\"%s\n%.1f %.1f\"]\n", i,
-      //     tree.nodes[i].name.c_str(), tree.nodes[i].operation.blend,
-      //     tree.nodes[i].operation.softness);
-      // result += std::string(str);
     }
-    // }
   }
   result += "}\n";
   return result;
 }
 
 inline void save_tree_png(const app_state* app, const string& extra) {
-  auto  graph = replace_extension(app->test_filename, extra + ".txt");
+  auto filename = app->test_filename;
+  if (filename.empty()) filename = "test.json";
+  auto  graph = replace_extension(filename, extra + ".txt");
   FILE* file  = fopen(graph.c_str(), "w");
   fprintf(file, "%s", tree_to_string(app, app->arrangement).c_str());
   fclose(file);
 
-  auto image = replace_extension(app->test_filename, extra + ".png");
+  auto image = replace_extension(filename, extra + ".png");
   auto cmd   = "dot -Tpng "s + graph + " > " + image;
   printf("%s\n", cmd.c_str());
   system(cmd.c_str());
