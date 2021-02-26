@@ -62,7 +62,7 @@ void debug_draw(app_state* app, int face, const vector<vec2i>& edges,
   //  }
   debug_edges[face] = edges;
 
-  save_triangulation(replace_extension(base, ext0), face);
+  // save_triangulation(replace_extension(base, ext0), face);
 
   save_test(app, "data/tests/crash.json");
   count += 1;
@@ -116,16 +116,16 @@ void draw_widgets(app_state* app, const gui_input& input) {
   static auto view_triangulation = false;
   draw_checkbox(widgets, "view triangulation", view_triangulation);
   if (view_triangulation) {
-    static ogl_texture* texture = new ogl_texture{};
-    ImGui::Begin("Triangulation viewer");
-    auto [x, y] = ImGui::GetWindowSize();
-    // auto size   = yocto::min(yocto::min(x, y), 1024);
+    // static ogl_texture* texture = new ogl_texture{};
+    // ImGui::Begin("Triangulation viewer");
+    // auto [x, y] = ImGui::GetWindowSize();
+    // // auto size   = yocto::min(yocto::min(x, y), 1024);
 
-    // ImGui::Text("pointer = %p", texture);
-    auto face = app->last_clicked_point_original.face;
-    draw_triangulation(texture, face);
-    ImGui::Image((void*)texture->texture_id, {800, 800}, {0, 1}, {1, 0});
-    ImGui::End();
+    // // ImGui::Text("pointer = %p", texture);
+    // auto face = app->last_clicked_point.face;
+    // draw_triangulation(texture, face);
+    // ImGui::Image((void*)texture->texture_id, {800, 800}, {0, 1}, {1, 0});
+    // ImGui::End();
   }
 
   if (begin_header(widgets, "view")) {
@@ -522,7 +522,16 @@ void do_the_thing(app_state* app) {
   app->arrangement = make_mesh_cells(mesh, mesh.tags);
 
   save_tree_png(app, "0");
+
   auto cycles = compute_graph_cycles(app->arrangement);
+
+  auto skip_polygons = vector<int>();
+  for (auto& cycle : cycles) {
+    for (auto& [node, polygon] : cycle) {
+      skip_polygons.push_back(-polygon);
+    }
+  }
+
   for (auto& cycle : cycles) {
     printf("Cycle: ");
     for (auto& c : cycle) printf("(%d %d) ", c.x, c.y);
@@ -530,20 +539,22 @@ void do_the_thing(app_state* app) {
   }
 
   // Trova le celle ambiente nel grafo dell'adiacenza delle celle
-  auto ambient_cells = find_ambient_cells(app->arrangement);
+  auto ambient_cells = find_ambient_cells(app->arrangement, skip_polygons);
+
   printf("Ambient cells: ");
   for (auto cell : ambient_cells) {
     printf("%d ", cell);
   }
   printf("\n");
 
-  assert(ambient_cells.size());
+  // assert(ambient_cells.size());
 
   // Calcoliamo il labelling definitivo per effettuare le booleane
   auto label_size = polygons.size();
   if (polygons.back().points.empty()) label_size -= 1;
 
-  compute_cell_labels(app->arrangement, ambient_cells, label_size);
+  compute_cell_labels(
+      app->arrangement, ambient_cells, label_size, skip_polygons);
   save_tree_png(app, "1");
 
 #if DRAW_BORDER_FACES
@@ -681,13 +692,6 @@ void key_input(app_state* app, const gui_input& input) {
         };
         auto start   = app->last_clicked_point.face;
         auto visited = flood_fill(app->mesh, {start}, add);
-
-        // for (int i = 0; i < visited.size(); i++) {
-        //   auto tag = app->mesh.tags[visited[i]];
-        //   auto adj = app->mesh.adjacencies[visited[i]];
-        //   printf("%d: tag(%d %d %d) adj(%d %d %d)\n", visited[i], tag[0],
-        //       tag[1], tag[2], adj[0], adj[1], adj[2]);
-        // }
 
         if (app->temp_patch) {
           set_patch_shape(app->temp_patch->shape, app->mesh, visited);

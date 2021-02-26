@@ -394,10 +394,12 @@ inline void print_cell_info(const mesh_cell& cell, int idx) {
   printf("\n\n");
 }
 
-inline vector<int> find_ambient_cells(const vector<mesh_cell>& cells) {
+inline vector<int> find_ambient_cells(
+    const vector<mesh_cell>& cells, const vector<int>& skip_polygons) {
   auto adjacency = vector<int>(cells.size(), 0);
   for (auto& cell : cells) {
     for (auto& [adj, p] : cell.adjacent_cells) {
+      if (find_idx(skip_polygons, p) != -1) continue;
       if (p > 0) adjacency[adj] += 1;
     }
   }
@@ -411,7 +413,9 @@ inline vector<int> find_ambient_cells(const vector<mesh_cell>& cells) {
 
 inline void fix_self_intersections(
     vector<mesh_cell>& cells, const vector<int>& start) {
-  auto visited   = vector<bool>(cells.size(), false);
+  // auto visited   = vector<bool>(cells.size(), false);
+  // 0 = not visited, 1 = partially visited, 2 = fully visited
+  auto state     = vector<int>(cells.size(), 0);
   auto sequences = unordered_map<int, vector<vector<int>>>();
 
   struct stack_item {
@@ -427,10 +431,26 @@ inline void fix_self_intersections(
 
   while (!stack.empty()) {
     auto item = stack.back();
-    stack.pop_back();
 
-    if (visited[item.cell]) continue;
-    visited[item.cell] = true;
+    if (state[item.cell] == 0) {  // If not visited
+      printf("Visiting cell: %d\n", item.cell);
+      state[item.cell] = 1;  // Set to partialy visited
+
+      auto& cell = cells[item.cell];
+      for (auto& [neighbor, polygon] : cell.adjacent_cells) {
+        if (state[neighbor] == 0) {
+          if (item.polygon == polygon) {
+            auto& polygon_sequences = sequences[polygon];
+
+            // Se una catena già esistente termina con il nodo padre di neighbor
+            // allora aggiungo neighbor alla catena
+            auto found = false;
+            for (auto& sequence : polygon_sequences) {
+              if (sequence.back() == item.cell) {
+                sequence.push_back(neighbor);
+                found = true;
+              }
+            }
 
     auto& cell = cells[item.cell];
     for (auto& [neighbor, polygon] : cell.adjacent_cells) {
@@ -461,15 +481,59 @@ inline void fix_self_intersections(
             sequence.push_back(neighbor);
             found = true;
           }
+
+          stack.push_back({neighbor, polygon});
+        } else if (state[neighbor] == 1) {
+          printf("Detected cycle\n");
         }
-
-        // Se non ho trovato una catena già esistente allora la creo nuova
-        if (!found) polygon_sequences.push_back({item.cell, neighbor});
       }
-
-      stack.push_back({neighbor, polygon});
+    } else if (state[item.cell] == 1) {
+      stack.pop_back();
+      state[item.cell] = 2;
     }
   }
+
+  //   if (visited[item.cell]) continue;
+  //   visited[item.cell] = true;
+
+  //   auto& cell = cells[item.cell];
+  //   for (auto& [neighbor, polygon] : cell.adjacent_cells) {
+  //     // if (visited[neighbor]) {
+  //     //   // auto tmp = cell.labels;
+  //     //   // tmp[polygon] += 1;
+  //     //   // if (tmp != cells[neighbor].labels) {
+  //     //   //   for (int i = 0; i < cell.labels.size(); i++) {
+  //     //   //     // cells[neighbor].labels[i] = yocto::max(
+  //     //   //     // cells[neighbor].labels[i], tmp[i]);
+  //     //   //     cells[neighbor].labels[i] = cells[neighbor].labels[i] +
+  //     //   tmp[i];
+  //     //   //   }
+  //     //   // }
+  //     //   continue;
+  //     // }
+
+  //     // Individuo diverse catene per ogni poligono
+  //     if (item.polygon == polygon) {
+  //       auto& polygon_sequences = sequences[polygon];
+
+  //       // Se una catena già esistente termina con il nodo padre di
+  //       neighbor
+  //       // allora aggiungo neighbor alla catena
+  //       auto found = false;
+  //       for (auto& sequence : polygon_sequences) {
+  //         if (sequence.back() == item.cell) {
+  //           sequence.push_back(neighbor);
+  //           found = true;
+  //         }
+  //       }
+
+  //       // Se non ho trovato una catena già esistente allora la creo nuova
+  //       if (!found) polygon_sequences.push_back({item.cell, neighbor});
+  //     }
+
+  //     stack.push_back({neighbor, polygon});
+  //   }
+  // }
 
   // Invertiamo gli archi dispari della catena
   for (auto& [polygon, polygon_sequences] : sequences) {
@@ -523,7 +587,8 @@ inline void compute_cycles(const vector<mesh_cell>& cells, int node,
   for (auto& [neighbor, polygon] : cells[node].adjacent_cells) {
     // Se stiamo percorrendo lo stesso arco ma al contrario allora continuo,
     // altrimenti esploriamo il vicino
-    if (neighbor == parent.x && polygon == -parent.y) continue;
+    if (polygon > 0) continue;
+    // if (neighbor == parent.x && polygon == -parent.y) continue;
     compute_cycles(cells, neighbor, {node, polygon}, visited, parents, cycles);
   }
 
@@ -542,8 +607,9 @@ inline vector<vector<vec2i>> compute_graph_cycles(
   return cycles;
 }
 
-inline void compute_cell_labels(
-    vector<mesh_cell>& cells, const vector<int>& start, int label_size) {
+inline void compute_cell_labels(vector<mesh_cell>& cells,
+    const vector<int>& start, int label_size,
+    const vector<int>& skip_polygons) {
   auto visited = vector<bool>(cells.size(), false);
   auto stack   = start;
 
@@ -560,6 +626,7 @@ inline void compute_cell_labels(
 
     auto& cell = cells[cell_id];
     for (auto& [neighbor, polygon] : cell.adjacent_cells) {
+      if (find_idx(skip_polygons, polygon) != -1) continue;
       if (visited[neighbor]) {
         auto tmp = cell.labels;
         tmp[yocto::abs(polygon)] += polygon > 0 ? 1 : -1;
@@ -791,8 +858,8 @@ inline void update_face_adjacencies(bool_mesh& mesh,
 
     for (int i = 0; i < triangles.size(); i++) {
       // Guardo se nell'adiacenza ci sono dei triangoli mancanti
-      // (segnati con -2 per non confonderli con dei -1 già presenti nella mesh
-      // originale)
+      // (segnati con -2 per non confonderli con dei -1 già presenti nella
+      // mesh originale)
       auto& adj = mesh.adjacencies[triangles[i]];
       for (int k = 0; k < 3; k++) {
         if (adj[k] != -2) continue;
@@ -823,9 +890,9 @@ inline void update_face_adjacencies(bool_mesh& mesh,
         auto edge_key = make_edge_key(edge);
         auto it       = border_edgemap.find(edge_key);
 
-        // Se non l'ho mai incontrato salvo in una mappa l'edge ed il triangolo
-        // corrispondente Se l'ho già incontrato ricostruisco l'adiacenza tra il
-        // triangolo corrente e il neighbor già trovato
+        // Se non l'ho mai incontrato salvo in una mappa l'edge ed il
+        // triangolo corrispondente Se l'ho già incontrato ricostruisco
+        // l'adiacenza tra il triangolo corrente e il neighbor già trovato
         if (it == border_edgemap.end()) {
           border_edgemap.insert(it, {edge_key, triangles[i]});
         } else {

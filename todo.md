@@ -1,5 +1,5 @@
 # Theory
-- [ ] Self intersections: verificare che basta controllare le parita’ dei label.
+- [x] Self intersections: verificare che basta controllare le parita’ dei label.
 - [ ] Cicli: etichettare celle nel ciclo, rimuovere gli archi dei poligoni coinvolti nel ciclo, continuare con visita standard sui DAGs rimanenti.
 - [ ] Trovare quale fra le celle ambiente candidate e' quella giusta.
 
