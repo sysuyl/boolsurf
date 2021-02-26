@@ -334,7 +334,9 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cell_stack,
             if (find_in_vec(mesh.tags[neighbor], -p) != -1) {
               // Sto attraversando il bordo di un poligono, quindi
               // connetto la cella a se stessa.
-              cell.adjacent_cells.insert({cell_id, yocto::abs(p)});
+              cell.adjacent_cells.insert({cell_id, +p});
+              cell.adjacent_cells.insert({cell_id, -p});
+
             } else {
               continue;
             }
@@ -589,7 +591,7 @@ inline void compute_cycles(const vector<mesh_cell>& cells, int node,
     // altrimenti esploriamo il vicino
     if (polygon > 0) continue;
     // if (neighbor == parent.x && polygon == -parent.y) continue;
-    compute_cycles(cells, neighbor, {node, polygon}, visited, parents, cycles);
+    compute_cycles(cells, neighbor, {node, -polygon}, visited, parents, cycles);
   }
 
   // Settiamo il nodo attuale come completamente visitato
@@ -608,14 +610,12 @@ inline vector<vector<vec2i>> compute_graph_cycles(
 }
 
 inline void compute_cell_labels(vector<mesh_cell>& cells,
-    const vector<int>& start, int label_size,
-    const vector<int>& skip_polygons) {
+    const vector<int>& start, const vector<int>& skip_polygons) {
   auto visited = vector<bool>(cells.size(), false);
   auto stack   = start;
 
   for (auto& c : start) {
-    visited[c]      = true;
-    cells[c].labels = vector<int>(label_size, 0);
+    visited[c] = true;
   }
 
   while (!stack.empty()) {

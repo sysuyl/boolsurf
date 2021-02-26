@@ -528,13 +528,22 @@ void do_the_thing(app_state* app) {
   auto skip_polygons = vector<int>();
   for (auto& cycle : cycles) {
     for (auto& [node, polygon] : cycle) {
-      skip_polygons.push_back(-polygon);
+      skip_polygons.push_back(polygon);
     }
   }
 
+  // Calcoliamo il labelling definitivo per effettuare le booleane
+  auto label_size = polygons.size();
+  if (polygons.back().points.empty()) label_size -= 1;
+
   for (auto& cycle : cycles) {
     printf("Cycle: ");
-    for (auto& c : cycle) printf("(%d %d) ", c.x, c.y);
+    for (auto& c : cycle) {
+      printf("(%d %d) ", c.x, c.y);
+      app->arrangement[c.x].labels      = vector<int>(label_size, 0);
+      app->arrangement[c.x].labels[c.y] = 1;
+    }
+
     printf("\n");
   }
 
@@ -549,12 +558,7 @@ void do_the_thing(app_state* app) {
 
   // assert(ambient_cells.size());
 
-  // Calcoliamo il labelling definitivo per effettuare le booleane
-  auto label_size = polygons.size();
-  if (polygons.back().points.empty()) label_size -= 1;
-
-  compute_cell_labels(
-      app->arrangement, ambient_cells, label_size, skip_polygons);
+  compute_cell_labels(app->arrangement, ambient_cells, skip_polygons);
   save_tree_png(app, "1");
 
 #if DRAW_BORDER_FACES
