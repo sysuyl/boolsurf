@@ -127,6 +127,13 @@ inline int find_idx(const vector<T>& vec, const T& x) {
   return -1;
 }
 
+template <class T, typename F>
+inline int find_xxx(const vector<T>& vec, F&& f) {
+  for (auto i = 0; i < vec.size(); i++)
+    if (f(vec[i])) return i;
+  return -1;
+}
+
 // TODO(giacomo): Expose this function in yocto_mesh.h
 inline int find_adjacent_triangle(
     const vec3i& triangle, const vec3i& adjacent) {

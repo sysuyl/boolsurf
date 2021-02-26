@@ -6,7 +6,7 @@
 # Implementation
 - [ ] Visualizzare booleane.
 - [ ] Tirare su tests.
-- [ ] Rappresentare il risultato implicitamente come sequenze di puniti.
+- [ ] Rappresentare il risultato implicitamente come sequenze di punti: inserire intersezioni nei poligoni e taggare i lati per visualizzare bene le booleane.
 - [ ] Integrare bezier.
 
 # Performance
