@@ -536,29 +536,42 @@ void do_the_thing(app_state* app) {
   auto label_size = polygons.size();
   if (polygons.back().points.empty()) label_size -= 1;
 
+  for (auto& cell : app->arrangement) {
+    cell.labels = vector<int>(label_size, 0);
+  }
+
   for (auto& cycle : cycles) {
-    printf("Cycle: ");
     for (auto& c : cycle) {
-      printf("(%d %d) ", c.x, c.y);
-      app->arrangement[c.x].labels      = vector<int>(label_size, 0);
       app->arrangement[c.x].labels[c.y] = 1;
     }
-
-    printf("\n");
   }
 
   // Trova le celle ambiente nel grafo dell'adiacenza delle celle
   auto ambient_cells = find_ambient_cells(app->arrangement, skip_polygons);
 
   printf("Ambient cells: ");
-  for (auto cell : ambient_cells) {
-    printf("%d ", cell);
+  for (auto ambient : ambient_cells) {
+    auto cells = app->arrangement;
+    compute_cell_labels(cells, {ambient}, skip_polygons);
+
+    auto found = false;
+    for (auto& cell : cells) {
+      auto it = find_xxx(
+          cell.labels, [](const int& label) { return label < 0; });
+      if (it != -1) {
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      app->arrangement = cells;
+      break;
+    }
   }
-  printf("\n");
 
   // assert(ambient_cells.size());
 
-  compute_cell_labels(app->arrangement, ambient_cells, skip_polygons);
   save_tree_png(app, "1");
 
 #if DRAW_BORDER_FACES
