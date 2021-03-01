@@ -126,11 +126,27 @@ inline vec2i get_edge(const vec3i& triangle, int k) {
   }
 }
 
+
+#if 0
+#include "ext/robin_hood.h"
+template <typename Key, typename Value>
+using hash_map = robin_hood::unordered_flat_map<Key, Value>;
+
+template <typename Key>
+using hash_set = robin_hood::unordered_flat_set<Key>;
+#else
+template <typename Key, typename Value>
+using hash_map = std::unordered_map<Key, Value>;
+
+template <typename Key>
+using hash_set = std::unordered_set<Key>;
+#endif
+
 #ifdef MY_DEBUG
-static auto debug_triangles = unordered_map<int, vector<vec3i>>{};
-static auto debug_edges     = unordered_map<int, vector<vec2i>>{};
-static auto debug_nodes     = unordered_map<int, vector<vec2f>>{};
-static auto debug_indices   = unordered_map<int, vector<int>>{};
+static auto debug_triangles = hash_map<int, vector<vec3i>>{};
+static auto debug_edges     = hash_map<int, vector<vec2i>>{};
+static auto debug_nodes     = hash_map<int, vector<vec2f>>{};
+static auto debug_indices   = hash_map<int, vector<int>>{};
 
 static auto debug_result  = vector<int>();
 static auto debug_visited = vector<bool>{};

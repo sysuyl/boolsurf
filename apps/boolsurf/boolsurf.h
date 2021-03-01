@@ -46,9 +46,9 @@ struct mesh_polygon {
 };
 
 struct mesh_cell {
-  vector<int>          faces     = {};
-  unordered_set<vec2i> adjacency = {};  // {cell_id, crossed_polygon_id}
-  vector<int>          labels    = {};
+  vector<int>     faces     = {};
+  hash_set<vec2i> adjacency = {};  // {cell_id, crossed_polygon_id}
+  vector<int>     labels    = {};
 };
 
 struct mesh_shape {
@@ -150,11 +150,11 @@ struct hashgrid_polyline {
   vector<vec2f> points   = {};
   vector<int>   vertices = {};
 };
-using mesh_hashgrid = unordered_map<int, vector<hashgrid_polyline>>;
+using mesh_hashgrid = hash_map<int, vector<hashgrid_polyline>>;
 
 static mesh_hashgrid compute_hashgrid(
     const vector<mesh_polygon>& polygons, const vector<vector<int>>& vertices) {
-  auto hashgrid = unordered_map<int, vector<hashgrid_polyline>>{};
+  auto hashgrid = hash_map<int, vector<hashgrid_polyline>>{};
 
   for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
     auto& polygon   = polygons[polygon_id];
@@ -454,7 +454,7 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
 }
 
 static void compute_intersections(
-    unordered_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
+    hash_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
   for (auto& [face, polylines] : hashgrid) {
     // Check for polyline self interesctions
     for (auto p0 = 0; p0 < polylines.size(); p0++) {
@@ -559,10 +559,10 @@ static vector<vec3i> constrained_triangulation(
   return triangles;
 }
 
-static void update_face_adjacencies(bool_mesh& mesh,
-    const unordered_map<int, vector<int>>&     triangulated_faces) {
+static void update_face_adjacencies(
+    bool_mesh& mesh, const hash_map<int, vector<int>>& triangulated_faces) {
   // Aggiorniamo le adiacenze per i triangoli che sono stati processati
-  auto border_edgemap = unordered_map<vec2i, int>{};
+  auto border_edgemap = hash_map<vec2i, int>{};
   border_edgemap.reserve(triangulated_faces.size() * 6);
 
   // Per ogni triangolo processato elaboro tutti i suoi sottotriangoli
@@ -629,8 +629,8 @@ static void update_face_adjacencies(bool_mesh& mesh,
   }
 }
 
-inline void update_face_edgemap(unordered_map<vec2i, vec2i>& face_edgemap,
-    const vec2i& edge, const int face) {
+inline void update_face_edgemap(
+    hash_map<vec2i, vec2i>& face_edgemap, const vec2i& edge, const int face) {
   auto key = make_edge_key(edge);
   auto it  = face_edgemap.find(key);
   if (it == face_edgemap.end()) {
@@ -760,10 +760,9 @@ static void flood_fill_debug(
   }
 }
 
-static void triangulate(bool_mesh&   mesh,
-    unordered_map<vec2i, vec2i>&     face_edgemap,
-    unordered_map<int, vector<int>>& triangulated_faces,
-    const mesh_hashgrid&             hashgrid) {
+static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
+    hash_map<int, vector<int>>& triangulated_faces,
+    const mesh_hashgrid&        hashgrid) {
   for (auto& [face, polylines] : hashgrid) {
     auto [a, b, c] = mesh.triangles[face];
 
@@ -915,9 +914,8 @@ static void triangulate(bool_mesh&   mesh,
 }
 
 static vector<vec3i> face_tags(const bool_mesh& mesh,
-    const mesh_hashgrid&                        hashgrid,
-    const unordered_map<vec2i, vec2i>&          face_edgemap,
-    const unordered_map<int, vector<int>>&      triangulated_faces) {
+    const mesh_hashgrid& hashgrid, const hash_map<vec2i, vec2i>& face_edgemap,
+    const hash_map<int, vector<int>>& triangulated_faces) {
   auto tags = vector<vec3i>(mesh.triangles.size(), zero3i);
 
   for (auto& [face, polylines] : hashgrid) {
@@ -998,8 +996,8 @@ static void compute_cells(bool_mesh& mesh, bool_state& state) {
   compute_intersections(hashgrid, mesh);
 
   // Mappa a ogni edge generato le due facce generate adiacenti.
-  auto face_edgemap       = unordered_map<vec2i, vec2i>{};
-  auto triangulated_faces = unordered_map<int, vector<int>>{};
+  auto face_edgemap       = hash_map<vec2i, vec2i>{};
+  auto triangulated_faces = hash_map<int, vector<int>>{};
 
   // Triangolazione e aggiornamento dell'adiacenza
   triangulate(mesh, face_edgemap, triangulated_faces, hashgrid);
