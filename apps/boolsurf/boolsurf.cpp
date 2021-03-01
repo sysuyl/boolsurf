@@ -1,5 +1,36 @@
 #include "boolsurf.h"
 
+void init_mesh(bool_mesh& mesh) {
+  mesh.normals            = compute_normals(mesh.triangles, mesh.positions);
+  mesh.adjacencies        = face_adjacencies(mesh.triangles);
+  mesh.original_positions = mesh.positions.size();
+
+  // Fit shape in [-1, +1]^3
+  auto bbox = invalidb3f;
+  for (auto& pos : mesh.positions) bbox = merge(bbox, pos);
+  for (auto& pos : mesh.positions) pos = (pos - center(bbox)) / max(size(bbox));
+
+  mesh.dual_solver = make_dual_geodesic_solver(
+      mesh.triangles, mesh.positions, mesh.adjacencies);
+}
+
+geodesic_path compute_geodesic_path(
+    const bool_mesh& mesh, const mesh_point& start, const mesh_point& end) {
+  auto path = geodesic_path{};
+  if (start.face == end.face) {
+    path.start = start;
+    path.end   = end;
+    path.strip = {start.face};
+    return path;
+  }
+
+  auto strip = strip_on_dual_graph(
+      mesh.dual_solver, mesh.triangles, mesh.positions, end.face, start.face);
+  path = shortest_path(
+      mesh.triangles, mesh.positions, mesh.adjacencies, start, end, strip);
+  return path;
+}
+
 vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
     const vector<int>& strip, const vector<float>& lerps,
     const mesh_point& start, const mesh_point& end) {

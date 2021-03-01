@@ -29,10 +29,13 @@ void init_from_test(app_state* app) {
   update_polygons(app);
 }
 
+#ifdef MY_DEBUG
 void debug_draw(app_state* app, int face, const vector<vec2i>& edges,
     const string& header = "") {
   static int count = 0;
-  auto&      is    = debug_indices[face];
+
+  auto& is = debug_indices[face];
+
   //  auto       e     = vec2i{find_idx(is, edge_key.x), find_idx(is,
   //  edge_key.y)};
 
@@ -76,6 +79,7 @@ void debug_borders(app_state* app) {
 
   app->current_border = (app->current_border + 1) % app->state.polygons.size();
 }
+#endif
 
 #include <yocto_gui/ext/imgui/imgui.h>
 #include <yocto_gui/ext/imgui/imgui_impl_glfw.h>
@@ -286,14 +290,17 @@ void mouse_input(app_state* app, const gui_input& input) {
     }
   }
 
+#ifdef MY_DEBUG
   debug_restart = true;
+#endif
 
   if (input.modifier_alt) {
     commit_state(app);
 
     // Add point index to last polygon.
     auto polygon_id = (int)app->state.polygons.size() - 1;
-    app->state.polygons[polygon_id].points.push_back(app->state.points.size());
+    app->state.polygons[polygon_id].points.push_back(
+        (int)app->state.points.size());
 
     // Add point to state.
     app->state.points.push_back(point);
@@ -367,6 +374,7 @@ void key_input(app_state* app, const gui_input& input) {
 
       } break;
 
+#ifdef MY_DEBUG
       case (int)gui_key('N'): {
         debug_cells(app);
       } break;
@@ -431,6 +439,7 @@ void key_input(app_state* app, const gui_input& input) {
         }
         app->temp_patch->depth_test = ogl_depth_test::always;
       } break;
+#endif
 
       case (int)gui_key('C'): {
         auto old_camera = app->glcamera;
