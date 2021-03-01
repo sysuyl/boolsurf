@@ -40,12 +40,6 @@ inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
   polygon.polyline_shape->shape->shape->elements = ogl_element_type::line_strip;
   set_instances(polygon.polyline_shape->shape, {}, {});
 }
-
-auto debug_triangles = unordered_map<int, vector<vec3i>>{};
-auto debug_edges     = unordered_map<int, vector<vec2i>>{};
-auto debug_nodes     = unordered_map<int, vector<vec2f>>{};
-auto debug_indices   = unordered_map<int, vector<int>>{};
-
 // inline void draw_triangulation(
 //     ogl_texture* texture, int face, vec2i size = {2048, 2048}) {
 //   auto& triangles = debug_triangles[face];
