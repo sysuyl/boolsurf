@@ -78,11 +78,14 @@ int main(int num_args, const char* args[]) {
   }
   init_mesh(mesh);
   printf("triangles: %d\n", (int)mesh.triangles.size());
-  printf("adjacencies: %d\n", (int)mesh.adjacencies.size());
-  printf("positions: %d\n", (int)mesh.positions.size());
+  printf("positions: %d\n\n", (int)mesh.positions.size());
 
   auto state = state_from_test(mesh, test);
-  compute_cells(mesh, state);
+
+  {
+    auto timer = print_timed("[compute_cells]");
+    compute_cells(mesh, state);
+  }
 
   for (auto& operation : test.operations) {
     compute_bool_operation(state, operation);
@@ -109,8 +112,9 @@ int main(int num_args, const char* args[]) {
       instance->material->specular  = 0.04;
       instance->material->roughness = 0.5;
       instance->shape               = add_shape(scene);
-      instance->shape->positions    = mesh.positions;
 
+      // TODO(giacomo): Too many copies of positions.
+      instance->shape->positions = mesh.positions;
       for (auto& face : cell.faces) {
         instance->shape->triangles.push_back(mesh.triangles[face]);
       }
