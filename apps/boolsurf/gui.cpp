@@ -180,7 +180,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
   }
 
   if (app->selected_cell >= 0 && begin_header(widgets, "cell info", true)) {
-    auto& cell = app->cells[app->selected_cell];
+    auto& cell = app->state.cells[app->selected_cell];
     draw_label(widgets, "cell", to_string(app->selected_cell));
     draw_label(widgets, "faces", to_string(cell.faces.size()));
 
@@ -267,8 +267,8 @@ void mouse_input(app_state* app, const gui_input& input) {
   auto point_original = mesh_point{isec_original.element, isec_original.uv};
   app->last_clicked_point_original = point_original;
 
-  for (int i = 0; i < app->cells.size(); i++) {
-    auto& cell = app->cells[i];
+  for (int i = 0; i < app->state.cells.size(); i++) {
+    auto& cell = app->state.cells[i];
     auto  it   = find_idx(cell.faces, point.face);
     if (it != -1) {
       app->selected_cell = i;
@@ -531,9 +531,8 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
   }
 }
 
-void compute_cells(app_state* app) {
-  auto& polygons = app->state.polygons;
-  auto& mesh     = app->mesh;
+void compute_cells(bool_mesh& mesh, edit_state& state) {
+  auto& polygons = state.polygons;
 
   auto vertices = add_vertices(mesh, polygons);
 
@@ -549,8 +548,8 @@ void compute_cells(app_state* app) {
   update_face_adjacencies(mesh, triangulated_faces);
 
   // Calcola i tags per ogni faccia
-  app->mesh.tags = face_tags(
-      app->mesh, hashgrid, face_edgemap, triangulated_faces);
+  mesh.tags = face_tags(
+      mesh, hashgrid, face_edgemap, triangulated_faces);
 
   // Annulliamo le facce che sono già state triangolate
   for (auto& [face, triangles] : triangulated_faces) {
@@ -559,14 +558,14 @@ void compute_cells(app_state* app) {
     mesh.adjacencies[face] = {-3, -3, -3};
   }
 
-  check_tags(app->mesh);
+  check_tags(mesh);
 
   // Trova l'adiacenza fra celle tramite il flood-fill
-  app->cells = make_mesh_cells(mesh, mesh.tags);
+  state.cells = make_mesh_cells(mesh, mesh.tags);
 
-  save_tree_png(app, "0");
+//  save_tree_png(app, "0");
 
-  auto cycles = compute_graph_cycles(app->cells);
+  auto cycles = compute_graph_cycles(state.cells);
 
   auto skip_polygons = vector<int>();
   for (auto& cycle : cycles) {
@@ -579,22 +578,22 @@ void compute_cells(app_state* app) {
   auto label_size = polygons.size();
   if (polygons.back().points.empty()) label_size -= 1;
 
-  for (auto& cell : app->cells) {
+  for (auto& cell : state.cells) {
     cell.labels = vector<int>(label_size, 0);
   }
 
   for (auto& cycle : cycles) {
     for (auto& c : cycle) {
-      app->cells[c.x].labels[c.y] = 1;
+      state.cells[c.x].labels[c.y] = 1;
     }
   }
 
   // Trova le celle ambiente nel grafo dell'adiacenza delle celle
-  auto ambient_cells = find_ambient_cells(app->cells, skip_polygons);
+  auto ambient_cells = find_ambient_cells(state.cells, skip_polygons);
 
   printf("Ambient cells: ");
   for (auto ambient_cell : ambient_cells) {
-    auto cells = app->cells;
+    auto cells = state.cells;
     compute_cell_labels(cells, {ambient_cell}, skip_polygons);
 
     auto found = false;
@@ -609,15 +608,15 @@ void compute_cells(app_state* app) {
     }
 
     if (!found) {
-      app->cells        = cells;
-      app->ambient_cell = ambient_cell;
+      state.cells        = cells;
+      state.ambient_cell = ambient_cell;
       break;
     }
   }
 
   // assert(ambient_cells.size());
 
-  save_tree_png(app, "1");
+//  save_tree_png(app, "1");
 
 #if DRAW_BORDER_FACES
   // Draw inner and outer faces
@@ -680,7 +679,7 @@ void key_input(app_state* app, const gui_input& input) {
           app->state.polygons.pop_back();
         }
 
-        compute_cells(app);
+        compute_cells(app->mesh, app->state);
 
         init_shapes(app);
         set_default_shapes(app);
@@ -688,8 +687,8 @@ void key_input(app_state* app, const gui_input& input) {
           compute_bool_operation(app->state.shapes, op);
         }
 
-        app->cell_shapes.resize(app->cells.size());
-        for (int i = 0; i < app->cells.size(); i++) {
+        app->cell_shapes.resize(app->state.cells.size());
+        for (int i = 0; i < app->state.cells.size(); i++) {
           app->cell_shapes[i] = add_patch_shape(app, {}, vec3f{});
         }
 

@@ -28,8 +28,10 @@ struct Shape {
 };
 
 struct edit_state {
-  vector<mesh_polygon> polygons = {{}, {}};
-  vector<mesh_point>   points   = {};
+  vector<mesh_polygon> polygons     = {{}, {}};
+  vector<mesh_point>   points       = {};
+  vector<mesh_cell>    cells        = {};
+  int                  ambient_cell = -1;
 
   vector<Shape> shapes = {};
 
@@ -57,10 +59,8 @@ struct app_state {
   shape_bvh bvh           = {};
   shape_bvh bvh_original  = {};
 
-  edit_state              state        = {};
-  vector<mesh_cell>       cells        = {};
-  int                     ambient_cell = -1;
-  vector<shade_instance*> cell_shapes  = {};
+  edit_state              state       = {};
+  vector<shade_instance*> cell_shapes = {};
 
   vector<edit_state> history        = {};
   int                history_index  = 0;
@@ -397,7 +397,7 @@ inline vec3f get_polygon_color(const app_state* app, int polygon) {
 
 inline vec3f get_cell_color(const app_state* app, int cell_id) {
   auto  color = vec3f{0, 0, 0};
-  auto& cell  = app->cells[cell_id];
+  auto& cell  = app->state.cells[cell_id];
   int   count = 0;
   for (int p = 0; p < cell.labels.size(); p++) {
     auto label = cell.labels[p];
@@ -443,12 +443,13 @@ inline string tree_to_string(
   return result;
 }
 
+// TODO(giacomo): Make it app-indipendent.
 inline void save_tree_png(const app_state* app, const string& extra) {
   auto filename = app->test_filename;
   if (filename.empty()) filename = "test.json";
   auto  graph = replace_extension(filename, extra + ".txt");
   FILE* file  = fopen(graph.c_str(), "w");
-  fprintf(file, "%s", tree_to_string(app, app->cells).c_str());
+  fprintf(file, "%s", tree_to_string(app, app->state.cells).c_str());
   fclose(file);
 
   auto image = replace_extension(filename, extra + ".png");
@@ -460,7 +461,7 @@ inline void save_tree_png(const app_state* app, const string& extra) {
 inline int front_polygon_containing_this_cell(const app_state* app, int cell) {
   for (int s = (int)app->state.shapes.size() - 1; s >= 0; s--) {
     auto p = app->state.shapes[s].polygon;
-    if (app->cells[cell].labels[p] > 0) {
+    if (app->state.cells[cell].labels[p] > 0) {
       return s;
     }
   }
@@ -469,8 +470,8 @@ inline int front_polygon_containing_this_cell(const app_state* app, int cell) {
 }
 
 inline void update_cell_shapes(app_state* app) {
-  for (int i = 0; i < app->cells.size(); i++) {
-    auto& cell = app->cells[i];
+  for (int i = 0; i < app->state.cells.size(); i++) {
+    auto& cell = app->state.cells[i];
     // auto  s     = front_polygon_containing_this_cell(app, i);
     // auto  color = vec3f{};
     // if (s == -1) {
@@ -510,10 +511,10 @@ inline void set_default_shapes(app_state* app) {
   for (auto& shape : app->state.shapes) {
     shape.cells.clear();
   }
-  app->state.shapes[0].cells = {app->ambient_cell};
+  app->state.shapes[0].cells = {app->state.ambient_cell};
 
   // Distribute cells to shapes
-  for (int cell = 0; cell < app->cells.size(); cell++) {
+  for (int cell = 0; cell < app->state.cells.size(); cell++) {
     auto p = front_polygon_containing_this_cell(app, cell);
     if (p > 0) {
       app->state.shapes[p].cells.push_back(cell);
