@@ -97,17 +97,26 @@ int main(int num_args, const char* args[]) {
       auto camera_dist = bbox_radius * lens / (film / aspect);
       return lookat_frame(camera_dir * camera_dist, {0, 0, 0}, {0, 1, 0});
     };
-    camera->frame = camera_frame(0.050, 16.0f / 9.0f, 0.036);
+    camera->frame = camera_frame(0.030, 16.0f / 9.0f, 0.036);
 
-    auto instance                 = add_instance(scene);
-    instance->material            = add_material(scene);
-    instance->material->color     = {0.5, 0.5, 0.5};
-    instance->material->specular  = 0.04;
-    instance->material->roughness = 0.5;
-    instance->shape               = add_shape(scene);
-    instance->shape->triangles    = mesh.triangles;
-    instance->shape->positions    = mesh.positions;
-    instance->shape->normals      = mesh.normals;
+    for (int i = 0; i < state.cells.size(); i++) {
+      auto& cell                = state.cells[i];
+      auto  instance            = add_instance(scene);
+      instance->material        = add_material(scene);
+      instance->material->color = {
+          (i % 3) / 3.0f, (i % 4) / 4.0f, (i % 5) / 5.0f};
+      if (i == 0) instance->material->color = {0.8, 0.8, 0.8};
+      instance->material->specular  = 0.04;
+      instance->material->roughness = 0.5;
+      instance->shape               = add_shape(scene);
+      instance->shape->positions    = mesh.positions;
+
+      for (auto& face : cell.faces) {
+        instance->shape->triangles.push_back(mesh.triangles[face]);
+      }
+      instance->shape->normals = compute_normals(
+          instance->shape->triangles, instance->shape->positions);
+    }
 
     // auto light_material      = add_material(scene);
     // light_material->emission = {20, 20, 20};
@@ -128,7 +137,7 @@ int main(int num_args, const char* args[]) {
 
     auto params    = trace_params{};
     params.sampler = trace_sampler_type::eyelight;
-    params.samples = 1024;
+    params.samples = 16;
     auto image     = trace_image(scene, camera, params);
     save_image(output_filename, image, error);
   }
