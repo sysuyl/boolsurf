@@ -16,7 +16,7 @@
 #include <unordered_set>
 
 #include "boolsurf.h"
-#include "io.h"
+#include "boolsurf_io.h"
 #include "render.h"
 
 using namespace yocto;

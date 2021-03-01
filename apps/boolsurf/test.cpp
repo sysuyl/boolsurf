@@ -32,6 +32,8 @@ int main(int num_args, const char* args[]) {
   printf("adjacencies: %d\n", (int)mesh.adjacencies.size());
   printf("positions: %d\n", (int)mesh.positions.size());
 
-  // Welcome
-  printf("Hello, %s!\n", test_filename.c_str());
+  compute_cells(mesh, )
+
+      // Welcome
+      printf("Hello, %s!\n", test_filename.c_str());
 }

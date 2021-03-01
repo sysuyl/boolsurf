@@ -21,12 +21,11 @@ void init_from_test(app_state* app) {
   app->state.polygons.clear();
   auto& points = app->state.points;
   points       = app->test.points;
-  for (auto& polygon : app->test.polygons) {
-    // Add new polygon to state.
-    auto& mesh_polygon  = app->state.polygons.emplace_back();
-    mesh_polygon.points = polygon;
+
+  app->state = state_from_test(app->mesh, app->test);
+  for (auto& polygon : app->state.polygons) {
+    set_polygon_shape(app->glscene, app->mesh, polygon, app->paths_material);
   }
-  update_polygons(app);
 }
 
 #ifdef MY_DEBUG
