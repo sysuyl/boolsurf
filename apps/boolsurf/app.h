@@ -163,11 +163,13 @@ void load_shape(app_state* app, const string& filename) {
 
   // Transformint quad mesh into triangle mesh
   if (app->ioshape->quads.size()) {
-    app->ioshape->triangles = quads_to_triangles(app->ioshape->quads);
-    app->ioshape->quads     = {};
+    app->mesh.triangles = quads_to_triangles(app->ioshape->quads);
+  } else {
+    app->mesh.triangles = app->ioshape->triangles;
   }
+  app->mesh.positions = app->ioshape->positions;
 
-  app->mesh = init_mesh(app->ioshape->triangles, app->ioshape->positions);
+  init_mesh(app->mesh);
   app->mesh_original = app->mesh;
   app->bvh = make_triangles_bvh(app->mesh.triangles, app->mesh.positions, {});
   app->bvh_original = app->bvh;

@@ -27,7 +27,9 @@ int main(int num_args, const char* args[]) {
     printf("%s\n", error.c_str());
     print_fatal("Error loading model " + test.model);
   }
+  init_mesh(mesh);
   printf("triangles: %d\n", (int)mesh.triangles.size());
+  printf("adjacencies: %d\n", (int)mesh.adjacencies.size());
   printf("positions: %d\n", (int)mesh.positions.size());
 
   // Welcome

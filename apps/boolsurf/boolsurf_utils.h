@@ -72,23 +72,18 @@ inline vec3f eval_position(const bool_mesh& mesh, const mesh_point& point) {
   return eval_position(mesh.triangles, mesh.positions, point);
 }
 
-inline bool_mesh init_mesh(
-    const vector<vec3i>& triangles, const vector<vec3f>& positions) {
-  auto mesh               = bool_mesh{};
-  mesh.triangles          = triangles;
-  mesh.positions          = positions;
-  mesh.normals            = compute_normals(triangles, positions);
+inline void init_mesh(bool_mesh& mesh) {
+  mesh.normals            = compute_normals(mesh.triangles, mesh.positions);
   mesh.adjacencies        = face_adjacencies(mesh.triangles);
   mesh.original_positions = mesh.positions.size();
 
-  // Fit shape in [-1, 1]^3
+  // Fit shape in [-1, +1]^3
   auto bbox = invalidb3f;
   for (auto& pos : mesh.positions) bbox = merge(bbox, pos);
   for (auto& pos : mesh.positions) pos = (pos - center(bbox)) / max(size(bbox));
 
   mesh.dual_solver = make_dual_geodesic_solver(
       mesh.triangles, mesh.positions, mesh.adjacencies);
-  return mesh;
 }
 
 inline geodesic_path compute_geodesic_path(
