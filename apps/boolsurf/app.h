@@ -167,7 +167,7 @@ void load_shape(app_state* app, const string& filename) {
     app->ioshape->quads     = {};
   }
 
-  app->mesh          = init_mesh(app->ioshape);
+  app->mesh = init_mesh(app->ioshape->triangles, app->ioshape->positions);
   app->mesh_original = app->mesh;
   app->bvh = make_triangles_bvh(app->mesh.triangles, app->mesh.positions, {});
   app->bvh_original = app->bvh;

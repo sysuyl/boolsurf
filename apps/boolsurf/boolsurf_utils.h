@@ -28,12 +28,17 @@ struct mesh_segment {
   int   face  = -1;
 };
 
+namespace yocto {
+struct shade_instance;
+}
+
 struct mesh_polygon {
   vector<int>          points      = {};
   vector<mesh_segment> segments    = {};
   vector<int>          inner_faces = {};
   vector<int>          outer_faces = {};
 
+  // TODO(giacomo): Put them in app.
   shade_instance* polyline_shape = nullptr;
   shade_instance* inner_shape    = nullptr;
   shade_instance* outer_shape    = nullptr;
@@ -67,11 +72,12 @@ inline vec3f eval_position(const bool_mesh& mesh, const mesh_point& point) {
   return eval_position(mesh.triangles, mesh.positions, point);
 }
 
-inline bool_mesh init_mesh(const generic_shape* shape) {
+inline bool_mesh init_mesh(
+    const vector<vec3i>& triangles, const vector<vec3f>& positions) {
   auto mesh               = bool_mesh{};
-  mesh.triangles          = shape->triangles;
-  mesh.positions          = shape->positions;
-  mesh.normals            = shape->normals;
+  mesh.triangles          = triangles;
+  mesh.positions          = positions;
+  mesh.normals            = compute_normals(triangles, positions);
   mesh.adjacencies        = face_adjacencies(mesh.triangles);
   mesh.original_positions = mesh.positions.size();
 
