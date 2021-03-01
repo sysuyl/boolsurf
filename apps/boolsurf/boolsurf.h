@@ -7,6 +7,7 @@
 #include <deque>
 #include <unordered_set>
 
+#include "boolsurf_utils.h"
 #include "ext/CDT/CDT/include/CDT.h"
 
 using namespace yocto;
@@ -73,29 +74,6 @@ struct hashgrid_segment {
   vec2f end   = {};
 };
 
-#ifdef MY_DEBUG
-static auto debug_triangles = unordered_map<int, vector<vec3i>>{};
-static auto debug_edges     = unordered_map<int, vector<vec2i>>{};
-static auto debug_nodes     = unordered_map<int, vector<vec2f>>{};
-static auto debug_indices   = unordered_map<int, vector<int>>{};
-#endif
-
-// Vector append and concatenation
-template <typename T>
-inline void operator+=(vector<T>& a, const vector<T>& b) {
-  a.insert(a.end(), b.begin(), b.end());
-}
-template <typename T>
-inline void operator+=(vector<T>& a, const T& b) {
-  a.push_back(b);
-}
-template <typename T>
-inline vector<T> operator+(const vector<T>& a, const vector<T>& b) {
-  auto c = a;
-  c += b;
-  return b;
-}
-
 inline vec3f eval_position(const bool_mesh& mesh, const mesh_point& point) {
   return eval_position(mesh.triangles, mesh.positions, point);
 }
@@ -129,45 +107,6 @@ inline geodesic_path compute_geodesic_path(
   path = shortest_path(
       mesh.triangles, mesh.positions, mesh.adjacencies, start, end, strip);
   return path;
-}
-
-// TODO(giacomo): Expose this function in yocto_mesh.h
-inline int find_in_vec(const vec3i& vec, int x) {
-  for (auto i = 0; i < 3; i++)
-    if (vec[i] == x) return i;
-  return -1;
-}
-
-template <class T>
-inline int find_idx(const vector<T>& vec, const T& x) {
-  for (auto i = 0; i < vec.size(); i++)
-    if (vec[i] == x) return i;
-  return -1;
-}
-
-// TODO(gicomo): rename
-template <class T, typename F>
-inline int find_xxx(const vector<T>& vec, F&& f) {
-  for (auto i = 0; i < vec.size(); i++)
-    if (f(vec[i])) return i;
-  return -1;
-}
-
-// TODO(giacomo): Expose this function in yocto_mesh.h
-inline int find_adjacent_triangle(
-    const vec3i& triangle, const vec3i& adjacent) {
-  for (int i = 0; i < 3; i++) {
-    auto k = find_in_vec(adjacent, triangle[i]);
-    if (k != -1) {
-      if (find_in_vec(adjacent, triangle[mod3(i + 1)]) != -1) {
-        return i;
-      } else {
-        return mod3(i + 2);
-      }
-    }
-  }
-  // assert(0 && "input triangles are not adjacent");
-  return -1;
 }
 
 static vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
@@ -204,26 +143,6 @@ static vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
     result.push_back({start_uv, end_uv, strip[i]});
   }
   return result;
-}
-
-// From yocto_mesh.h + small update
-inline vec2f intersect_segments(const vec2f& start1, const vec2f& end1,
-    const vec2f& start2, const vec2f& end2) {
-  if (end1 == start2) return zero2f;
-  if (end2 == start1) return one2f;
-  if (start2 == start1) return zero2f;
-  if (end2 == end1) return one2f;
-
-  auto a = end1 - start1;    // direction of line a
-  auto b = start2 - end2;    // direction of line b, reversed
-  auto d = start2 - start1;  // right-hand side
-
-  auto det = a.x * b.y - a.y * b.x;
-  if (det == 0) return {-1, -1};
-
-  auto r = (d.x * b.y - d.y * b.x) / det;
-  auto s = (a.x * d.y - a.y * d.x) / det;
-  return {r, s};
 }
 
 struct hashgrid_polyline {
@@ -534,11 +453,6 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
   }
 }
 
-template <typename T>
-inline void insert(vector<T>& vec, size_t i, const T& x) {
-  vec.insert(vec.begin() + i, x);
-}
-
 static void compute_intersections(
     unordered_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
   for (auto& [face, polylines] : hashgrid) {
@@ -604,48 +518,6 @@ static void compute_intersections(
         }
       }
     }
-  }
-}
-
-inline vec2i make_edge_key(const vec2i& edge) {
-  if (edge.x > edge.y) return {edge.y, edge.x};
-  return edge;
-};
-
-// (marzia) Not Used
-inline tuple<vec2i, float> get_mesh_edge(
-    const vec3i& triangle, const vec2f& uv) {
-  if (uv.y == 0)
-    return {vec2i{triangle.x, triangle.y}, uv.x};  // point on edge(xy)
-  else if (uv.x == 0)
-    return {vec2i{triangle.z, triangle.x}, 1.0f - uv.y};  // point on edge (xz)
-  else if (fabs(uv.x + uv.y - 1.0f) < 0.0001)
-    return {vec2i{triangle.y, triangle.z}, uv.y};  // point on edge (yz)
-  else
-    return {zero2i, -1};
-}
-
-inline pair<int, float> get_mesh_edge(const vec2f& uv) {
-  if (uv.y == 0)
-    return {0, uv.x};  // point on edge(xy)
-  else if (uv.x == 0)
-    return {2, 1.0f - uv.y};  // point on edge (xz)
-  else if (fabs(uv.x + uv.y - 1.0f) < 0.0001)
-    return {1, uv.y};  // point on edge (yz)
-  else
-    return {-1, -1};
-}
-
-inline vec2i get_edge(const vec3i& triangle, int k) {
-  if (k == 0)
-    return {triangle.x, triangle.y};
-  else if (k == 1)
-    return {triangle.y, triangle.z};
-  else if (k == 2)
-    return {triangle.z, triangle.x};
-  else {
-    assert(0);
-    return {-1, -1};
   }
 }
 
@@ -847,11 +719,6 @@ inline bool check_tags(const bool_mesh& mesh) {
   }
   return true;
 }
-
-static auto debug_result  = vector<int>();
-static auto debug_visited = vector<bool>{};
-static auto debug_stack   = vector<int>{};
-static auto debug_restart = true;
 
 template <typename F>
 static void flood_fill_debug(
