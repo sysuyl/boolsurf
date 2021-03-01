@@ -1,5 +1,7 @@
 #include <yocto/yocto_commonio.h>
 #include <yocto/yocto_sampling.h>
+#include <yocto/yocto_shape.h>
+#include <yocto/yocto_trace.h>
 
 #include "boolsurf.h"
 #include "boolsurf_io.h"
@@ -49,11 +51,14 @@ vector<mesh_point> sample_points(const bool_mesh& mesh, const shape_bvh& bvh,
 }
 
 int main(int num_args, const char* args[]) {
-  auto test_filename = "data/tests/test.json"s;
+  auto test_filename   = "data/tests/test.json"s;
+  auto output_filename = ""s;
 
   // parse command line
   auto cli = make_cli("test", "test boolsurf algorithms");
   add_option(cli, "input", test_filename, "Input test filename (.json).", true);
+  add_option(
+      cli, "--output/-o", output_filename, "Output image filename (.png).");
   parse_cli(cli, num_args, args);
 
   auto test = bool_test{};
@@ -83,6 +88,48 @@ int main(int num_args, const char* args[]) {
     compute_bool_operation(state, operation);
   }
 
-  // Welcome
-  printf("Cells: %d\n", (int)state.cells.size());
+  if (output_filename.size()) {
+    auto scene        = new trace_scene{};
+    auto camera       = add_camera(scene);
+    auto camera_frame = [](float lens, float aspect, float film = 0.036) {
+      auto camera_dir  = normalize(vec3f{0, 0.5, 1});
+      auto bbox_radius = 2.0f;
+      auto camera_dist = bbox_radius * lens / (film / aspect);
+      return lookat_frame(camera_dir * camera_dist, {0, 0, 0}, {0, 1, 0});
+    };
+    camera->frame = camera_frame(0.050, 16.0f / 9.0f, 0.036);
+
+    auto instance                 = add_instance(scene);
+    instance->material            = add_material(scene);
+    instance->material->color     = {0.5, 0.5, 0.5};
+    instance->material->specular  = 0.04;
+    instance->material->roughness = 0.5;
+    instance->shape               = add_shape(scene);
+    instance->shape->triangles    = mesh.triangles;
+    instance->shape->positions    = mesh.positions;
+    instance->shape->normals      = mesh.normals;
+
+    // auto light_material      = add_material(scene);
+    // light_material->emission = {20, 20, 20};
+
+    // auto light_shape       = add_shape(scene);
+    // auto quad_shape        = make_rect({1, 1}, {0.2, 0.2});
+    // light_shape->quads     = quad_shape.quads;
+    // light_shape->positions = quad_shape.positions;
+    // light_shape->normals   = quad_shape.normals;
+    // light_shape->texcoords = quad_shape.texcoords;
+
+    // for (auto p : {vec3f{-2, 2, 2}, vec3f{2, 2, 1}, vec3f{0, 2, -2}}) {
+    //   auto ist      = add_instance(scene);
+    //   ist->frame    = lookat_frame(p, {0, 0.5, 0}, {0, 1, 0}, true);
+    //   ist->shape    = light_shape;
+    //   ist->material = light_material;
+    // }
+
+    auto params    = trace_params{};
+    params.sampler = trace_sampler_type::eyelight;
+    params.samples = 1024;
+    auto image     = trace_image(scene, camera, params);
+    save_image(output_filename, image, error);
+  }
 }
