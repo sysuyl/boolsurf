@@ -21,23 +21,6 @@
 
 using namespace yocto;
 
-struct Shape {
-  int         polygon = -1;
-  vec3f       color   = {0, 0, 0};
-  vector<int> cells   = {};
-};
-
-struct edit_state {
-  vector<mesh_polygon> polygons     = {{}, {}};
-  vector<mesh_point>   points       = {};
-  vector<mesh_cell>    cells        = {};
-  int                  ambient_cell = -1;
-
-  vector<Shape> shapes = {};
-
-  // TODO(giacomo): Put cells here...
-};
-
 // Application state
 struct app_state {
   // loading parameters
@@ -59,10 +42,10 @@ struct app_state {
   shape_bvh bvh           = {};
   shape_bvh bvh_original  = {};
 
-  edit_state              state       = {};
+  bool_state              state       = {};
   vector<shade_instance*> cell_shapes = {};
 
-  vector<edit_state> history        = {};
+  vector<bool_state> history        = {};
   int                history_index  = 0;
   int                selected_cell  = -1;
   int                selected_shape = -1;
@@ -523,7 +506,7 @@ inline void set_default_shapes(app_state* app) {
 }
 
 inline void compute_bool_operation(
-    vector<Shape>& shapes, const bool_operation& op) {
+    vector<mesh_shape>& shapes, const bool_operation& op) {
   auto& a = shapes[op.shape_a];
   auto& b = shapes[op.shape_b];
   if (op.type == bool_operation::Type::op_union) {

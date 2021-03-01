@@ -531,7 +531,7 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
   }
 }
 
-void compute_cells(bool_mesh& mesh, edit_state& state) {
+void compute_cells(bool_mesh& mesh, bool_state& state) {
   auto& polygons = state.polygons;
 
   auto vertices = add_vertices(mesh, polygons);

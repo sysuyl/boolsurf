@@ -44,6 +44,27 @@ struct mesh_polygon {
   shade_instance* outer_shape    = nullptr;
 };
 
+struct mesh_cell {
+  vector<int>          faces     = {};
+  unordered_set<vec2i> adjacency = {};  // {cell_id, crossed_polygon_id}
+  vector<int>          labels    = {};
+};
+
+struct mesh_shape {
+  int         polygon = -1;
+  vec3f       color   = {0, 0, 0};
+  vector<int> cells   = {};
+};
+
+struct bool_state {
+  vector<mesh_polygon> polygons     = {{}, {}};
+  vector<mesh_point>   points       = {};
+  vector<mesh_cell>    cells        = {};
+  int                  ambient_cell = -1;
+
+  vector<mesh_shape> shapes = {};
+};
+
 struct hashgrid_segment {
   int polygon = -1;
   int segment = -1;
@@ -288,12 +309,6 @@ static vector<vector<int>> add_vertices(
   }
   return vertices;
 }
-
-struct mesh_cell {
-  vector<int>          faces     = {};
-  unordered_set<vec2i> adjacency = {};  // {cell_id, crossed_polygon_id}
-  vector<int>          labels    = {};
-};
 
 static void flood_fill_new(vector<mesh_cell>& result,
     vector<mesh_cell>& cell_stack, vector<int>& starts, const bool_mesh& mesh) {
