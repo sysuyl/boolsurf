@@ -33,9 +33,6 @@ struct app_state {
   // options
   shade_params drawgl_prms = {};
 
-  // scene
-  generic_shape* ioshape = new generic_shape{};  // TODO(giacomo): remove
-
   // boolmesh info
   bool_mesh mesh          = bool_mesh{};
   bool_mesh mesh_original = bool_mesh{};
@@ -85,7 +82,6 @@ struct app_state {
 
   ~app_state() {
     if (glscene) delete glscene;
-    if (ioshape) delete ioshape;
   }
 };
 
@@ -137,19 +133,16 @@ bool redo_state(app_state* app) {
 
 void load_shape(app_state* app, const string& filename) {
   app->model_filename = filename;
-  auto error          = ""s;
-  if (!load_shape(app->model_filename, *app->ioshape, error)) {
-    printf("Error loading shape: %s\n", error.c_str());
-    return;
-  }
 
-  // Transformint quad mesh into triangle mesh
-  if (app->ioshape->quads.size()) {
-    app->mesh.triangles = quads_to_triangles(app->ioshape->quads);
-  } else {
-    app->mesh.triangles = app->ioshape->triangles;
+  auto          error = ""s;
+  vector<vec2f> texcoords;
+  vector<vec3f> colors;
+  vector<vec3f> normals;
+  if (!load_mesh(filename, app->mesh.triangles, app->mesh.positions, normals,
+          texcoords, colors, error)) {
+    printf("%s\n", error.c_str());
+    print_fatal("Error loading model " + filename);
   }
-  app->mesh.positions = app->ioshape->positions;
 
   init_mesh(app->mesh);
   app->mesh_original = app->mesh;

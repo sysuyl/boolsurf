@@ -139,23 +139,12 @@ void draw_widgets(app_state* app, const gui_input& input) {
     // draw_slider(widgets, "far", params.far, 1000.0f, 10000.0f);
     end_header(widgets);
   }
-  if (begin_header(widgets, "inspect")) {
+  if (begin_header(widgets, "Mesh")) {
     draw_label(widgets, "filename", app->model_filename);
-    auto ioshape = app->ioshape;
-    draw_label(widgets, "points", std::to_string(ioshape->points.size()));
-    draw_label(widgets, "lines", std::to_string(ioshape->lines.size()));
-    draw_label(widgets, "triangles", std::to_string(ioshape->triangles.size()));
-    draw_label(widgets, "quads", std::to_string(ioshape->quads.size()));
-    draw_label(widgets, "positions", std::to_string(ioshape->positions.size()));
-    draw_label(widgets, "normals", std::to_string(ioshape->normals.size()));
-    draw_label(widgets, "texcoords", std::to_string(ioshape->texcoords.size()));
-    draw_label(widgets, "colors", std::to_string(ioshape->colors.size()));
-    draw_label(widgets, "radius", std::to_string(ioshape->radius.size()));
-    draw_label(widgets, "quads pos", std::to_string(ioshape->quadspos.size()));
     draw_label(
-        widgets, "quads norm", std::to_string(ioshape->quadsnorm.size()));
-    draw_label(widgets, "quads texcoord",
-        std::to_string(ioshape->quadstexcoord.size()));
+        widgets, "triangles", std::to_string(app->mesh.triangles.size()));
+    draw_label(
+        widgets, "positions", std::to_string(app->mesh.positions.size()));
     end_header(widgets);
   }
 
@@ -386,8 +375,8 @@ void key_input(app_state* app, const gui_input& input) {
         auto add = [&](int face, int neighbor) -> bool {
           for (int k = 0; k < 3; k++) {
             if (app->mesh.border_tags[face][k] == 0) continue;
-            if (find_in_vec(
-                    app->mesh.border_tags[neighbor], -app->mesh.border_tags[face][k]) != -1)
+            if (find_in_vec(app->mesh.border_tags[neighbor],
+                    -app->mesh.border_tags[face][k]) != -1)
               return false;
           }
           return true;
@@ -422,8 +411,8 @@ void key_input(app_state* app, const gui_input& input) {
         auto add = [&](int face, int neighbor) -> bool {
           for (int k = 0; k < 3; k++) {
             if (app->mesh.border_tags[face][k] == 0) continue;
-            if (find_in_vec(
-                    app->mesh.border_tags[neighbor], -app->mesh.border_tags[face][k]) != -1)
+            if (find_in_vec(app->mesh.border_tags[neighbor],
+                    -app->mesh.border_tags[face][k]) != -1)
               return false;
           }
           return true;
