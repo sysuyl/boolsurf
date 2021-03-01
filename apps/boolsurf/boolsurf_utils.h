@@ -47,17 +47,6 @@ struct hashgrid_segment {
   vec2f end   = {};
 };
 
-struct intersection {
-  int   vertex_id = -1;
-  float lerp      = -1.0f;
-};
-
-struct cell_polygon {
-  vector<int>          points    = {};
-  vector<mesh_segment> segments  = {};
-  vector<int>          embedding = {};
-};
-
 // Vector append and concatenation
 template <typename T>
 inline void operator+=(vector<T>& a, const vector<T>& b) {
@@ -127,6 +116,7 @@ inline int find_idx(const vector<T>& vec, const T& x) {
   return -1;
 }
 
+// TODO(gicomo): rename
 template <class T, typename F>
 inline int find_xxx(const vector<T>& vec, F&& f) {
   for (auto i = 0; i < vec.size(); i++)
@@ -299,9 +289,9 @@ inline vector<vector<int>> add_vertices(
 }
 
 struct mesh_cell {
-  vector<int>          faces          = {};
-  unordered_set<vec2i> adjacent_cells = {};  // {cell_id, crossed_polygon_id}
-  vector<int>          labels         = {};
+  vector<int>          faces     = {};
+  unordered_set<vec2i> adjacency = {};  // {cell_id, crossed_polygon_id}
+  vector<int>          labels    = {};
 };
 
 void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cell_stack,
@@ -341,8 +331,8 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cell_stack,
             if (find_in_vec(mesh.tags[neighbor], -p) != -1) {
               // Sto attraversando il bordo di un poligono, quindi
               // connetto la cella a se stessa.
-              cell.adjacent_cells.insert({cell_id, +p});
-              cell.adjacent_cells.insert({cell_id, -p});
+              cell.adjacency.insert({cell_id, +p});
+              cell.adjacency.insert({cell_id, -p});
 
             } else {
               continue;
@@ -351,12 +341,12 @@ void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cell_stack,
             // Non sto visitando la stessa cella.
             if (p > 0) {
               // Sto entrando nel poligono p.
-              cell.adjacent_cells.insert({neighbor_cell, +p});
-              result[neighbor_cell].adjacent_cells.insert({cell_id, -p});
+              cell.adjacency.insert({neighbor_cell, +p});
+              result[neighbor_cell].adjacency.insert({cell_id, -p});
             } else {
               // Sto uscendo dal poligono p.
-              result[neighbor_cell].adjacent_cells.insert({cell_id, -p});
-              cell.adjacent_cells.insert({neighbor_cell, +p});
+              result[neighbor_cell].adjacency.insert({cell_id, -p});
+              cell.adjacency.insert({neighbor_cell, +p});
             }
           }
         } else {
@@ -392,7 +382,7 @@ inline void print_cell_info(const mesh_cell& cell, int idx) {
   printf("[cell %d]\n", idx);
   printf("  faces: %d\n", (int)cell.faces.size());
   printf("  adjacent cells: ");
-  for (auto& [cell_id, polygon_id] : cell.adjacent_cells)
+  for (auto& [cell_id, polygon_id] : cell.adjacency)
     printf("(%d %d) ", cell_id, polygon_id);
   printf("\n");
 
@@ -407,7 +397,7 @@ inline vector<int> find_ambient_cells(
     const vector<mesh_cell>& cells, const vector<int>& skip_polygons) {
   auto adjacency = vector<int>(cells.size(), 0);
   for (auto& cell : cells) {
-    for (auto& [adj, p] : cell.adjacent_cells) {
+    for (auto& [adj, p] : cell.adjacency) {
       if (find_idx(skip_polygons, p) != -1) continue;
       if (p > 0) adjacency[adj] += 1;
     }
@@ -420,144 +410,145 @@ inline vector<int> find_ambient_cells(
   return result;
 }
 
-inline void fix_self_intersections(
-    vector<mesh_cell>& cells, const vector<int>& start) {
-  // auto visited   = vector<bool>(cells.size(), false);
-  // 0 = not visited, 1 = partially visited, 2 = fully visited
-  auto state     = vector<int>(cells.size(), 0);
-  auto sequences = unordered_map<int, vector<vector<int>>>();
-
-  struct stack_item {
-    int cell;
-    int polygon;
-  };
-
-  // Inizializzazione dello stack
-  auto stack = vector<stack_item>(start.size());
-  for (auto s = 0; s < start.size(); s++) {
-    stack[s] = {start[s], 0};
-  }
-
-  while (!stack.empty()) {
-    auto item = stack.back();
-
-    if (state[item.cell] == 0) {  // If not visited
-      printf("Visiting cell: %d\n", item.cell);
-      state[item.cell] = 1;  // Set to partialy visited
-
-      auto& cell = cells[item.cell];
-      for (auto& [neighbor, polygon] : cell.adjacent_cells) {
-        if (state[neighbor] == 0) {
-          if (item.polygon == polygon) {
-            auto& polygon_sequences = sequences[polygon];
-
-            // Se una catena già esistente termina con il nodo padre di neighbor
-            // allora aggiungo neighbor alla catena
-            auto found = false;
-            for (auto& sequence : polygon_sequences) {
-              if (sequence.back() == item.cell) {
-                sequence.push_back(neighbor);
-                found = true;
-              }
-            }
-
-    auto& cell = cells[item.cell];
-    for (auto& [neighbor, polygon] : cell.adjacent_cells) {
-      // if (visited[neighbor]) {
-      //   // auto tmp = cell.labels;
-      //   // tmp[polygon] += 1;
-      //   // if (tmp != cells[neighbor].labels) {
-      //   //   for (int i = 0; i < cell.labels.size(); i++) {
-      //   //     // cells[neighbor].labels[i] = yocto::max(
-      //   //     // cells[neighbor].labels[i], tmp[i]);
-      //   //     cells[neighbor].labels[i] = cells[neighbor].labels[i] +
-      //   tmp[i];
-      //   //   }
-      //   // }
-      //   continue;
-      // }
-
-      // TODO: non serve piu'?
-      // Individuo diverse catene per ogni poligono
-      if (item.polygon == polygon) {
-        auto& polygon_sequences = sequences[polygon];
-
-        // Se una catena già esistente termina con il nodo padre di neighbor
-        // allora aggiungo neighbor alla catena
-        auto found = false;
-        for (auto& sequence : polygon_sequences) {
-          if (sequence.back() == item.cell) {
-            sequence.push_back(neighbor);
-            found = true;
-          }
-
-          stack.push_back({neighbor, polygon});
-        } else if (state[neighbor] == 1) {
-          printf("Detected cycle\n");
-        }
-      }
-    } else if (state[item.cell] == 1) {
-      stack.pop_back();
-      state[item.cell] = 2;
-    }
-  }
-
-  //   if (visited[item.cell]) continue;
-  //   visited[item.cell] = true;
-
-  //   auto& cell = cells[item.cell];
-  //   for (auto& [neighbor, polygon] : cell.adjacent_cells) {
-  //     // if (visited[neighbor]) {
-  //     //   // auto tmp = cell.labels;
-  //     //   // tmp[polygon] += 1;
-  //     //   // if (tmp != cells[neighbor].labels) {
-  //     //   //   for (int i = 0; i < cell.labels.size(); i++) {
-  //     //   //     // cells[neighbor].labels[i] = yocto::max(
-  //     //   //     // cells[neighbor].labels[i], tmp[i]);
-  //     //   //     cells[neighbor].labels[i] = cells[neighbor].labels[i] +
-  //     //   tmp[i];
-  //     //   //   }
-  //     //   // }
-  //     //   continue;
-  //     // }
-
-  //     // Individuo diverse catene per ogni poligono
-  //     if (item.polygon == polygon) {
-  //       auto& polygon_sequences = sequences[polygon];
-
-  //       // Se una catena già esistente termina con il nodo padre di
-  //       neighbor
-  //       // allora aggiungo neighbor alla catena
-  //       auto found = false;
-  //       for (auto& sequence : polygon_sequences) {
-  //         if (sequence.back() == item.cell) {
-  //           sequence.push_back(neighbor);
-  //           found = true;
-  //         }
-  //       }
-
-  //       // Se non ho trovato una catena già esistente allora la creo nuova
-  //       if (!found) polygon_sequences.push_back({item.cell, neighbor});
-  //     }
-
-  //     stack.push_back({neighbor, polygon});
-  //   }
-  // }
-
-  // Invertiamo gli archi dispari della catena
-  for (auto& [polygon, polygon_sequences] : sequences) {
-    for (auto& sequence : polygon_sequences) {
-      for (auto s = 0; s < sequence.size() - 1; s += 2) {
-        auto s1 = sequence[s];
-        auto s2 = sequence[s + 1];
-
-        // Eliminiamo l'arco in un verso e lo creiamo nell'altro
-        cells[s1].adjacent_cells.erase({s2, polygon});
-        cells[s2].adjacent_cells.insert({s1, polygon});
-      }
-    }
-  }
-}
+// inline void fix_self_intersections(
+//    vector<mesh_cell>& cells, const vector<int>& start) {
+//  // auto visited   = vector<bool>(cells.size(), false);
+//  // 0 = not visited, 1 = partially visited, 2 = fully visited
+//  auto state     = vector<int>(cells.size(), 0);
+//  auto sequences = unordered_map<int, vector<vector<int>>>();
+//
+//  struct stack_item {
+//    int cell;
+//    int polygon;
+//  };
+//
+//  // Inizializzazione dello stack
+//  auto stack = vector<stack_item>(start.size());
+//  for (auto s = 0; s < start.size(); s++) {
+//    stack[s] = {start[s], 0};
+//  }
+//
+//  while (!stack.empty()) {
+//    auto item = stack.back();
+//
+//    if (state[item.cell] == 0) {  // If not visited
+//      printf("Visiting cell: %d\n", item.cell);
+//      state[item.cell] = 1;  // Set to partialy visited
+//
+//      auto& cell = cells[item.cell];
+//      for (auto& [neighbor, polygon] : cell.adjacency) {
+//        if (state[neighbor] == 0) {
+//          if (item.polygon == polygon) {
+//            auto& polygon_sequences = sequences[polygon];
+//
+//            // Se una catena già esistente termina con il nodo padre di
+//            neighbor
+//            // allora aggiungo neighbor alla catena
+//            auto found = false;
+//            for (auto& sequence : polygon_sequences) {
+//              if (sequence.back() == item.cell) {
+//                sequence.push_back(neighbor);
+//                found = true;
+//              }
+//            }
+//
+//    auto& cell = cells[item.cell];
+//    for (auto& [neighbor, polygon] : cell.adjacency) {
+//      // if (visited[neighbor]) {
+//      //   // auto tmp = cell.labels;
+//      //   // tmp[polygon] += 1;
+//      //   // if (tmp != cells[neighbor].labels) {
+//      //   //   for (int i = 0; i < cell.labels.size(); i++) {
+//      //   //     // cells[neighbor].labels[i] = yocto::max(
+//      //   //     // cells[neighbor].labels[i], tmp[i]);
+//      //   //     cells[neighbor].labels[i] = cells[neighbor].labels[i] +
+//      //   tmp[i];
+//      //   //   }
+//      //   // }
+//      //   continue;
+//      // }
+//
+//      // TODO: non serve piu'?
+//      // Individuo diverse catene per ogni poligono
+//      if (item.polygon == polygon) {
+//        auto& polygon_sequences = sequences[polygon];
+//
+//        // Se una catena già esistente termina con il nodo padre di neighbor
+//        // allora aggiungo neighbor alla catena
+//        auto found = false;
+//        for (auto& sequence : polygon_sequences) {
+//          if (sequence.back() == item.cell) {
+//            sequence.push_back(neighbor);
+//            found = true;
+//          }
+//
+//          stack.push_back({neighbor, polygon});
+//        } else if (state[neighbor] == 1) {
+//          printf("Detected cycle\n");
+//        }
+//      }
+//    } else if (state[item.cell] == 1) {
+//      stack.pop_back();
+//      state[item.cell] = 2;
+//    }
+//  }
+//
+//  //   if (visited[item.cell]) continue;
+//  //   visited[item.cell] = true;
+//
+//  //   auto& cell = cells[item.cell];
+//  //   for (auto& [neighbor, polygon] : cell.adjacency) {
+//  //     // if (visited[neighbor]) {
+//  //     //   // auto tmp = cell.labels;
+//  //     //   // tmp[polygon] += 1;
+//  //     //   // if (tmp != cells[neighbor].labels) {
+//  //     //   //   for (int i = 0; i < cell.labels.size(); i++) {
+//  //     //   //     // cells[neighbor].labels[i] = yocto::max(
+//  //     //   //     // cells[neighbor].labels[i], tmp[i]);
+//  //     //   //     cells[neighbor].labels[i] = cells[neighbor].labels[i] +
+//  //     //   tmp[i];
+//  //     //   //   }
+//  //     //   // }
+//  //     //   continue;
+//  //     // }
+//
+//  //     // Individuo diverse catene per ogni poligono
+//  //     if (item.polygon == polygon) {
+//  //       auto& polygon_sequences = sequences[polygon];
+//
+//  //       // Se una catena già esistente termina con il nodo padre di
+//  //       neighbor
+//  //       // allora aggiungo neighbor alla catena
+//  //       auto found = false;
+//  //       for (auto& sequence : polygon_sequences) {
+//  //         if (sequence.back() == item.cell) {
+//  //           sequence.push_back(neighbor);
+//  //           found = true;
+//  //         }
+//  //       }
+//
+//  //       // Se non ho trovato una catena già esistente allora la creo nuova
+//  //       if (!found) polygon_sequences.push_back({item.cell, neighbor});
+//  //     }
+//
+//  //     stack.push_back({neighbor, polygon});
+//  //   }
+//  // }
+//
+//  // Invertiamo gli archi dispari della catena
+//  for (auto& [polygon, polygon_sequences] : sequences) {
+//    for (auto& sequence : polygon_sequences) {
+//      for (auto s = 0; s < sequence.size() - 1; s += 2) {
+//        auto s1 = sequence[s];
+//        auto s2 = sequence[s + 1];
+//
+//        // Eliminiamo l'arco in un verso e lo creiamo nell'altro
+//        cells[s1].adjacency.erase({s2, polygon});
+//        cells[s2].adjacency.insert({s1, polygon});
+//      }
+//    }
+//  }
+//}
 
 inline void compute_cycles(const vector<mesh_cell>& cells, int node,
     vec2i parent, vector<int>& visited, vector<vec2i>& parents,
@@ -593,7 +584,7 @@ inline void compute_cycles(const vector<mesh_cell>& cells, int node,
   parents[node] = parent;
   visited[node] = 1;
 
-  for (auto& [neighbor, polygon] : cells[node].adjacent_cells) {
+  for (auto& [neighbor, polygon] : cells[node].adjacency) {
     // Se stiamo percorrendo lo stesso arco ma al contrario allora continuo,
     // altrimenti esploriamo il vicino
     if (polygon > 0) continue;
@@ -632,7 +623,7 @@ inline void compute_cell_labels(vector<mesh_cell>& cells,
     visited[cell_id] = true;
 
     auto& cell = cells[cell_id];
-    for (auto& [neighbor, polygon] : cell.adjacent_cells) {
+    for (auto& [neighbor, polygon] : cell.adjacency) {
       if (find_idx(skip_polygons, polygon) != -1) continue;
       if (visited[neighbor]) {
         auto tmp = cell.labels;

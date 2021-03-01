@@ -9,9 +9,8 @@ using namespace yocto;
 #endif
 
 void save_test(app_state* app, const string& filename) {
-  app->test        = {};
-  app->test.model  = app->model_filename;
   app->test.points = app->state.points;
+  app->test.polygons.clear();
   for (auto& mesh_polygon : app->state.polygons) {
     app->test.polygons.push_back(mesh_polygon.points);
   }
@@ -29,18 +28,6 @@ void init_from_test(app_state* app) {
   }
   update_polygons(app);
 }
-
-// Rappresentazione di un segmento all'interno di una faccia. Serivra' per la
-// triangolazione. Teniamo sia la rapprezentazione discreta (come coppia di
-// vertici della mesh) che la rapprezentazione in coordiate baricentriche.
-struct triangle_segment {
-  int polygon      = -1;
-  int start_vertex = -1;
-  int end_vertex   = -1;
-
-  vec2f start = {};
-  vec2f end   = {};
-};
 
 void debug_draw(app_state* app, int face, const vector<vec2i>& edges,
     const string& header = "") {
@@ -101,7 +88,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
   begin_imgui(widgets, "boolsurf", {0, 0}, {320, 720});
 
   if (draw_filedialog_button(widgets, "load test", true, "load file",
-          app->test_filename, false, "data/", "test.json", "*.json")) {
+          app->test_filename, false, "data/tests/", "test.json", "*.json")) {
     load_test(app->test, app->test_filename);
     init_from_test(app);
   }
@@ -109,7 +96,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
   static auto filename = ""s;
   if (draw_filedialog_button(widgets, "save test", true, "save file", filename,
-          true, "data/", "test.json", "*.json")) {
+          true, "data/tests", "test.json", "*.json")) {
     save_test(app, filename);
   }
 
@@ -192,14 +179,13 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
 
-  if (app->selected_cell >= 0 && begin_header(widgets, "cell info")) {
-    auto& cell = app->arrangement[app->selected_cell];
+  if (app->selected_cell >= 0 && begin_header(widgets, "cell info", true)) {
+    auto& cell = app->cells[app->selected_cell];
     draw_label(widgets, "cell", to_string(app->selected_cell));
     draw_label(widgets, "faces", to_string(cell.faces.size()));
 
     auto s = ""s;
-    for (auto& [cell_id, _] : cell.adjacent_cells)
-      s += to_string(cell_id) + " ";
+    for (auto& [cell_id, _] : cell.adjacency) s += to_string(cell_id) + " ";
     draw_label(widgets, "adj", s);
 
     s = ""s;
@@ -208,6 +194,52 @@ void draw_widgets(app_state* app, const gui_input& input) {
     draw_label(widgets, "label", s);
 
     end_header(widgets);
+  }
+
+  if (app->selected_shape >= 0 && begin_header(widgets, "shape info", true)) {
+    auto& shape_id = app->selected_shape;
+    auto& shape    = app->state.shapes[shape_id];
+    draw_label(widgets, "shape", to_string(shape_id));
+    draw_label(widgets, "polygon", to_string(shape.polygon));
+    if (draw_button(widgets, "Bring forward")) {
+      if (shape_id < app->state.shapes.size() - 1) {
+        swap(app->state.shapes[shape_id], app->state.shapes[shape_id + 1]);
+        shape_id += 1;
+        //        update_shapes(app); // TODO(giacomo): fix
+        set_default_shapes(app);
+        update_cell_colors(app);
+      }
+    }
+    continue_line(widgets);
+    if (draw_button(widgets, "Bring back")) {
+      if (shape_id >= 2) {
+        swap(app->state.shapes[shape_id], app->state.shapes[shape_id - 1]);
+        shape_id -= 1;
+        // update_shapes(app);  // TODO(giacomo): fix
+        set_default_shapes(app);
+        update_cell_colors(app);
+      }
+    }
+
+    if (draw_coloredit(widgets, "color", shape.color)) {
+      update_cell_colors(app);
+    }
+    end_header(widgets);
+  }
+
+  auto ff = [&](int i) { return to_string(i); };
+  draw_combobox(
+      widgets, "a", app->operation.shape_a, (int)app->state.shapes.size(), ff);
+  draw_combobox(
+      widgets, "b", app->operation.shape_b, (int)app->state.shapes.size(), ff);
+
+  auto op = (int)app->operation.type;
+  draw_combobox(widgets, "operation", op, bool_operation::type_names);
+  app->operation.type = (bool_operation::Type)op;
+  if (draw_button(widgets, "Apply")) {
+    compute_bool_operation(app->state.shapes, app->operation);
+    app->test.operations += app->operation;
+    update_cell_colors(app);
   }
 
   end_imgui(widgets);
@@ -235,12 +267,22 @@ void mouse_input(app_state* app, const gui_input& input) {
   auto point_original = mesh_point{isec_original.element, isec_original.uv};
   app->last_clicked_point_original = point_original;
 
-  for (int i = 0; i < app->arrangement.size(); i++) {
-    auto& cell = app->arrangement[i];
+  for (int i = 0; i < app->cells.size(); i++) {
+    auto& cell = app->cells[i];
     auto  it   = find_idx(cell.faces, point.face);
     if (it != -1) {
       app->selected_cell = i;
       break;
+    }
+  }
+
+  if (app->selected_cell != -1) {
+    for (int s = 0; s < app->state.shapes.size(); s++) {
+      auto& shape = app->state.shapes[s];
+      if (find_idx(shape.cells, app->selected_cell) != -1) {
+        app->selected_shape = s;
+        break;
+      }
     }
   }
 
@@ -256,7 +298,8 @@ void mouse_input(app_state* app, const gui_input& input) {
     // Add point to state.
     app->state.points.push_back(point);
 
-    // TODO(giacomo): recomputing all paths of the polygon at every click is bad
+    // TODO(giacomo): recomputing all paths of the polygon at every click is
+    // bad
     update_polygon(app, polygon_id);
   }
 }
@@ -369,8 +412,8 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
           local_vertex = (int)indices.size() - 1;
         }
 
-        // Se non stiamo processando il primo nodo allora consideriamo anche il
-        // nodo precedente e creiamo gli archi
+        // Se non stiamo processando il primo nodo allora consideriamo anche
+        // il nodo precedente e creiamo gli archi
         if (i != 0) {
           auto vertex_start       = polyline.vertices[i - 1];
           auto uv_start           = polyline.points[i - 1];
@@ -389,8 +432,8 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
           }
 
           // Se l'arco che ho trovato è un arco originale della mesh allora
-          // salviamo la faccia corrispondente nel mapping da facce originale a
-          // facce triangolate
+          // salviamo la faccia corrispondente nel mapping da facce originale
+          // a facce triangolate
           if (vertex_start < mesh.original_positions &&
               vertex < mesh.original_positions) {
             triangulated_faces[face] = {face};
@@ -488,7 +531,7 @@ void triangulate(bool_mesh& mesh, unordered_map<vec2i, vec2i>& face_edgemap,
   }
 }
 
-void do_the_thing(app_state* app) {
+void compute_cells(app_state* app) {
   auto& polygons = app->state.polygons;
   auto& mesh     = app->mesh;
 
@@ -519,11 +562,11 @@ void do_the_thing(app_state* app) {
   check_tags(app->mesh);
 
   // Trova l'adiacenza fra celle tramite il flood-fill
-  app->arrangement = make_mesh_cells(mesh, mesh.tags);
+  app->cells = make_mesh_cells(mesh, mesh.tags);
 
   save_tree_png(app, "0");
 
-  auto cycles = compute_graph_cycles(app->arrangement);
+  auto cycles = compute_graph_cycles(app->cells);
 
   auto skip_polygons = vector<int>();
   for (auto& cycle : cycles) {
@@ -536,27 +579,28 @@ void do_the_thing(app_state* app) {
   auto label_size = polygons.size();
   if (polygons.back().points.empty()) label_size -= 1;
 
-  for (auto& cell : app->arrangement) {
+  for (auto& cell : app->cells) {
     cell.labels = vector<int>(label_size, 0);
   }
 
   for (auto& cycle : cycles) {
     for (auto& c : cycle) {
-      app->arrangement[c.x].labels[c.y] = 1;
+      app->cells[c.x].labels[c.y] = 1;
     }
   }
 
   // Trova le celle ambiente nel grafo dell'adiacenza delle celle
-  auto ambient_cells = find_ambient_cells(app->arrangement, skip_polygons);
+  auto ambient_cells = find_ambient_cells(app->cells, skip_polygons);
 
   printf("Ambient cells: ");
-  for (auto ambient : ambient_cells) {
-    auto cells = app->arrangement;
-    compute_cell_labels(cells, {ambient}, skip_polygons);
+  for (auto ambient_cell : ambient_cells) {
+    auto cells = app->cells;
+    compute_cell_labels(cells, {ambient_cell}, skip_polygons);
 
     auto found = false;
-    for (auto& cell : cells) {
-      auto it = find_xxx(
+    for (int i = 0; i < cells.size(); i++) {
+      auto& cell = cells[i];
+      auto  it   = find_xxx(
           cell.labels, [](const int& label) { return label < 0; });
       if (it != -1) {
         found = true;
@@ -565,7 +609,8 @@ void do_the_thing(app_state* app) {
     }
 
     if (!found) {
-      app->arrangement = cells;
+      app->cells        = cells;
+      app->ambient_cell = ambient_cell;
       break;
     }
   }
@@ -609,6 +654,8 @@ void do_the_thing(app_state* app) {
 }
 
 void key_input(app_state* app, const gui_input& input) {
+  if (is_active(&app->widgets)) return;
+
   for (auto idx = 0; idx < input.key_buttons.size(); idx++) {
     auto button = input.key_buttons[idx];
     if (button.state != gui_button::state::pressing) continue;
@@ -628,14 +675,30 @@ void key_input(app_state* app, const gui_input& input) {
         debug_nodes.clear();
         debug_indices.clear();
 #endif
-        do_the_thing(app);
+        // remove trailing empty polygons.
+        while (app->state.polygons.back().points.empty()) {
+          app->state.polygons.pop_back();
+        }
 
-        for (int i = 0; i < app->arrangement.size(); i++) {
-          auto& cell  = app->arrangement[i];
-          auto  color = get_cell_color(app, i);
-          app->cell_patches.push_back((int)app->glscene->instances.size());
-          add_patch_shape(app, cell.faces, color);
-          print_cell_info(cell, i);
+        compute_cells(app);
+
+        init_shapes(app);
+        set_default_shapes(app);
+        for (auto& op : app->test.operations) {
+          compute_bool_operation(app->state.shapes, op);
+        }
+
+        app->cell_shapes.resize(app->cells.size());
+        for (int i = 0; i < app->cells.size(); i++) {
+          app->cell_shapes[i] = add_patch_shape(app, {}, vec3f{});
+        }
+
+        update_cell_shapes(app);
+        update_cell_colors(app);
+        for (auto& polygon : app->state.polygons) {
+          if (polygon.polyline_shape) {
+            polygon.polyline_shape->hidden = true;
+          }
         }
 
         // update bvh
@@ -786,6 +849,7 @@ int main(int argc, const char* argv[]) {
   }
 
   load_shape(app, app->model_filename);
+  app->test.model = app->model_filename;
 
   init_glscene(app, app->glscene, app->mesh, {});
   if (window->msaa > 1) set_ogl_msaa();

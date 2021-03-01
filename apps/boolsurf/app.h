@@ -22,20 +22,29 @@
 
 using namespace yocto;
 
+struct Shape {
+  int         polygon = -1;
+  vec3f       color   = {0, 0, 0};
+  vector<int> cells   = {};
+};
+
 struct edit_state {
   vector<mesh_polygon> polygons = {{}, {}};
   vector<mesh_point>   points   = {};
 
-  // Put cells here...
+  vector<Shape> shapes = {};
+
+  // TODO(giacomo): Put cells here...
 };
 
 // Application state
 struct app_state {
   // loading parameters
-  string      model_filename = "";
-  string      test_filename  = "";
-  bool_test   test           = {};
-  gui_window* window         = nullptr;
+  string         model_filename = "";
+  string         test_filename  = "";
+  bool_test      test           = {};
+  bool_operation operation      = {};
+  gui_window*    window         = nullptr;
 
   // options
   shade_params drawgl_prms = {};
@@ -49,11 +58,15 @@ struct app_state {
   shape_bvh bvh           = {};
   shape_bvh bvh_original  = {};
 
-  edit_state         state         = {};
-  vector<mesh_cell>  arrangement   = {};
-  vector<edit_state> history       = {};
-  int                history_index = 0;
-  int                selected_cell = -1;
+  edit_state              state        = {};
+  vector<mesh_cell>       cells        = {};
+  int                     ambient_cell = -1;
+  vector<shade_instance*> cell_shapes  = {};
+
+  vector<edit_state> history        = {};
+  int                history_index  = 0;
+  int                selected_cell  = -1;
+  int                selected_shape = -1;
 
   // rendering state
   shade_scene*    glscene           = new shade_scene{};
@@ -261,10 +274,10 @@ void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh,
         glscene, {0, 0, 0}, colors[i], 1, 0, 0.4);
   }
 
-  app->materials.red   = add_material(glscene, {0, 0, 0}, {1, 0, 0}, 1, 0, 1);
-  app->materials.green = add_material(glscene, {0, 0, 0}, {0, 1, 0}, 1, 0, 1);
-  app->materials.blue  = add_material(glscene, {0, 0, 0}, {0, 0, 1}, 1, 0, 1);
-  app->materials.white = add_material(glscene, {0, 0, 0}, {1, 1, 1}, 1, 0, 1);
+  app->materials.red   = add_material(glscene, {0, 0, 0}, {1, 0, 0}, 1, 0, 0.4);
+  app->materials.green = add_material(glscene, {0, 0, 0}, {0, 1, 0}, 1, 0, 0.4);
+  app->materials.blue  = add_material(glscene, {0, 0, 0}, {0, 0, 1}, 1, 0, 0.4);
+  app->materials.white = add_material(glscene, {0, 0, 0}, {1, 1, 1}, 1, 0, 0.4);
 
   // shapes
   if (progress_cb) progress_cb("convert shape", progress.x++, progress.y);
@@ -363,8 +376,9 @@ tuple<shape_intersection, shape_intersection> intersect_shapes(
 shade_instance* add_patch_shape(
     app_state* app, const vector<int>& faces, const vec3f& color) {
   auto patch_shape    = add_shape(app->glscene, {}, {}, {}, {}, {}, {}, {}, {});
-  auto patch_material = add_material(
-      app->glscene, {0, 0, 0}, color, 1, 0, 0.4);  // @Leak
+  auto patch_material = add_material(app->glscene);  // @Leak
+  *patch_material     = *app->mesh_material;
+  patch_material->color = color;
   set_patch_shape(patch_shape, app->mesh, faces);
   return add_instance(app->glscene, identity3x4f, patch_shape, patch_material);
 }
@@ -382,7 +396,7 @@ inline vec3f get_polygon_color(const app_state* app, int polygon) {
 
 inline vec3f get_cell_color(const app_state* app, int cell_id) {
   auto  color = vec3f{0, 0, 0};
-  auto& cell  = app->arrangement[cell_id];
+  auto& cell  = app->cells[cell_id];
   int   count = 0;
   for (int p = 0; p < cell.labels.size(); p++) {
     auto label = cell.labels[p];
@@ -415,7 +429,7 @@ inline string tree_to_string(
         i, color.x, color.y, color.z);
     result += std::string(str);
 
-    for (auto [neighbor, polygon] : cell.adjacent_cells) {
+    for (auto [neighbor, polygon] : cell.adjacency) {
       if (polygon < 0) continue;
       int  c     = neighbor;
       auto color = rgb_to_hsv(get_polygon_color(app, polygon));
@@ -433,11 +447,93 @@ inline void save_tree_png(const app_state* app, const string& extra) {
   if (filename.empty()) filename = "test.json";
   auto  graph = replace_extension(filename, extra + ".txt");
   FILE* file  = fopen(graph.c_str(), "w");
-  fprintf(file, "%s", tree_to_string(app, app->arrangement).c_str());
+  fprintf(file, "%s", tree_to_string(app, app->cells).c_str());
   fclose(file);
 
   auto image = replace_extension(filename, extra + ".png");
   auto cmd   = "dot -Tpng "s + graph + " > " + image;
   printf("%s\n", cmd.c_str());
   system(cmd.c_str());
+}
+
+inline int front_polygon_containing_this_cell(const app_state* app, int cell) {
+  for (int s = (int)app->state.shapes.size() - 1; s >= 0; s--) {
+    auto p = app->state.shapes[s].polygon;
+    if (app->cells[cell].labels[p] > 0) {
+      return s;
+    }
+  }
+  //  assert(0);
+  return 0;
+}
+
+inline void update_cell_shapes(app_state* app) {
+  for (int i = 0; i < app->cells.size(); i++) {
+    auto& cell = app->cells[i];
+    // auto  s     = front_polygon_containing_this_cell(app, i);
+    // auto  color = vec3f{};
+    // if (s == -1) {
+    //   color = {.9, .9, .9};
+    // } else {
+    //   // color = get_polygon_color(app, app->state.shapes[s].polygon);
+    //   color = app->state.shapes[s].color;
+    // }
+    // app->cell_patches.push_back((int)app->glscene->instances.size());
+    set_patch_shape(app->cell_shapes[i]->shape, app->mesh, cell.faces);
+    // app->cell_shapes[i]->material->color = color;
+    print_cell_info(cell, i);
+  }
+}
+
+inline void init_shapes(app_state* app) {
+  // Start with one shape for each polygon.
+  auto& shapes = app->state.shapes;
+  shapes.resize(app->state.polygons.size());
+  for (auto& shape : shapes) {
+    shape.cells.clear();
+  }
+
+  // Assign a polygon and a color to each shape.
+  for (int p = 0; p < app->state.polygons.size(); p++) {
+    if (shapes[p].polygon == -1) {
+      shapes[p].polygon = p;
+    }
+    if (shapes[p].color == vec3f{0, 0, 0}) {
+      shapes[p].color = get_polygon_color(app, p);
+    }
+  }
+}
+
+inline void set_default_shapes(app_state* app) {
+  // init_shapes(app);
+  for (auto& shape : app->state.shapes) {
+    shape.cells.clear();
+  }
+  app->state.shapes[0].cells = {app->ambient_cell};
+
+  // Distribute cells to shapes
+  for (int cell = 0; cell < app->cells.size(); cell++) {
+    auto p = front_polygon_containing_this_cell(app, cell);
+    if (p > 0) {
+      app->state.shapes[p].cells.push_back(cell);
+    }
+  }
+}
+
+inline void compute_bool_operation(
+    vector<Shape>& shapes, const bool_operation& op) {
+  auto& a = shapes[op.shape_a];
+  auto& b = shapes[op.shape_b];
+  if (op.type == bool_operation::Type::op_union) {
+    a.cells += b.cells;
+    b.cells.clear();
+  }
+}
+
+inline void update_cell_colors(app_state* app) {
+  for (int i = 0; i < app->state.shapes.size(); i++) {
+    for (auto& c : app->state.shapes[i].cells) {
+      app->cell_shapes[c]->material->color = app->state.shapes[i].color;
+    }
+  }
 }
