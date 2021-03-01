@@ -1,7 +1,7 @@
 #include <yocto/yocto_commonio.h>
 
 #include "boolsurf.h"
-#include "io.h"
+#include "boolsurf_io.h"
 using namespace yocto;
 
 int main(int num_args, const char* args[]) {
@@ -32,8 +32,9 @@ int main(int num_args, const char* args[]) {
   printf("adjacencies: %d\n", (int)mesh.adjacencies.size());
   printf("positions: %d\n", (int)mesh.positions.size());
 
-  compute_cells(mesh, )
+  auto state = state_from_test(mesh, test);
+  compute_cells(mesh, state);
 
-      // Welcome
-      printf("Hello, %s!\n", test_filename.c_str());
+  // Welcome
+  printf("Cells: %d\n", (int)state.cells.size());
 }

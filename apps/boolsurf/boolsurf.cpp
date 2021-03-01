@@ -856,7 +856,6 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   // Trova le celle ambiente nel grafo dell'adiacenza delle celle
   auto ambient_cells = find_ambient_cells(state.cells, skip_polygons);
 
-  printf("Ambient cells: ");
   for (auto ambient_cell : ambient_cells) {
     auto cells = state.cells;
     compute_cell_labels(cells, {ambient_cell}, skip_polygons);
