@@ -240,7 +240,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
   draw_combobox(widgets, "operation", op, bool_operation::type_names);
   app->operation.type = (bool_operation::Type)op;
   if (draw_button(widgets, "Apply")) {
-    compute_bool_operation(app->state.shapes, app->operation);
+    compute_bool_operation(app->state, app->operation);
     app->test.operations += app->operation;
     update_cell_colors(app);
   }
@@ -342,7 +342,7 @@ void key_input(app_state* app, const gui_input& input) {
         init_shapes(app);
         set_default_shapes(app);
         for (auto& op : app->test.operations) {
-          compute_bool_operation(app->state.shapes, op);
+          compute_bool_operation(app->state, op);
         }
 
         app->cell_shapes.resize(app->state.cells.size());

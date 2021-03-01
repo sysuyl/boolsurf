@@ -882,3 +882,12 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
 
   //  save_tree_png(app, "1");
 }
+
+void compute_bool_operation(bool_state& state, const bool_operation& op) {
+  auto& a = state.shapes[op.shape_a];
+  auto& b = state.shapes[op.shape_b];
+  if (op.type == bool_operation::Type::op_union) {
+    a.cells += b.cells;
+    b.cells.clear();
+  }
+}

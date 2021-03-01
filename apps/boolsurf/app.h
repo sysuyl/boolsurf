@@ -505,16 +505,6 @@ inline void set_default_shapes(app_state* app) {
   }
 }
 
-inline void compute_bool_operation(
-    vector<mesh_shape>& shapes, const bool_operation& op) {
-  auto& a = shapes[op.shape_a];
-  auto& b = shapes[op.shape_b];
-  if (op.type == bool_operation::Type::op_union) {
-    a.cells += b.cells;
-    b.cells.clear();
-  }
-}
-
 inline void update_cell_colors(app_state* app) {
   for (int i = 0; i < app->state.shapes.size(); i++) {
     for (auto& c : app->state.shapes[i].cells) {

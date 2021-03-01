@@ -66,8 +66,25 @@ struct bool_state {
   vector<mesh_shape> shapes       = {};
 };
 
+namespace yocto {  // TODO(giacomo): Fix this.
+struct bool_operation {
+  enum struct Type {
+    op_union,
+    op_difference,
+    op_intersection,
+  };
+  int  shape_a = -1;
+  int  shape_b = -1;
+  Type type    = Type::op_union;
+
+  inline static const auto type_names = vector<string>{
+      "op_union", "op_difference", "op_intersection"};
+};
+}  // namespace yocto
+
 void init_mesh(bool_mesh& mesh);
 void compute_cells(bool_mesh& mesh, bool_state& state);
+void compute_bool_operation(bool_state& state, const bool_operation& op);
 
 vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
     const vector<int>& strip, const vector<float>& lerps,

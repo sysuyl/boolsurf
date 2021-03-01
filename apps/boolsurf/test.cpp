@@ -35,6 +35,10 @@ int main(int num_args, const char* args[]) {
   auto state = state_from_test(mesh, test);
   compute_cells(mesh, state);
 
+  for (auto& operation : test.operations) {
+    compute_bool_operation(state, operation);
+  }
+
   // Welcome
   printf("Cells: %d\n", (int)state.cells.size());
 }
