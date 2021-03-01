@@ -185,14 +185,14 @@ static void flood_fill_new(vector<mesh_cell>& result,
       for (int k = 0; k < 3; k++) {
         auto neighbor = mesh.adjacencies[face][k];
         if (neighbor < 0) continue;
-        auto p = mesh.tags[face][k];
+        auto p = mesh.border_tags[face][k];
 
         auto neighbor_cell = cell_tags[neighbor];
         if (neighbor_cell >= 0 && p != 0) {
           // La faccia neighbor e' gia' stata visitata.
           if (neighbor_cell == cell_id) {
             // Sto visitando la stessa cella.
-            if (find_in_vec(mesh.tags[neighbor], -p) != -1) {
+            if (find_in_vec(mesh.border_tags[neighbor], -p) != -1) {
               // Sto attraversando il bordo di un poligono, quindi
               // connetto la cella a se stessa.
               cell.adjacency.insert({cell_id, +p});
@@ -560,8 +560,8 @@ inline bool check_tags(const bool_mesh& mesh) {
       auto kk = find_in_vec(mesh.adjacencies[neighbor], face);
       assert(kk != -1);
 
-      auto tags0 = mesh.tags[face];
-      auto tags1 = mesh.tags[neighbor];
+      auto tags0 = mesh.border_tags[face];
+      auto tags1 = mesh.border_tags[neighbor];
       auto tag0  = tags0[k];
       auto tag1  = tags1[kk];
       assert(tag0 == -tag1);
@@ -814,7 +814,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   update_face_adjacencies(mesh, triangulated_faces);
 
   // Calcola i tags per ogni faccia
-  mesh.tags = face_tags(mesh, hashgrid, face_edgemap, triangulated_faces);
+  mesh.border_tags = face_tags(mesh, hashgrid, face_edgemap, triangulated_faces);
 
   // Annulliamo le facce che sono già state triangolate
   for (auto& [face, triangles] : triangulated_faces) {
@@ -826,7 +826,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   check_tags(mesh);
 
   // Trova l'adiacenza fra celle tramite il flood-fill
-  state.cells = make_mesh_cells(mesh, mesh.tags);
+  state.cells = make_mesh_cells(mesh, mesh.border_tags);
 
   //  save_tree_png(app, "0");
 

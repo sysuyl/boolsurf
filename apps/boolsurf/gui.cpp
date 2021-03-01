@@ -173,8 +173,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
         "(" + to_string(a0) + ", " + to_string(a1) + ", " + to_string(a2) +
             ")");
 
-    if (!app->mesh.tags.empty()) {
-      auto [t0, t1, t2] = app->mesh.tags[face];
+    if (!app->mesh.border_tags.empty()) {
+      auto [t0, t1, t2] = app->mesh.border_tags[face];
       draw_label(widgets, "tags",
           "(" + to_string(t0) + ", " + to_string(t1) + ", " + to_string(t2) +
               ")");
@@ -385,9 +385,9 @@ void key_input(app_state* app, const gui_input& input) {
       case (int)gui_key('F'): {
         auto add = [&](int face, int neighbor) -> bool {
           for (int k = 0; k < 3; k++) {
-            if (app->mesh.tags[face][k] == 0) continue;
+            if (app->mesh.border_tags[face][k] == 0) continue;
             if (find_in_vec(
-                    app->mesh.tags[neighbor], -app->mesh.tags[face][k]) != -1)
+                    app->mesh.border_tags[neighbor], -app->mesh.border_tags[face][k]) != -1)
               return false;
           }
           return true;
@@ -404,7 +404,7 @@ void key_input(app_state* app, const gui_input& input) {
         auto visited = debug_result;
 
         for (int i = 0; i < visited.size(); i++) {
-          auto tag = app->mesh.tags[visited[i]];
+          auto tag = app->mesh.border_tags[visited[i]];
           auto adj = app->mesh.adjacencies[visited[i]];
           // printf("%d: tag(%d %d %d) adj(%d %d %d)\n", visited[i], tag[0],
           //     tag[1], tag[2], adj[0], adj[1], adj[2]);
@@ -421,9 +421,9 @@ void key_input(app_state* app, const gui_input& input) {
       case (int)gui_key('G'): {
         auto add = [&](int face, int neighbor) -> bool {
           for (int k = 0; k < 3; k++) {
-            if (app->mesh.tags[face][k] == 0) continue;
+            if (app->mesh.border_tags[face][k] == 0) continue;
             if (find_in_vec(
-                    app->mesh.tags[neighbor], -app->mesh.tags[face][k]) != -1)
+                    app->mesh.border_tags[neighbor], -app->mesh.border_tags[face][k]) != -1)
               return false;
           }
           return true;

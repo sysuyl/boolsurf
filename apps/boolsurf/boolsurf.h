@@ -19,7 +19,7 @@ struct bool_mesh {
   vector<vec3f>        positions          = {};
   vector<vec3f>        normals            = {};
   dual_geodesic_solver dual_solver        = {};
-  vector<vec3i>        tags               = {};
+  vector<vec3i>        border_tags               = {};
   int                  original_positions = -1;
 };
 
@@ -206,14 +206,14 @@ static void flood_fill_debug(
 
   debug_result.push_back(face);
 
-  auto tag = mesh.tags[face];
+  auto tag = mesh.border_tags[face];
   auto adj = mesh.adjacencies[face];
   printf("\nfrom %d: tag(%d %d %d) adj(%d %d %d)\n", face, tag[0], tag[1],
       tag[2], adj[0], adj[1], adj[2]);
 
   for (auto neighbor : mesh.adjacencies[face]) {
     if (neighbor < 0 || debug_visited[neighbor]) continue;
-    auto tag = mesh.tags[neighbor];
+    auto tag = mesh.border_tags[neighbor];
     auto adj = mesh.adjacencies[neighbor];
     if (check(face, neighbor)) {
       debug_stack.push_back(neighbor);
