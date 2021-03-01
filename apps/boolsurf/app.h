@@ -15,8 +15,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "boolsurf_utils.h"
-#include "ext/earcut.hpp"
+#include "boolsurf.h"
 #include "io.h"
 #include "render.h"
 

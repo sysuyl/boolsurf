@@ -1,6 +1,6 @@
 #include <yocto/yocto_commonio.h>
 
-#include "boolsurf_utils.h"
+#include "boolsurf.h"
 #include "io.h"
 using namespace yocto;
 

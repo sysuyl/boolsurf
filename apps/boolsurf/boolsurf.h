@@ -104,7 +104,7 @@ inline geodesic_path compute_geodesic_path(
 }
 
 // TODO(giacomo): Expose this function in yocto_mesh.h
-static int find_in_vec(const vec3i& vec, int x) {
+inline int find_in_vec(const vec3i& vec, int x) {
   for (auto i = 0; i < 3; i++)
     if (vec[i] == x) return i;
   return -1;
@@ -142,7 +142,7 @@ inline int find_adjacent_triangle(
   return -1;
 }
 
-inline vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
+static vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
     const vector<int>& strip, const vector<float>& lerps,
     const mesh_point& start, const mesh_point& end) {
   auto result = vector<mesh_segment>{};
@@ -205,7 +205,7 @@ struct hashgrid_polyline {
 };
 using mesh_hashgrid = unordered_map<int, vector<hashgrid_polyline>>;
 
-inline mesh_hashgrid compute_hashgrid(
+static mesh_hashgrid compute_hashgrid(
     const vector<mesh_polygon>& polygons, const vector<vector<int>>& vertices) {
   auto hashgrid = unordered_map<int, vector<hashgrid_polyline>>{};
 
@@ -275,7 +275,7 @@ inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
   return vertex;
 }
 
-inline vector<vector<int>> add_vertices(
+static vector<vector<int>> add_vertices(
     bool_mesh& mesh, const vector<mesh_polygon>& polygons) {
   auto vertices = vector<vector<int>>(polygons.size());
   for (int i = 0; i < polygons.size(); i++) {
@@ -295,8 +295,8 @@ struct mesh_cell {
   vector<int>          labels    = {};
 };
 
-void flood_fill_new(vector<mesh_cell>& result, vector<mesh_cell>& cell_stack,
-    vector<int>& starts, const bool_mesh& mesh) {
+static void flood_fill_new(vector<mesh_cell>& result,
+    vector<mesh_cell>& cell_stack, vector<int>& starts, const bool_mesh& mesh) {
   auto cell_tags = vector<int>(mesh.triangles.size(), -1);
 
   // consume task stack
@@ -394,7 +394,7 @@ inline void print_cell_info(const mesh_cell& cell, int idx) {
   printf("\n\n");
 }
 
-inline vector<int> find_ambient_cells(
+static vector<int> find_ambient_cells(
     const vector<mesh_cell>& cells, const vector<int>& skip_polygons) {
   auto adjacency = vector<int>(cells.size(), 0);
   for (auto& cell : cells) {
@@ -411,147 +411,7 @@ inline vector<int> find_ambient_cells(
   return result;
 }
 
-// inline void fix_self_intersections(
-//    vector<mesh_cell>& cells, const vector<int>& start) {
-//  // auto visited   = vector<bool>(cells.size(), false);
-//  // 0 = not visited, 1 = partially visited, 2 = fully visited
-//  auto state     = vector<int>(cells.size(), 0);
-//  auto sequences = unordered_map<int, vector<vector<int>>>();
-//
-//  struct stack_item {
-//    int cell;
-//    int polygon;
-//  };
-//
-//  // Inizializzazione dello stack
-//  auto stack = vector<stack_item>(start.size());
-//  for (auto s = 0; s < start.size(); s++) {
-//    stack[s] = {start[s], 0};
-//  }
-//
-//  while (!stack.empty()) {
-//    auto item = stack.back();
-//
-//    if (state[item.cell] == 0) {  // If not visited
-//      printf("Visiting cell: %d\n", item.cell);
-//      state[item.cell] = 1;  // Set to partialy visited
-//
-//      auto& cell = cells[item.cell];
-//      for (auto& [neighbor, polygon] : cell.adjacency) {
-//        if (state[neighbor] == 0) {
-//          if (item.polygon == polygon) {
-//            auto& polygon_sequences = sequences[polygon];
-//
-//            // Se una catena già esistente termina con il nodo padre di
-//            neighbor
-//            // allora aggiungo neighbor alla catena
-//            auto found = false;
-//            for (auto& sequence : polygon_sequences) {
-//              if (sequence.back() == item.cell) {
-//                sequence.push_back(neighbor);
-//                found = true;
-//              }
-//            }
-//
-//    auto& cell = cells[item.cell];
-//    for (auto& [neighbor, polygon] : cell.adjacency) {
-//      // if (visited[neighbor]) {
-//      //   // auto tmp = cell.labels;
-//      //   // tmp[polygon] += 1;
-//      //   // if (tmp != cells[neighbor].labels) {
-//      //   //   for (int i = 0; i < cell.labels.size(); i++) {
-//      //   //     // cells[neighbor].labels[i] = yocto::max(
-//      //   //     // cells[neighbor].labels[i], tmp[i]);
-//      //   //     cells[neighbor].labels[i] = cells[neighbor].labels[i] +
-//      //   tmp[i];
-//      //   //   }
-//      //   // }
-//      //   continue;
-//      // }
-//
-//      // TODO: non serve piu'?
-//      // Individuo diverse catene per ogni poligono
-//      if (item.polygon == polygon) {
-//        auto& polygon_sequences = sequences[polygon];
-//
-//        // Se una catena già esistente termina con il nodo padre di neighbor
-//        // allora aggiungo neighbor alla catena
-//        auto found = false;
-//        for (auto& sequence : polygon_sequences) {
-//          if (sequence.back() == item.cell) {
-//            sequence.push_back(neighbor);
-//            found = true;
-//          }
-//
-//          stack.push_back({neighbor, polygon});
-//        } else if (state[neighbor] == 1) {
-//          printf("Detected cycle\n");
-//        }
-//      }
-//    } else if (state[item.cell] == 1) {
-//      stack.pop_back();
-//      state[item.cell] = 2;
-//    }
-//  }
-//
-//  //   if (visited[item.cell]) continue;
-//  //   visited[item.cell] = true;
-//
-//  //   auto& cell = cells[item.cell];
-//  //   for (auto& [neighbor, polygon] : cell.adjacency) {
-//  //     // if (visited[neighbor]) {
-//  //     //   // auto tmp = cell.labels;
-//  //     //   // tmp[polygon] += 1;
-//  //     //   // if (tmp != cells[neighbor].labels) {
-//  //     //   //   for (int i = 0; i < cell.labels.size(); i++) {
-//  //     //   //     // cells[neighbor].labels[i] = yocto::max(
-//  //     //   //     // cells[neighbor].labels[i], tmp[i]);
-//  //     //   //     cells[neighbor].labels[i] = cells[neighbor].labels[i] +
-//  //     //   tmp[i];
-//  //     //   //   }
-//  //     //   // }
-//  //     //   continue;
-//  //     // }
-//
-//  //     // Individuo diverse catene per ogni poligono
-//  //     if (item.polygon == polygon) {
-//  //       auto& polygon_sequences = sequences[polygon];
-//
-//  //       // Se una catena già esistente termina con il nodo padre di
-//  //       neighbor
-//  //       // allora aggiungo neighbor alla catena
-//  //       auto found = false;
-//  //       for (auto& sequence : polygon_sequences) {
-//  //         if (sequence.back() == item.cell) {
-//  //           sequence.push_back(neighbor);
-//  //           found = true;
-//  //         }
-//  //       }
-//
-//  //       // Se non ho trovato una catena già esistente allora la creo nuova
-//  //       if (!found) polygon_sequences.push_back({item.cell, neighbor});
-//  //     }
-//
-//  //     stack.push_back({neighbor, polygon});
-//  //   }
-//  // }
-//
-//  // Invertiamo gli archi dispari della catena
-//  for (auto& [polygon, polygon_sequences] : sequences) {
-//    for (auto& sequence : polygon_sequences) {
-//      for (auto s = 0; s < sequence.size() - 1; s += 2) {
-//        auto s1 = sequence[s];
-//        auto s2 = sequence[s + 1];
-//
-//        // Eliminiamo l'arco in un verso e lo creiamo nell'altro
-//        cells[s1].adjacency.erase({s2, polygon});
-//        cells[s2].adjacency.insert({s1, polygon});
-//      }
-//    }
-//  }
-//}
-
-inline void compute_cycles(const vector<mesh_cell>& cells, int node,
+static void compute_cycles(const vector<mesh_cell>& cells, int node,
     vec2i parent, vector<int>& visited, vector<vec2i>& parents,
     vector<vector<vec2i>>& cycles) {
   // Se il nodo il considerazione è già stato completamente visitato allora
@@ -608,7 +468,7 @@ inline vector<vector<vec2i>> compute_graph_cycles(
   return cycles;
 }
 
-inline void compute_cell_labels(vector<mesh_cell>& cells,
+static void compute_cell_labels(vector<mesh_cell>& cells,
     const vector<int>& start, const vector<int>& skip_polygons) {
   auto visited = vector<bool>(cells.size(), false);
   auto stack   = start;
@@ -652,48 +512,12 @@ inline void compute_cell_labels(vector<mesh_cell>& cells,
   }
 }
 
-// inline void visit_dual_graph(const vector<vector<edge>>& dual_graph,
-//     vector<cell_polygon>& cells, int start) {
-//   auto queue   = std::deque<int>{};
-//   auto visited = vector<bool>(dual_graph.size());
-
-//   visited[start] = true;
-//   queue.push_back(start);
-
-//   while (!queue.empty()) {
-//     auto current = queue.front();
-
-//     queue.pop_front();
-//     for (auto adj : dual_graph[current]) {
-//       if (visited[adj.point]) continue;
-//       auto embedding = cells[current].embedding;
-
-//       if (adj.counterclock)
-//         embedding[adj.polygon] -= 1;
-//       else
-//         embedding[adj.polygon] += 1;
-//       cells[adj.point].embedding = embedding;
-//       visited[adj.point]         = true;
-
-//       queue.push_back(adj.point);
-//     }
-//   }
-
-//   printf("Cells: \n");
-//   for (auto i = 0; i < cells.size(); i++) {
-//     printf("%d: Label: ", i);
-//     for (auto& e : cells[i].embedding) printf("%d ", e);
-//     printf("\n");
-//   }
-//   printf("\n");
-// }
-
 template <typename T>
 inline void insert(vector<T>& vec, size_t i, const T& x) {
   vec.insert(vec.begin() + i, x);
 }
 
-inline void compute_intersections(
+static void compute_intersections(
     unordered_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
   for (auto& [face, polylines] : hashgrid) {
     // Check for polyline self interesctions
@@ -804,7 +628,7 @@ inline vec2i get_edge(const vec3i& triangle, int k) {
 }
 
 // Constrained Delaunay Triangulation
-inline vector<vec3i> constrained_triangulation(
+static vector<vec3i> constrained_triangulation(
     vector<vec2f> nodes, const vector<vec2i>& edges) {
   // Questo purtroppo serve.
   for (auto& n : nodes) n *= 1e9;
@@ -841,7 +665,7 @@ inline vector<vec3i> constrained_triangulation(
   return triangles;
 }
 
-inline void update_face_adjacencies(bool_mesh& mesh,
+static void update_face_adjacencies(bool_mesh& mesh,
     const unordered_map<int, vector<int>>&     triangulated_faces) {
   // Aggiorniamo le adiacenze per i triangoli che sono stati processati
   auto border_edgemap = unordered_map<vec2i, int>{};
@@ -923,7 +747,7 @@ inline void update_face_edgemap(unordered_map<vec2i, vec2i>& face_edgemap,
 }
 
 template <typename F>
-vector<int> flood_fill(const bool_mesh& mesh, const vector<int>& start,
+static vector<int> flood_fill(const bool_mesh& mesh, const vector<int>& start,
     const int polygon, F&& check) {
   auto visited = vector<bool>(mesh.adjacencies.size(), false);
 
@@ -954,7 +778,7 @@ vector<int> flood_fill(const bool_mesh& mesh, const vector<int>& start,
 }
 
 template <typename F>
-vector<int> flood_fill(
+static vector<int> flood_fill(
     const bool_mesh& mesh, const vector<int>& start, F&& check) {
   auto visited = vector<bool>(mesh.adjacencies.size(), false);
 
@@ -1008,7 +832,7 @@ static auto debug_stack   = vector<int>{};
 static auto debug_restart = true;
 
 template <typename F>
-void flood_fill_debug(
+static void flood_fill_debug(
     const bool_mesh& mesh, const vector<int>& start, F&& check) {
   int face = -1;
   if (debug_stack.empty()) {
