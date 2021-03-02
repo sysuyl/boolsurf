@@ -897,8 +897,9 @@ void compute_bool_operation(bool_state& state, const bool_operation& op) {
     for (auto i = 0; i < aa.size(); i++) aa[i] = aa[i] && bb[i];
   } else if (op.type == bool_operation::Type::op_difference) {
     for (auto i = 0; i < aa.size(); i++) aa[i] = aa[i] && !bb[i];
+  } else if (op.type == bool_operation::Type::op_symmetrical_difference) {
+    for (auto i = 0; i < aa.size(); i++) aa[i] = aa[i] != bb[i];
   }
-
   // Converting back to vector of ints
   a.cells.clear();
   for (auto i = 0; i < aa.size(); i++)

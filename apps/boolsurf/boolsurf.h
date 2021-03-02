@@ -62,15 +62,16 @@ namespace yocto {  // TODO(giacomo): Fix this.
 struct bool_operation {
   enum struct Type {
     op_union,
-    op_difference,
     op_intersection,
+    op_difference,
+    op_symmetrical_difference
   };
   int  shape_a = -1;
   int  shape_b = -1;
   Type type    = Type::op_union;
 
-  inline static const auto type_names = vector<string>{
-      "op_union", "op_difference", "op_intersection"};
+  inline static const auto type_names = vector<string>{"op_union",
+      "op_difference", "op_intersection", "op_symmetrical_difference"};
 };
 }  // namespace yocto
 
