@@ -443,8 +443,10 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key::enter: {
-        commit_state(app);
-        app->state.polygons.push_back({});
+        if (app->state.polygons.back().points.size() > 2) {
+          commit_state(app);
+          app->state.polygons.push_back({});
+        }
       } break;
     }
   }

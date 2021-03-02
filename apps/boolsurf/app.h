@@ -454,10 +454,12 @@ inline void update_cell_colors(app_state* app) {
 }
 
 void save_test(app_state* app, const string& filename) {
-  app->test.points = app->state.points;
-  app->test.polygons.clear();
+  app->test.points   = app->state.points;
+  app->test.polygons = {{}};
   for (auto& mesh_polygon : app->state.polygons) {
-    app->test.polygons.push_back(mesh_polygon.points);
+    if (mesh_polygon.points.size()) {
+      app->test.polygons.push_back(mesh_polygon.points);
+    }
   }
   app->test.camera.frame    = app->glcamera->frame;
   app->test.camera.lens     = app->glcamera->lens;
