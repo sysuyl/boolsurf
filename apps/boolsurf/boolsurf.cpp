@@ -883,8 +883,26 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
 void compute_bool_operation(bool_state& state, const bool_operation& op) {
   auto& a = state.shapes[op.shape_a];
   auto& b = state.shapes[op.shape_b];
+
+  // Converting to vector of bools to simplify operations
+  auto aa = vector<bool>(state.cells.size());
+  for (auto& c : a.cells) aa[c] = 1;
+
+  auto bb = vector<bool>(state.cells.size());
+  for (auto& c : b.cells) bb[c] = 1;
+
   if (op.type == bool_operation::Type::op_union) {
-    a.cells += b.cells;
-    b.cells.clear();
+    for (auto i = 0; i < aa.size(); i++) aa[i] = aa[i] || bb[i];
+  } else if (op.type == bool_operation::Type::op_intersection) {
+    for (auto i = 0; i < aa.size(); i++) aa[i] = aa[i] && bb[i];
+  } else if (op.type == bool_operation::Type::op_difference) {
+    for (auto i = 0; i < aa.size(); i++) aa[i] = aa[i] && !bb[i];
   }
+
+  // Converting back to vector of ints
+  a.cells.clear();
+  for (auto i = 0; i < aa.size(); i++)
+    if (aa[i] > 0) a.cells.push_back(i);
+
+  b.cells.clear();
 }
