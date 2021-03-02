@@ -205,7 +205,7 @@ inline string tree_to_string(const vector<mesh_cell>& cells) {
 }
 
 inline void save_tree_png(
-    const bool_state& state, string filename, const string& extra) {
+    const bool_state& state, string filename, const string& extra = "") {
   if (filename.empty()) filename = "data/tests/test.json";
   auto  graph = replace_extension(filename, extra + ".txt");
   FILE* file  = fopen(graph.c_str(), "w");

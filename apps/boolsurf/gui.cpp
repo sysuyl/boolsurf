@@ -294,6 +294,10 @@ void key_input(app_state* app, const gui_input& input) {
 
         compute_cells(app->mesh, app->state);
 
+#ifdef MY_DEBUG
+        save_tree_png(app->state, app->test_filename);
+#endif
+
         init_shapes(app);
         set_default_shapes(app);
         for (auto& op : app->test.operations) {
