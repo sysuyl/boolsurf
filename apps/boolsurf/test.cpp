@@ -92,15 +92,9 @@ int main(int num_args, const char* args[]) {
   }
 
   if (output_filename.size()) {
-    auto scene        = new trace_scene{};
-    auto camera       = add_camera(scene);
-    auto camera_frame = [](float lens, float aspect, float film = 0.036) {
-      auto camera_dir  = normalize(vec3f{0, 0.5, 1});
-      auto bbox_radius = 2.0f;
-      auto camera_dist = bbox_radius * lens / (film / aspect);
-      return lookat_frame(camera_dir * camera_dist, {0, 0, 0}, {0, 1, 0});
-    };
-    camera->frame = camera_frame(0.030, 16.0f / 9.0f, 0.036);
+    auto scene  = new trace_scene{};
+    auto camera = add_camera(scene);
+    *camera     = test.camera;
 
     for (int i = 0; i < state.cells.size(); i++) {
       auto& cell                = state.cells[i];
@@ -115,7 +109,7 @@ int main(int num_args, const char* args[]) {
 
       // TODO(giacomo): Too many copies of positions.
       instance->shape->positions = mesh.positions;
-      for (auto& face : cell.faces) {
+      for (auto face : cell.faces) {
         instance->shape->triangles.push_back(mesh.triangles[face]);
       }
       instance->shape->normals = compute_normals(
