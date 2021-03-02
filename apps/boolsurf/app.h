@@ -27,6 +27,7 @@ struct app_state {
   string         model_filename = "";
   string         test_filename  = "";
   string         svg_filename   = "";
+  float          svg_size       = 0.05;
   bool_test      test           = {};
   bool_operation operation      = {};
   gui_window*    window         = nullptr;

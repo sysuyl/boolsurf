@@ -876,7 +876,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     }
   }
 
-   assert(state.ambient_cell != -1);
+  // assert(state.ambient_cell != -1);
 
   //  save_tree_png(app, "1");
 }

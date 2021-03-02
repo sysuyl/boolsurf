@@ -337,7 +337,8 @@ void key_input(app_state* app, const gui_input& input) {
       case (int)gui_key('S'): {
         app->state = {};
         auto svg   = load_svg(app->svg_filename);
-        init_from_svg(app->state, app->mesh, app->last_clicked_point, svg, 0.3);
+        init_from_svg(
+            app->state, app->mesh, app->last_clicked_point, svg, app->svg_size);
         update_polygons(app);
       } break;
 
@@ -461,6 +462,7 @@ int main(int argc, const char* argv[]) {
   add_option(cli, "--msaa", window->msaa, "Multisample anti-aliasing.");
   add_option(cli, "--test", app->test_filename, "Test filename.");
   add_option(cli, "--svg", app->svg_filename, "Svg filename.");
+  add_option(cli, "--svg-size", app->svg_size, "Svg size.");
   parse_cli(cli, argc, argv);
 
   init_window(window, {1280 + 320, 720}, "boolsurf", true);
