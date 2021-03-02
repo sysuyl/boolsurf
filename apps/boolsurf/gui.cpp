@@ -8,33 +8,6 @@ using namespace yocto;
 #undef far
 #endif
 
-void save_test(app_state* app, const string& filename) {
-  app->test.points = app->state.points;
-  app->test.polygons.clear();
-  for (auto& mesh_polygon : app->state.polygons) {
-    app->test.polygons.push_back(mesh_polygon.points);
-  }
-  app->test.camera.frame    = app->glcamera->frame;
-  app->test.camera.lens     = app->glcamera->lens;
-  app->test.camera.aspect   = app->glcamera->aspect;
-  app->test.camera.film     = app->glcamera->film;
-  app->test.camera.aperture = app->glcamera->aperture;
-  app->test.camera.focus    = app->glcamera->focus;
-
-  save_test(app->test, filename);
-}
-
-void init_from_test(app_state* app) {
-  app->state.polygons.clear();
-  auto& points = app->state.points;
-  points       = app->test.points;
-
-  app->state = state_from_test(app->mesh, app->test);
-  for (auto& polygon : app->state.polygons) {
-    set_polygon_shape(app->glscene, app->mesh, polygon, app->paths_material);
-  }
-}
-
 #ifdef MY_DEBUG
 void debug_draw(app_state* app, int face, const vector<vec2i>& edges,
     const string& header = "") {
@@ -86,11 +59,6 @@ void debug_borders(app_state* app) {
   app->current_border = (app->current_border + 1) % app->state.polygons.size();
 }
 #endif
-
-#include <yocto_gui/ext/imgui/imgui.h>
-#include <yocto_gui/ext/imgui/imgui_impl_glfw.h>
-#include <yocto_gui/ext/imgui/imgui_impl_opengl3.h>
-#include <yocto_gui/ext/imgui/imgui_internal.h>
 
 // draw with shading
 void draw_widgets(app_state* app, const gui_input& input) {
@@ -242,15 +210,6 @@ void draw_widgets(app_state* app, const gui_input& input) {
   }
 
   end_imgui(widgets);
-}
-
-geodesic_path compute_path(const mesh_polygon& polygon,
-    const vector<mesh_point>& points, const bool_mesh& mesh) {
-  auto size  = polygon.points.size();
-  auto start = polygon.points[size - 2];
-  auto end   = polygon.points[size - 1];
-  auto path = compute_geodesic_path(mesh, points[start], points[end]);  // check
-  return path;
 }
 
 void mouse_input(app_state* app, const gui_input& input) {

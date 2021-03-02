@@ -505,3 +505,30 @@ inline void update_cell_colors(app_state* app) {
     }
   }
 }
+
+void save_test(app_state* app, const string& filename) {
+  app->test.points = app->state.points;
+  app->test.polygons.clear();
+  for (auto& mesh_polygon : app->state.polygons) {
+    app->test.polygons.push_back(mesh_polygon.points);
+  }
+  app->test.camera.frame    = app->glcamera->frame;
+  app->test.camera.lens     = app->glcamera->lens;
+  app->test.camera.aspect   = app->glcamera->aspect;
+  app->test.camera.film     = app->glcamera->film;
+  app->test.camera.aperture = app->glcamera->aperture;
+  app->test.camera.focus    = app->glcamera->focus;
+
+  save_test(app->test, filename);
+}
+
+void init_from_test(app_state* app) {
+  app->state.polygons.clear();
+  auto& points = app->state.points;
+  points       = app->test.points;
+
+  app->state = state_from_test(app->mesh, app->test);
+  for (auto& polygon : app->state.polygons) {
+    set_polygon_shape(app->glscene, app->mesh, polygon, app->paths_material);
+  }
+}
