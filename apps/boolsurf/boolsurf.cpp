@@ -1,5 +1,9 @@
 #include "boolsurf.h"
 
+#include <cassert>
+
+#include "ext/CDT/CDT/include/CDT.h"
+
 void init_mesh(bool_mesh& mesh) {
   mesh.normals            = compute_normals(mesh.triangles, mesh.positions);
   mesh.adjacencies        = face_adjacencies(mesh.triangles);
@@ -814,7 +818,8 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   update_face_adjacencies(mesh, triangulated_faces);
 
   // Calcola i tags per ogni faccia
-  mesh.border_tags = face_tags(mesh, hashgrid, face_edgemap, triangulated_faces);
+  mesh.border_tags = face_tags(
+      mesh, hashgrid, face_edgemap, triangulated_faces);
 
   // Annulliamo le facce che sono già state triangolate
   for (auto& [face, triangles] : triangulated_faces) {

@@ -1,14 +1,6 @@
 #pragma once
 
-#include <yocto/yocto_mesh.h>
-#include <yocto/yocto_shape.h>
-
-#include <cassert>
-#include <deque>
-#include <unordered_set>
-
 #include "boolsurf_utils.h"
-#include "ext/CDT/CDT/include/CDT.h"
 
 using namespace yocto;
 using namespace std;
@@ -19,7 +11,7 @@ struct bool_mesh {
   vector<vec3f>        positions          = {};
   vector<vec3f>        normals            = {};
   dual_geodesic_solver dual_solver        = {};
-  vector<vec3i>        border_tags               = {};
+  vector<vec3i>        border_tags        = {};
   int                  original_positions = -1;
 };
 

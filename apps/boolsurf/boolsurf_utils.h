@@ -1,6 +1,7 @@
 #pragma once
 
 #include <yocto/yocto_mesh.h>
+#include <yocto/yocto_shape.h>  // hashing vec2i
 
 using namespace yocto;
 
@@ -17,7 +18,7 @@ template <typename T>
 inline vector<T> operator+(const vector<T>& a, const vector<T>& b) {
   auto c = a;
   c += b;
-  return b;
+  return c;
 }
 
 template <typename T>
@@ -126,7 +127,6 @@ inline vec2i get_edge(const vec3i& triangle, int k) {
   }
 }
 
-
 #if 0
 #include "ext/robin_hood.h"
 template <typename Key, typename Value>
@@ -135,6 +135,8 @@ using hash_map = robin_hood::unordered_flat_map<Key, Value>;
 template <typename Key>
 using hash_set = robin_hood::unordered_flat_set<Key>;
 #else
+
+#include <unordered_set>
 template <typename Key, typename Value>
 using hash_map = std::unordered_map<Key, Value>;
 
