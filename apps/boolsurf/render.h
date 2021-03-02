@@ -16,15 +16,17 @@ inline void set_patch_shape(
 }
 
 inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
-    mesh_polygon& polygon, shade_material* material) {
+    mesh_polygon& polygon, int index) {
   if (!polygon.polyline_shape) {
     polygon.polyline_shape             = add_instance(scene);
-    polygon.polyline_shape->material   = material;
+    polygon.polyline_shape->material   = add_material(scene);
     polygon.polyline_shape->depth_test = ogl_depth_test::always;
   }
   if (!polygon.polyline_shape->shape) {
     polygon.polyline_shape->shape = add_shape(scene);
   }
+  polygon.polyline_shape->material->color = get_color(index);
+
   if (polygon.segments.empty()) return;
   auto positions = vector<vec3f>(polygon.segments.size() + 1);
   for (int i = 0; i < polygon.segments.size(); i++) {

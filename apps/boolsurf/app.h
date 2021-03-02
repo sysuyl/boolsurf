@@ -101,9 +101,8 @@ void update_polygon(app_state* app, int polygon_id) {
         app->mesh.triangles, path.strip, path.lerps, path.start, path.end);
     mesh_polygon.segments.insert(
         mesh_polygon.segments.end(), segments.begin(), segments.end());
-    set_polygon_shape(
-        app->glscene, app->mesh, mesh_polygon, app->paths_material);
   }
+  set_polygon_shape(app->glscene, app->mesh, mesh_polygon, polygon_id);
 }
 
 void update_polygons(app_state* app) {
@@ -393,7 +392,7 @@ inline void update_cell_shapes(app_state* app) {
     // app->cell_patches.push_back((int)app->glscene->instances.size());
     set_patch_shape(app->cell_shapes[i]->shape, app->mesh, cell.faces);
     // app->cell_shapes[i]->material->color = color;
-    print_cell_info(cell, i);
+    // print_cell_info(cell, i);
   }
 }
 
@@ -433,12 +432,35 @@ inline void set_default_shapes(app_state* app) {
 }
 
 inline void update_cell_colors(app_state* app) {
-  for (int i = 0; i < app->state.shapes.size(); i++) {
-    for (auto& c : app->state.shapes[i].cells) {
-        if(c<0) continue;
-      app->cell_shapes[c]->material->color = app->state.shapes[i].color;
+  auto get_cell_color = [](const mesh_cell& cell, int cell_id) {
+    auto color = vec3f{0, 0, 0};
+    int  count = 0;
+    for (int p = 0; p < cell.labels.size(); p++) {
+      auto label = cell.labels[p];
+      if (label > 0) {
+        color += get_color(p);
+        count += 1;
+      }
     }
+    if (count > 0) {
+      color /= count;
+      color += vec3f{1, 1, 1} * 0.1f * yocto::sin(cell_id);
+    } else {
+      color = {0.9, 0.9, 0.9};
+    }
+    return color;
+  };
+
+  for (int i = 0; i < app->state.cells.size(); ++i) {
+    app->cell_shapes[i]->material->color = get_cell_color(
+        app->state.cells[i], i);
   }
+  // for (int i = 0; i < app->state.shapes.size(); i++) {
+  //   for (auto& c : app->state.shapes[i].cells) {
+  //     if (c < 0) continue;
+  //     app->cell_shapes[c]->material->color = app->state.shapes[i].color;
+  //   }
+  // }
 }
 
 void save_test(app_state* app, const string& filename) {
@@ -463,7 +485,8 @@ void init_from_test(app_state* app) {
   points       = app->test.points;
 
   app->state = state_from_test(app->mesh, app->test);
-  for (auto& polygon : app->state.polygons) {
-    set_polygon_shape(app->glscene, app->mesh, polygon, app->paths_material);
+  for (int i = 0; i < app->state.polygons.size(); i++) {
+    auto& polygon = app->state.polygons[i];
+    set_polygon_shape(app->glscene, app->mesh, polygon, i);
   }
 }

@@ -299,11 +299,11 @@ void key_input(app_state* app, const gui_input& input) {
         save_tree_png(app->state, app->test_filename);
 #endif
 
-        init_shapes(app);
-        set_default_shapes(app);
-        for (auto& op : app->test.operations) {
-          compute_bool_operation(app->state, op);
-        }
+        // init_shapes(app);
+        // set_default_shapes(app);
+        // for (auto& op : app->test.operations) {
+        //   compute_bool_operation(app->state, op);
+        // }
 
         app->cell_shapes.resize(app->state.cells.size());
         for (int i = 0; i < app->state.cells.size(); i++) {
@@ -312,6 +312,7 @@ void key_input(app_state* app, const gui_input& input) {
 
         update_cell_shapes(app);
         update_cell_colors(app);
+
         for (auto& polygon : app->state.polygons) {
           if (polygon.polyline_shape) {
             polygon.polyline_shape->hidden = true;
@@ -489,6 +490,7 @@ int main(int argc, const char* argv[]) {
     init_from_test(app);
   }
 
+  app->state.polygons.push_back({});
   run_ui(window, update_app);
 
   // clear
