@@ -3,6 +3,7 @@
 #include <yocto/yocto_mesh.h>
 #include <yocto/yocto_shape.h>  // hashing vec2i
 
+#include <cassert>
 using namespace yocto;
 
 // Vector append and concatenation
@@ -131,7 +132,7 @@ inline vec3f get_color(int i) {
   static auto colors = vector<vec3f>{
       {0.5, 0.5, 0.5},
       {1, 0, 0},
-      {1, 0, 0},
+      {0, 1, 0},
       // {0, 0.5, 0},
       {0, 0, 1},
       {0, 0.5, 0.5},

@@ -174,7 +174,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
         swap(app->state.shapes[shape_id], app->state.shapes[shape_id + 1]);
         shape_id += 1;
         //        update_shapes(app); // TODO(giacomo): fix
-        set_default_shapes(app);
+        // set_default_shapes(app);
         update_cell_colors(app);
       }
     }
@@ -184,7 +184,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
         swap(app->state.shapes[shape_id], app->state.shapes[shape_id - 1]);
         shape_id -= 1;
         // update_shapes(app);  // TODO(giacomo): fix
-        set_default_shapes(app);
+        // set_default_shapes(app);
         update_cell_colors(app);
       }
     }
@@ -298,6 +298,8 @@ void key_input(app_state* app, const gui_input& input) {
 #ifdef MY_DEBUG
         save_tree_png(app->state, app->test_filename);
 #endif
+
+        compute_shapes(app);
 
         // init_shapes(app);
         // set_default_shapes(app);

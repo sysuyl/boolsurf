@@ -397,40 +397,60 @@ inline void update_cell_shapes(app_state* app) {
   }
 }
 
-inline void init_shapes(app_state* app) {
-  // Start with one shape for each polygon.
+inline void compute_shapes(app_state* app) {
   auto& shapes = app->state.shapes;
   shapes.resize(app->state.polygons.size());
-  for (auto& shape : shapes) {
-    shape.cells.clear();
-  }
 
   // Assign a polygon and a color to each shape.
-  for (int p = 0; p < app->state.polygons.size(); p++) {
-    if (shapes[p].polygon == -1) {
-      shapes[p].polygon = p;
-    }
-    if (shapes[p].color == vec3f{0, 0, 0}) {
-      shapes[p].color = get_color(p);
-    }
+  for (auto p = 0; p < app->state.polygons.size(); p++) {
+    if (shapes[p].polygon == -1) shapes[p].polygon = p;
+    if (shapes[p].color == zero3f) shapes[p].color = get_color(p);
   }
-}
-
-inline void set_default_shapes(app_state* app) {
-  // init_shapes(app);
-  for (auto& shape : app->state.shapes) {
-    shape.cells.clear();
-  }
-  app->state.shapes[0].cells = {app->state.ambient_cell};
 
   // Distribute cells to shapes
-  for (int cell = 0; cell < app->state.cells.size(); cell++) {
-    auto p = front_polygon_containing_this_cell(app, cell);
-    if (p > 0) {
-      app->state.shapes[p].cells.push_back(cell);
+  shapes[0].cells = {app->state.ambient_cell};
+  for (auto c = 0; c < app->state.cells.size(); c++) {
+    auto& cell = app->state.cells[c];
+    for (auto l = 0; l < cell.labels.size(); l++) {
+      if (cell.labels[l] > 0) shapes[l].cells.push_back(c);
     }
   }
 }
+
+// inline void init_shapes(app_state* app) {
+//   // Start with one shape for each polygon.
+//   auto& shapes = app->state.shapes;
+//   shapes.resize(app->state.polygons.size());
+//   for (auto& shape : shapes) {
+//     shape.cells.clear();
+//   }
+
+//   // Assign a polygon and a color to each shape.
+//   for (int p = 0; p < app->state.polygons.size(); p++) {
+//     if (shapes[p].polygon == -1) {
+//       shapes[p].polygon = p;
+//     }
+//     if (shapes[p].color == vec3f{0, 0, 0}) {
+//       shapes[p].color = get_color(p);
+//     }
+//   }
+// }
+
+// inline void set_default_shapes(app_state* app) {
+//   // init_shapes(app);
+//   for (auto& shape : app->state.shapes) {
+//     shape.cells.clear();
+//   }
+//   app->state.shapes[0].cells = {app->state.ambient_cell};
+
+//   // Distribute cells to shapes
+//   for (int cell = 0; cell < app->state.cells.size(); cell++) {
+//     auto p = front_polygon_containing_this_cell(app, cell);
+//     if (p > 0) {
+//       app->state.shapes[p].cells.push_back(cell);
+//     }
+//   }
+// }
 
 inline void update_cell_colors(app_state* app) {
   auto get_cell_color = [](const mesh_cell& cell, int cell_id) {
