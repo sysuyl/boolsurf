@@ -1,4 +1,5 @@
 #include "app.h"
+
 using namespace yocto;
 
 #include <deque>
@@ -332,6 +333,13 @@ void key_input(app_state* app, const gui_input& input) {
 
       } break;
 
+      case (int)gui_key('S'): {
+        app->state = {};
+        auto svg   = load_svg(app->svg_filename);
+        init_from_svg(app->state, app->mesh, app->last_clicked_point, svg, 0.3);
+        update_polygons(app);
+      } break;
+
 #ifdef MY_DEBUG
       case (int)gui_key('N'): {
         debug_cells(app);
@@ -451,6 +459,7 @@ int main(int argc, const char* argv[]) {
       "Input filename. Either a model or a json test file", true);
   add_option(cli, "--msaa", window->msaa, "Multisample anti-aliasing.");
   add_option(cli, "--test", app->test_filename, "Test filename.");
+  add_option(cli, "--svg", app->svg_filename, "Svg filename.");
   parse_cli(cli, argc, argv);
 
   init_window(window, {1280 + 320, 720}, "boolsurf", true);

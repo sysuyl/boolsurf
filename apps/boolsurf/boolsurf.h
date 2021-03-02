@@ -85,8 +85,25 @@ vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
 geodesic_path compute_geodesic_path(
     const bool_mesh& mesh, const mesh_point& start, const mesh_point& end);
 
+inline geodesic_path straightest_path(const bool_mesh& mesh,
+    const mesh_point& start, const vec2f& direction, float length) {
+  return straightest_path(mesh.triangles, mesh.positions, mesh.adjacencies,
+      start, direction, length);
+}
+
+inline geodesic_path straightest_path(
+    const bool_mesh& mesh, const mesh_point& start, const vec2f& coord) {
+  auto len = length(coord);
+  return straightest_path(mesh.triangles, mesh.positions, mesh.adjacencies,
+      start, coord / len, len);
+}
+
 inline vec3f eval_position(const bool_mesh& mesh, const mesh_point& point) {
   return eval_position(mesh.triangles, mesh.positions, point);
+}
+
+inline vec3f eval_normal(const bool_mesh& mesh, const mesh_point& point) {
+  return eval_normal(mesh.triangles, mesh.positions, point);
 }
 
 /*

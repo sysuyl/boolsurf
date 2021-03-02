@@ -26,6 +26,7 @@ struct app_state {
   // loading parameters
   string         model_filename = "";
   string         test_filename  = "";
+  string         svg_filename   = "";
   bool_test      test           = {};
   bool_operation operation      = {};
   gui_window*    window         = nullptr;
@@ -434,6 +435,7 @@ inline void set_default_shapes(app_state* app) {
 inline void update_cell_colors(app_state* app) {
   for (int i = 0; i < app->state.shapes.size(); i++) {
     for (auto& c : app->state.shapes[i].cells) {
+        if(c<0) continue;
       app->cell_shapes[c]->material->color = app->state.shapes[i].color;
     }
   }

@@ -51,6 +51,8 @@ vector<mesh_point> sample_points(const bool_mesh& mesh, const shape_bvh& bvh,
 }
 
 int main(int num_args, const char* args[]) {
+  auto svg = load_svg("data/letter-s.svg");
+
   auto test_filename   = "data/tests/test.json"s;
   auto output_filename = ""s;
 

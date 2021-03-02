@@ -217,3 +217,98 @@ inline void save_tree_png(
   printf("%s\n", cmd.c_str());
   system(cmd.c_str());
 }
+
+#define NANOSVG_ALL_COLOR_KEYWORDS
+#define NANOSVG_IMPLEMENTATION
+#include "ext/nanosvg/src/nanosvg.h"
+
+using Svg_Path = vector<array<vec2f, 4>>;
+struct Svg_Shape {
+  vec3f            color = {};
+  vector<Svg_Path> paths = {};
+};
+
+vector<Svg_Shape> load_svg(const string& filename) {
+  struct NSVGimage* image;
+  image = nsvgParseFromFile(filename.c_str(), "px", 96);
+  printf("svg loaded, size: %f x %f\n", image->width, image->height);
+  auto size = vec2f{image->width, image->height};
+
+  auto svg = vector<Svg_Shape>{};
+  for (auto shape = image->shapes; shape != NULL; shape = shape->next) {
+    auto&        svg_shape = svg.emplace_back();
+    unsigned int c;
+    if (shape->fill.type == NSVG_PAINT_COLOR) {
+      c = shape->fill.color;
+    } else if (shape->fill.type >= NSVG_PAINT_LINEAR_GRADIENT) {
+      c = shape->fill.gradient->stops[0].color;
+    } else {
+      c = 0;
+    }
+    float r         = ((c >> 16) & 0xFF) / 255.0;  // Extract the RR byte
+    float g         = ((c >> 8) & 0xFF) / 255.0;   // Extract the GG byte
+    float b         = ((c)&0xFF) / 255.0;
+    svg_shape.color = yocto::pow(vec3f{b, g, r}, 2.2f);
+
+    for (auto path = shape->paths; path != NULL; path = path->next) {
+      auto& svg_path = svg_shape.paths.emplace_back();
+      for (int i = 0; i < path->npts - 1; i += 3) {
+        float* p     = &path->pts[i * 2];
+        auto&  curve = svg_path.emplace_back();
+        curve[0]     = vec2f{p[0], size.y - p[1]} / size.y;
+        curve[1]     = vec2f{p[2], size.y - p[3]} / size.y;
+        curve[2]     = vec2f{p[4], size.y - p[5]} / size.y;
+        curve[3]     = vec2f{p[6], size.y - p[7]} / size.y;
+        // printf("(%f %f) (%f %f) (%f %f) (%f %f)\n", curve[0].x, curve[0].y,
+        //     curve[1].x, curve[1].y, curve[2].x, curve[2].y, curve[3].x,
+        //     curve[3].y);
+      }
+    }
+  }
+
+  nsvgDelete(image);
+  return svg;
+}
+
+void init_from_svg(bool_state& state, const bool_mesh& mesh,
+    const mesh_point& center, const vector<Svg_Shape>& svg, float svg_size) {
+  auto p0    = eval_position(mesh, {center.face, {0, 0}});
+  auto p1    = eval_position(mesh, {center.face, {0, 1}});
+  auto v     = normalize(p1 - p0);
+  auto frame = basis_fromz(eval_normal(mesh, {center.face, {0, 0}}));
+  auto rot   = vec2f{dot(v, frame.x), dot(v, frame.y)};
+  //
+  // app.commit_state();
+  // app.splines() = {};
+
+  for (auto& shape : svg) {
+    for (auto& path : shape.paths) {
+      auto& polygon = state.polygons.emplace_back();
+      // polygon.center = center;
+      // polygon.frame  = mat2f{rot, vec2f{-rot.y, rot.x}};
+      // polygon.color  = shape.color;
+      for (auto& segment : path) {
+        // polygon.curves.push_back({});
+        for (int i = 0; i < 3; i++) {
+          vec2f uv = clamp(segment[i], 0.0f, 1.0f);
+          uv -= vec2f{0.5, 0.5};
+          uv *= svg_size;
+          auto line = straightest_path(mesh, center, uv);
+
+          polygon.points.push_back((int)state.points.size());
+          auto& point = state.points.emplace_back();
+          point       = line.end;
+        }
+      }
+      auto& segment = path.back();
+      vec2f uv      = clamp(segment[3], 0.0f, 1.0f);
+      uv -= vec2f{0.5, 0.5};
+      uv *= svg_size;
+      auto line = straightest_path(mesh, center, uv);
+
+      polygon.points.push_back((int)state.points.size());
+      auto& point = state.points.emplace_back();
+      point       = line.end;
+    }
+  }
+}
