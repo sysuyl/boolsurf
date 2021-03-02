@@ -51,8 +51,6 @@ vector<mesh_point> sample_points(const bool_mesh& mesh, const shape_bvh& bvh,
 }
 
 int main(int num_args, const char* args[]) {
-  auto svg = load_svg("data/letter-s.svg");
-
   auto test_filename   = "data/tests/test.json"s;
   auto output_filename = ""s;
 
@@ -102,8 +100,7 @@ int main(int num_args, const char* args[]) {
       auto& cell                = state.cells[i];
       auto  instance            = add_instance(scene);
       instance->material        = add_material(scene);
-      instance->material->color = {
-          (i % 3) / 3.0f, (i % 4) / 4.0f, (i % 5) / 5.0f};
+      instance->material->color = get_cell_color(cell.labels, i);
       if (i == 0) instance->material->color = {0.8, 0.8, 0.8};
       instance->material->specular  = 0.04;
       instance->material->roughness = 0.5;

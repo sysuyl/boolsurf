@@ -164,28 +164,9 @@ inline string tree_to_string(const vector<mesh_cell>& cells) {
   string result = "digraph {\n";
   result += "forcelabels=true\n";
 
-  auto get_cell_color = [](const mesh_cell& cell, int cell_id) {
-    auto color = vec3f{0, 0, 0};
-    int  count = 0;
-    for (int p = 0; p < cell.labels.size(); p++) {
-      auto label = cell.labels[p];
-      if (label > 0) {
-        color += get_color(p);
-        count += 1;
-      }
-    }
-    if (count > 0) {
-      color /= count;
-      color += vec3f{1, 1, 1} * 0.1f * yocto::sin(cell_id);
-    } else {
-      color = {0.9, 0.9, 0.9};
-    }
-    return color;
-  };
-
   for (int i = 0; i < cells.size(); i++) {
     auto& cell  = cells[i];
-    auto  color = rgb_to_hsv(get_cell_color(cell, i));
+    auto  color = rgb_to_hsv(get_cell_color(cell.labels, i));
     char  str[1024];
     sprintf(str, "%d [label=\"%d\" style=filled fillcolor=\"%f %f %f\"]\n", i,
         i, color.x, color.y, color.z);
