@@ -788,13 +788,6 @@ static vector<vec3i> face_tags(const bool_mesh& mesh,
           tags[outer][kk] *= -1;
           swap(faces.x, faces.y);  // if DRAW_BORDER_FACES
         }
-
-        // #if DRAW_BORDER_FACES
-        //         if (faces.x != -1)
-        //           state.polygons[polygon].inner_faces.push_back(faces.x);
-        //         if (faces.y != -1)
-        //           state.polygons[polygon].outer_faces.push_back(faces.y);
-        // #endif
       }
     }
   }

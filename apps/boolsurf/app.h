@@ -367,73 +367,6 @@ shade_instance* add_patch_shape(
   return add_instance(app->glscene, identity3x4f, patch_shape, material);
 }
 
-inline vec3f get_polygon_color(const app_state* app, int polygon) {
-  return app->cell_materials[polygon % app->cell_materials.size()]->color;
-}
-
-inline vec3f get_cell_color(const app_state* app, int cell_id) {
-  auto  color = vec3f{0, 0, 0};
-  auto& cell  = app->state.cells[cell_id];
-  int   count = 0;
-  for (int p = 0; p < cell.labels.size(); p++) {
-    auto label = cell.labels[p];
-    if (label > 0) {
-      color += get_polygon_color(app, p);
-      count += 1;
-    }
-  }
-  if (count > 0) {
-    color /= count;
-    color += vec3f{1, 1, 1} * 0.1f * yocto::sin(cell_id);
-  } else {
-    color = {0.9, 0.9, 0.9};
-  }
-  return color;
-}
-
-#include <yocto/yocto_color.h>
-
-inline string tree_to_string(
-    const app_state* app, const vector<mesh_cell>& cells) {
-  string result = "digraph {\n";
-  result += "forcelabels=true\n";
-
-  for (int i = 0; i < cells.size(); i++) {
-    auto& cell  = cells[i];
-    auto  color = rgb_to_hsv(get_cell_color(app, i));
-    char  str[1024];
-    sprintf(str, "%d [label=\"%d\" style=filled fillcolor=\"%f %f %f\"]\n", i,
-        i, color.x, color.y, color.z);
-    result += std::string(str);
-
-    for (auto [neighbor, polygon] : cell.adjacency) {
-      if (polygon < 0) continue;
-      int  c     = neighbor;
-      auto color = rgb_to_hsv(get_polygon_color(app, polygon));
-      sprintf(str, "%d -> %d [ label=\"%d\" color=\"%f %f %f\"]\n", i, c,
-          polygon, color.x, color.y, color.z);
-      result += std::string(str);
-    }
-  }
-  result += "}\n";
-  return result;
-}
-
-// TODO(giacomo): Make it app-indipendent.
-inline void save_tree_png(const app_state* app, const string& extra) {
-  auto filename = app->test_filename;
-  if (filename.empty()) filename = "test.json";
-  auto  graph = replace_extension(filename, extra + ".txt");
-  FILE* file  = fopen(graph.c_str(), "w");
-  fprintf(file, "%s", tree_to_string(app, app->state.cells).c_str());
-  fclose(file);
-
-  auto image = replace_extension(filename, extra + ".png");
-  auto cmd   = "dot -Tpng "s + graph + " > " + image;
-  printf("%s\n", cmd.c_str());
-  system(cmd.c_str());
-}
-
 inline int front_polygon_containing_this_cell(const app_state* app, int cell) {
   for (int s = (int)app->state.shapes.size() - 1; s >= 0; s--) {
     auto p = app->state.shapes[s].polygon;
@@ -477,7 +410,7 @@ inline void init_shapes(app_state* app) {
       shapes[p].polygon = p;
     }
     if (shapes[p].color == vec3f{0, 0, 0}) {
-      shapes[p].color = get_polygon_color(app, p);
+      shapes[p].color = get_color(p);
     }
   }
 }

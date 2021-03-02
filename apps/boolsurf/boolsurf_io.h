@@ -157,3 +157,63 @@ bool_state state_from_test(const bool_mesh& mesh, const bool_test& test) {
   }
   return state;
 }
+
+#include <yocto/yocto_color.h>
+
+inline string tree_to_string(const vector<mesh_cell>& cells) {
+  string result = "digraph {\n";
+  result += "forcelabels=true\n";
+
+  auto get_cell_color = [](const mesh_cell& cell, int cell_id) {
+    auto color = vec3f{0, 0, 0};
+    int  count = 0;
+    for (int p = 0; p < cell.labels.size(); p++) {
+      auto label = cell.labels[p];
+      if (label > 0) {
+        color += get_color(p);
+        count += 1;
+      }
+    }
+    if (count > 0) {
+      color /= count;
+      color += vec3f{1, 1, 1} * 0.1f * yocto::sin(cell_id);
+    } else {
+      color = {0.9, 0.9, 0.9};
+    }
+    return color;
+  };
+
+  for (int i = 0; i < cells.size(); i++) {
+    auto& cell  = cells[i];
+    auto  color = rgb_to_hsv(get_cell_color(cell, i));
+    char  str[1024];
+    sprintf(str, "%d [label=\"%d\" style=filled fillcolor=\"%f %f %f\"]\n", i,
+        i, color.x, color.y, color.z);
+    result += std::string(str);
+
+    for (auto [neighbor, polygon] : cell.adjacency) {
+      if (polygon < 0) continue;
+      int  c     = neighbor;
+      auto color = rgb_to_hsv(get_color(polygon));
+      sprintf(str, "%d -> %d [ label=\"%d\" color=\"%f %f %f\"]\n", i, c,
+          polygon, color.x, color.y, color.z);
+      result += std::string(str);
+    }
+  }
+  result += "}\n";
+  return result;
+}
+
+inline void save_tree_png(
+    const bool_state& state, string filename, const string& extra) {
+  if (filename.empty()) filename = "data/tests/test.json";
+  auto  graph = replace_extension(filename, extra + ".txt");
+  FILE* file  = fopen(graph.c_str(), "w");
+  fprintf(file, "%s", tree_to_string(state.cells).c_str());
+  fclose(file);
+
+  auto image = replace_extension(filename, extra + ".png");
+  auto cmd   = "dot -Tpng "s + graph + " > " + image;
+  printf("%s\n", cmd.c_str());
+  system(cmd.c_str());
+}

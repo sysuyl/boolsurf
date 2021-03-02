@@ -127,6 +127,26 @@ inline vec2i get_edge(const vec3i& triangle, int k) {
   }
 }
 
+inline vec3f get_color(int i) {
+  static auto colors = vector<vec3f>{
+      {0.5, 0.5, 0.5},
+      {1, 0, 0},
+      {0, 0.5, 0},
+      {0, 0, 1},
+      {0, 0.5, 0.5},
+      {1, 0.5, 0},
+      {0.5, 0, 1},
+      {0.5, 0, 0},
+      {0, 0.5, 0},
+      {0, 0, 0.5},
+      {0, 0.5, 0.5},
+      {0.5, 0.5, 0},
+      {0.5, 0, 0.5},
+  };
+
+  return colors[i % colors.size()];
+}
+
 #if 0
 #include "ext/robin_hood.h"
 template <typename Key, typename Value>
