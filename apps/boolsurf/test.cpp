@@ -52,7 +52,7 @@ vector<mesh_point> sample_points(const bool_mesh& mesh, const shape_bvh& bvh,
 
 int main(int num_args, const char* args[]) {
   auto test_filename   = "data/tests/test.json"s;
-  auto output_filename = ""s;
+  auto output_filename = "data/render.png"s;
 
   // parse command line
   auto cli = make_cli("test", "test boolsurf algorithms");
@@ -85,6 +85,7 @@ int main(int num_args, const char* args[]) {
   {
     auto timer = print_timed("[compute_cells]");
     compute_cells(mesh, state);
+    compute_shapes(state);
   }
 
   compute_shapes(state);
@@ -93,50 +94,56 @@ int main(int num_args, const char* args[]) {
     compute_bool_operation(state, operation);
   }
 
-  if (output_filename.size()) {
-    auto scene  = new trace_scene{};
-    auto camera = add_camera(scene);
-    *camera     = test.camera;
+  auto scene  = new trace_scene{};
+  auto camera = add_camera(scene);
+  *camera     = test.camera;
 
-    for (int i = 0; i < state.cells.size(); i++) {
-      auto& cell                    = state.cells[i];
-      auto  instance                = add_instance(scene);
-      instance->material            = add_material(scene);
-      instance->material->color     = get_cell_color(cell.labels, i);
-      instance->material->specular  = 0.04;
-      instance->material->roughness = 0.2;
-      instance->shape               = add_shape(scene);
-
-      // TODO(giacomo): Too many copies of positions.
-      instance->shape->positions = mesh.positions;
-      for (auto face : cell.faces) {
-        instance->shape->triangles.push_back(mesh.triangles[face]);
+  for (int i = 0; i < state.cells.size(); i++) {
+    auto& cell         = state.cells[i];
+    auto  instance     = add_instance(scene);
+    instance->material = add_material(scene);
+    auto shape_id      = 0;
+    for (int s = (int)state.shapes.size() - 1; s >= 0; s--) {
+      if (state.shapes[s].cells.count(i)) {
+        shape_id = s;
+        break;
       }
-      instance->shape->normals = compute_normals(
-          instance->shape->triangles, instance->shape->positions);
     }
+    // instance->material->color     = get_cell_color(cell.labels, i);
+    instance->material->color     = get_color(shape_id);
+    instance->material->specular  = 0.04;
+    instance->material->roughness = 0.2;
+    instance->shape               = add_shape(scene);
 
-    // auto light_material      = add_material(scene);
-    // light_material->emission = {40, 40, 40};
-
-    // auto light_shape       = add_shape(scene);
-    // auto quad_shape        = make_rect({1, 1}, {0.2, 0.2});
-    // light_shape->quads     = quad_shape.quads;
-    // light_shape->positions = quad_shape.positions;
-    // light_shape->normals   = quad_shape.normals;
-    // light_shape->texcoords = quad_shape.texcoords;
-
-    // for (auto p : {vec3f{-2, 2, 2}, vec3f{2, 2, 1}, vec3f{0, 2, -2}}) {
-    //   auto ist      = add_instance(scene);
-    //   ist->frame    = lookat_frame(p, {0, 0.5, 0}, {0, 1, 0}, true);
-    //   ist->shape    = light_shape;
-    //   ist->material = light_material;
-    // }
-
-    auto params    = trace_params{};
-    params.sampler = trace_sampler_type::eyelight;
-    params.samples = 16;
-    auto image     = trace_image(scene, camera, params);
-    save_image(output_filename, image, error);
+    // TODO(giacomo): Too many copies of positions.
+    instance->shape->positions = mesh.positions;
+    for (auto face : cell.faces) {
+      instance->shape->triangles.push_back(mesh.triangles[face]);
+    }
+    instance->shape->normals = compute_normals(
+        instance->shape->triangles, instance->shape->positions);
   }
+
+  // auto light_material      = add_material(scene);
+  // light_material->emission = {40, 40, 40};
+
+  // auto light_shape       = add_shape(scene);
+  // auto quad_shape        = make_rect({1, 1}, {0.2, 0.2});
+  // light_shape->quads     = quad_shape.quads;
+  // light_shape->positions = quad_shape.positions;
+  // light_shape->normals   = quad_shape.normals;
+  // light_shape->texcoords = quad_shape.texcoords;
+
+  // for (auto p : {vec3f{-2, 2, 2}, vec3f{2, 2, 1}, vec3f{0, 2, -2}}) {
+  //   auto ist      = add_instance(scene);
+  //   ist->frame    = lookat_frame(p, {0, 0.5, 0}, {0, 1, 0}, true);
+  //   ist->shape    = light_shape;
+  //   ist->material = light_material;
+  // }
+
+  auto params    = trace_params{};
+  params.sampler = trace_sampler_type::eyelight;
+  params.samples = 16;
+  auto image     = trace_image(scene, camera, params);
+  save_image(output_filename, image, error);
 }

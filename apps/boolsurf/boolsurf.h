@@ -44,9 +44,8 @@ struct mesh_cell {
 };
 
 struct mesh_shape {
-  int         polygon = -1;
-  vec3f       color   = {0, 0, 0};
-  vector<int> cells   = {};
+  vec3f         color = {0, 0, 0};
+  hash_set<int> cells = {};
 };
 
 struct bool_state {

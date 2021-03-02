@@ -167,8 +167,13 @@ void draw_widgets(app_state* app, const gui_input& input) {
   if (app->selected_shape >= 0 && begin_header(widgets, "shape info", true)) {
     auto& shape_id = app->selected_shape;
     auto& shape    = app->state.shapes[shape_id];
+
     draw_label(widgets, "shape", to_string(shape_id));
-    draw_label(widgets, "polygon", to_string(shape.polygon));
+
+    auto s = ""s;
+    for (auto cell : shape.cells) s += to_string(cell) + " ";
+    draw_label(widgets, "cells", s);
+
     if (draw_button(widgets, "Bring forward")) {
       if (shape_id < app->state.shapes.size() - 1) {
         swap(app->state.shapes[shape_id], app->state.shapes[shape_id + 1]);
@@ -205,12 +210,21 @@ void draw_widgets(app_state* app, const gui_input& input) {
   draw_combobox(widgets, "operation", op, bool_operation::type_names);
   app->operation.type = (bool_operation::Type)op;
   if (draw_button(widgets, "Apply")) {
-    compute_bool_operation(app->state, app->operation);
+    // compute_bool_operation(app->state, app->operation);
     app->test.operations += app->operation;
-    update_cell_colors(app);
+    // update_cell_colors(app);
   }
 
   end_imgui(widgets);
+}
+
+inline bool is_down(gui_button button) {
+  return button.state == gui_button::state::down ||
+         button.state == gui_button::state::pressing;
+}
+
+inline bool is_down(const gui_input& input, gui_key key) {
+  return is_down(input.key_buttons[(int)key]);
 }
 
 void mouse_input(app_state* app, const gui_input& input) {
@@ -238,8 +252,17 @@ void mouse_input(app_state* app, const gui_input& input) {
   if (app->selected_cell != -1) {
     for (int s = 0; s < app->state.shapes.size(); s++) {
       auto& shape = app->state.shapes[s];
-      if (find_idx(shape.cells, app->selected_cell) != -1) {
+      //      if (find_idx(shape.cells, app->selected_cell) != -1) {
+      if (shape.cells.count(app->selected_cell) != 0) {
         app->selected_shape = s;
+        if (is_down(input, gui_key::left_control)) {
+          if (app->operation.shape_a == -1) {
+            app->operation.shape_a = s;
+          } else if (app->operation.shape_b == -1) {
+            app->operation.shape_b = s;
+          }
+        }
+
         break;
       }
     }

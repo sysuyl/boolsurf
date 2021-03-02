@@ -368,17 +368,6 @@ shade_instance* add_patch_shape(
   return add_instance(app->glscene, identity3x4f, patch_shape, material);
 }
 
-inline int front_polygon_containing_this_cell(const app_state* app, int cell) {
-  for (int s = (int)app->state.shapes.size() - 1; s >= 0; s--) {
-    auto p = app->state.shapes[s].polygon;
-    if (app->state.cells[cell].labels[p] > 0) {
-      return s;
-    }
-  }
-  //  assert(0);
-  return 0;
-}
-
 inline void update_cell_shapes(app_state* app) {
   for (int i = 0; i < app->state.cells.size(); i++) {
     auto& cell = app->state.cells[i];

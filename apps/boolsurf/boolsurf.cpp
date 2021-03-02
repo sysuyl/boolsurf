@@ -886,7 +886,6 @@ void compute_shapes(bool_state& state) {
 
   // Assign a polygon and a color to each shape.
   for (auto p = 0; p < state.polygons.size(); p++) {
-    if (shapes[p].polygon == -1) shapes[p].polygon = p;
     if (shapes[p].color == zero3f) shapes[p].color = get_color(p);
   }
 
@@ -894,8 +893,8 @@ void compute_shapes(bool_state& state) {
   shapes[0].cells = {state.ambient_cell};
   for (auto c = 0; c < state.cells.size(); c++) {
     auto& cell = state.cells[c];
-    for (auto l = 0; l < cell.labels.size(); l++) {
-      if (cell.labels[l] > 0) shapes[l].cells.push_back(c);
+    for (auto p = 0; p < cell.labels.size(); p++) {
+      if (cell.labels[p] > 0) shapes[p].cells.insert(c);
     }
   }
 }
@@ -905,11 +904,11 @@ void compute_bool_operation(bool_state& state, const bool_operation& op) {
   auto& b = state.shapes[op.shape_b];
 
   // Converting to vector of bools to simplify operations
-  auto aa = vector<bool>(state.cells.size());
-  for (auto& c : a.cells) aa[c] = 1;
+  auto aa = vector<bool>(state.cells.size(), false);
+  for (auto& c : a.cells) aa[c] = true;
 
-  auto bb = vector<bool>(state.cells.size());
-  for (auto& c : b.cells) bb[c] = 1;
+  auto bb = vector<bool>(state.cells.size(), false);
+  for (auto& c : b.cells) bb[c] = true;
 
   if (op.type == bool_operation::Type::op_union) {
     for (auto i = 0; i < aa.size(); i++) aa[i] = aa[i] || bb[i];
@@ -920,10 +919,10 @@ void compute_bool_operation(bool_state& state, const bool_operation& op) {
   } else if (op.type == bool_operation::Type::op_symmetrical_difference) {
     for (auto i = 0; i < aa.size(); i++) aa[i] = aa[i] != bb[i];
   }
-  // Converting back to vector of ints
+  // Converting back to set of ints
   a.cells.clear();
   for (auto i = 0; i < aa.size(); i++)
-    if (aa[i] > 0) a.cells.push_back(i);
+    if (aa[i]) a.cells.insert(i);
 
   b.cells.clear();
 }

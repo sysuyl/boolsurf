@@ -275,7 +275,7 @@ void init_from_svg(bool_state& state, const bool_mesh& mesh,
   auto p1    = eval_position(mesh, {center.face, {0, 1}});
   auto v     = normalize(p1 - p0);
   auto frame = basis_fromz(eval_normal(mesh, {center.face, {0, 0}}));
-  auto rot   = vec2f{dot(v, frame.x), dot(v, frame.y)};
+  // auto rot   = vec2f{dot(v, frame.x), dot(v, frame.y)};
   //
   // app.commit_state();
   // app.splines() = {};
