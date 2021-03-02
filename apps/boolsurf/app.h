@@ -485,6 +485,15 @@ void init_from_test(app_state* app) {
   auto& points = app->state.points;
   points       = app->test.points;
 
+  if (app->test.has_camera) {
+    app->glcamera->frame    = app->test.camera.frame;
+    app->glcamera->lens     = app->test.camera.lens;
+    app->glcamera->aspect   = app->test.camera.aspect;
+    app->glcamera->film     = app->test.camera.film;
+    app->glcamera->aperture = app->test.camera.aperture;
+    app->glcamera->focus    = app->test.camera.focus;
+  }
+
   app->state = state_from_test(app->mesh, app->test);
   for (int i = 0; i < app->state.polygons.size(); i++) {
     auto& polygon = app->state.polygons[i];

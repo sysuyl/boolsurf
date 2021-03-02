@@ -94,6 +94,7 @@ struct bool_test {
 
   vector<bool_operation> operations = {};
   trace_camera           camera     = {};
+  bool                   has_camera = false;
 };
 
 inline bool save_test(const bool_test& test, const string& filename) {
@@ -125,7 +126,8 @@ inline bool load_test(bool_test& test, const string& filename) {
       test.operations = js["operations"].get<vector<bool_operation>>();
     }
     if (js.find("camera") != js.end()) {
-      test.camera = js["camera"].get<trace_camera>();
+      test.camera     = js["camera"].get<trace_camera>();
+      test.has_camera = true;
     }
     test.model = js["model"].get<string>();
   } catch (std::exception& e) {

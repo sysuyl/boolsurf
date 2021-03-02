@@ -97,13 +97,12 @@ int main(int num_args, const char* args[]) {
     *camera     = test.camera;
 
     for (int i = 0; i < state.cells.size(); i++) {
-      auto& cell                = state.cells[i];
-      auto  instance            = add_instance(scene);
-      instance->material        = add_material(scene);
-      instance->material->color = get_cell_color(cell.labels, i);
-      if (i == 0) instance->material->color = {0.8, 0.8, 0.8};
+      auto& cell                    = state.cells[i];
+      auto  instance                = add_instance(scene);
+      instance->material            = add_material(scene);
+      instance->material->color     = get_cell_color(cell.labels, i);
       instance->material->specular  = 0.04;
-      instance->material->roughness = 0.5;
+      instance->material->roughness = 0.2;
       instance->shape               = add_shape(scene);
 
       // TODO(giacomo): Too many copies of positions.
@@ -116,7 +115,7 @@ int main(int num_args, const char* args[]) {
     }
 
     // auto light_material      = add_material(scene);
-    // light_material->emission = {20, 20, 20};
+    // light_material->emission = {40, 40, 40};
 
     // auto light_shape       = add_shape(scene);
     // auto quad_shape        = make_rect({1, 1}, {0.2, 0.2});
