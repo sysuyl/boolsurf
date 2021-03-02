@@ -87,6 +87,8 @@ int main(int num_args, const char* args[]) {
     compute_cells(mesh, state);
   }
 
+  compute_shapes(state);
+
   for (auto& operation : test.operations) {
     compute_bool_operation(state, operation);
   }

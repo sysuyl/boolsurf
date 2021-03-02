@@ -880,6 +880,26 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   //  save_tree_png(app, "1");
 }
 
+void compute_shapes(bool_state& state) {
+  auto& shapes = state.shapes;
+  shapes.resize(state.polygons.size());
+
+  // Assign a polygon and a color to each shape.
+  for (auto p = 0; p < state.polygons.size(); p++) {
+    if (shapes[p].polygon == -1) shapes[p].polygon = p;
+    if (shapes[p].color == zero3f) shapes[p].color = get_color(p);
+  }
+
+  // Distribute cells to shapes
+  shapes[0].cells = {state.ambient_cell};
+  for (auto c = 0; c < state.cells.size(); c++) {
+    auto& cell = state.cells[c];
+    for (auto l = 0; l < cell.labels.size(); l++) {
+      if (cell.labels[l] > 0) shapes[l].cells.push_back(c);
+    }
+  }
+}
+
 void compute_bool_operation(bool_state& state, const bool_operation& op) {
   auto& a = state.shapes[op.shape_a];
   auto& b = state.shapes[op.shape_b];

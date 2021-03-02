@@ -397,26 +397,6 @@ inline void update_cell_shapes(app_state* app) {
   }
 }
 
-inline void compute_shapes(app_state* app) {
-  auto& shapes = app->state.shapes;
-  shapes.resize(app->state.polygons.size());
-
-  // Assign a polygon and a color to each shape.
-  for (auto p = 0; p < app->state.polygons.size(); p++) {
-    if (shapes[p].polygon == -1) shapes[p].polygon = p;
-    if (shapes[p].color == zero3f) shapes[p].color = get_color(p);
-  }
-
-  // Distribute cells to shapes
-  shapes[0].cells = {app->state.ambient_cell};
-  for (auto c = 0; c < app->state.cells.size(); c++) {
-    auto& cell = app->state.cells[c];
-    for (auto l = 0; l < cell.labels.size(); l++) {
-      if (cell.labels[l] > 0) shapes[l].cells.push_back(c);
-    }
-  }
-}
-
 // inline void init_shapes(app_state* app) {
 //   // Start with one shape for each polygon.
 //   auto& shapes = app->state.shapes;
