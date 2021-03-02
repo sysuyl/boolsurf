@@ -88,8 +88,6 @@ int main(int num_args, const char* args[]) {
     compute_shapes(state);
   }
 
-  compute_shapes(state);
-
   for (auto& operation : test.operations) {
     compute_bool_operation(state, operation);
   }
@@ -99,8 +97,9 @@ int main(int num_args, const char* args[]) {
   *camera     = test.camera;
 
   for (int i = 0; i < state.cells.size(); i++) {
-    auto& cell         = state.cells[i];
-    auto  instance     = add_instance(scene);
+    auto& cell = state.cells[i];
+
+    auto instance      = add_instance(scene);
     instance->material = add_material(scene);
     auto shape_id      = 0;
     for (int s = (int)state.shapes.size() - 1; s >= 0; s--) {
@@ -109,6 +108,7 @@ int main(int num_args, const char* args[]) {
         break;
       }
     }
+
     // instance->material->color     = get_cell_color(cell.labels, i);
     instance->material->color     = get_color(shape_id);
     instance->material->specular  = 0.04;

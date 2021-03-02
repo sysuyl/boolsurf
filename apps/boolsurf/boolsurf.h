@@ -49,7 +49,7 @@ struct mesh_shape {
 };
 
 struct bool_state {
-  vector<mesh_polygon> polygons = {{}};
+  vector<mesh_polygon> polygons = {};
   vector<mesh_point>   points   = {};
 
   int                ambient_cell = -1;
