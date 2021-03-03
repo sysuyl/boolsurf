@@ -595,8 +595,10 @@ inline void update_face_edgemap(
   }
 }
 
-inline bool check_tags(const bool_mesh& mesh) {
+inline bool check_tags(
+    const bool_mesh& mesh, const hash_map<int, vector<int>>& faces) {
   for (int i = 0; i < mesh.triangles.size(); i++) {
+    if (faces.find(i) != faces.end()) continue;
     auto face = i;
     auto tr   = mesh.triangles[face];
     if (tr == vec3i{0, 0, 0}) continue;
@@ -858,14 +860,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   mesh.border_tags = face_tags(
       mesh, hashgrid, face_edgemap, triangulated_faces);
 
-  // Annulliamo le facce che sono già state triangolate
-  //  for (auto& [face, triangles] : triangulated_faces) {
-  //    if (triangles.size() <= 1) continue;
-  // mesh.triangles[face]   = {0, 0, 0};
-  // mesh.adjacencies[face] = {-3, -3, -3};
-  //  }
-
-  //  check_tags(mesh);
+  check_tags(mesh, triangulated_faces);
 
   // Trova l'adiacenza fra celle tramite il flood-fill
   state.cells = make_mesh_cells(mesh, mesh.border_tags);
