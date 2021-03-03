@@ -329,6 +329,30 @@ void key_input(app_state* app, const gui_input& input) {
           compute_bool_operation(app->state, op);
         }
 
+        // Create a function (poi)
+        for (auto s = 1; s < app->state.shapes.size(); s++) {
+          auto border_edges = unordered_map<vec2i, vector<int>>();
+          for (auto& cell : app->state.shapes[s].cells) {
+            for (auto& face : app->state.cells[cell].faces) {
+              if (app->mesh.border_tags[face] == zero3i) continue;
+              auto& tri = app->mesh.triangles[face];
+              for (auto k = 0; k < 3; k++) {
+                if (app->mesh.border_tags[face][k] == 0) continue;
+                auto edge = make_edge_key(get_edge(tri, k));
+
+                border_edges[edge].push_back({face});
+              }
+            }
+          }
+
+          auto border_faces = vector<int>();
+          for (auto& [edge, faces] : border_edges) {
+            if (faces.size() == 1) border_faces.push_back(faces[0]);
+          }
+
+          add_patch_shape(app, border_faces, app->cell_materials[s + 1]);
+        }
+
         app->cell_shapes.resize(app->state.cells.size());
         for (int i = 0; i < app->state.cells.size(); i++) {
           app->cell_shapes[i] = add_patch_shape(app, {}, vec3f{});
@@ -355,7 +379,6 @@ void key_input(app_state* app, const gui_input& input) {
         set_normals(app->mesh_instance->shape, app->mesh.normals);
         init_edges_and_vertices_shapes_and_points(app);
         app->mesh_instance->hidden = true;
-
       } break;
 
       case (int)gui_key('S'): {
