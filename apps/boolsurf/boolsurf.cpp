@@ -899,38 +899,73 @@ void compute_shapes(bool_state& state) {
   }
 }
 
-unordered_map<int, vector<vec2i>> compute_shape_borders(
+unordered_map<int, vector<vector<int>>> compute_shape_borders(
     bool_mesh& mesh, bool_state& state) {
   // Calcoliamo un bordo per shape
-  auto shape_borders = unordered_map<int, vector<vec2i>>();
+  auto boundaries = unordered_map<int, vector<vector<int>>>();
 
   for (auto s = 0; s < state.shapes.size(); s++) {
-    auto& shape        = state.shapes[s];
-    auto& shape_border = shape_borders[s];
-    auto  edgemap      = unordered_map<vec2i, int>();
+    auto& shape    = state.shapes[s];
+    auto& boundary = boundaries[s];
 
+    // Step 1: Calcoliamo gli edges che stanno sul bordo
+    auto edges = unordered_set<vec2i>();
     for (auto c : shape.cells) {
       auto& cell = state.cells[c];
 
       for (auto face : cell.faces) {
-        // Se la faccia è al centro di una shape continuo
         if (mesh.border_tags[face] == zero3i) continue;
 
         auto& tri = mesh.triangles[face];
         for (auto k = 0; k < 3; k++) {
-          if (mesh.border_tags[face][k] == 0) continue;
-          auto edge = make_edge_key(get_edge(tri, k));
+          auto tag = mesh.border_tags[face][k];
+          if (tag == 0) continue;
+          auto edge     = get_edge(tri, k);
+          auto rev_edge = vec2i{edge.y, edge.x};
 
-          edgemap[edge] += 1;
+          auto it = edges.find(rev_edge);
+          if (it == edges.end())
+            edges.insert(edge);
+          else
+            edges.erase(it);
         }
       }
     }
 
-    for (auto& [edge, value] : edgemap) {
-      if (value == 1) shape_border.push_back(edge);
+    // Step 2: Riordiniamo i bordi
+    auto next_vert = unordered_map<int, int>();
+    for (auto& edge : edges) next_vert[edge.x] = edge.y;
+
+    for (auto& [key, value] : next_vert) {
+      if (value == -1) continue;
+
+      // add new empty boundary
+      auto bound    = vector<int>();
+      auto complete = false;
+      auto current  = key;
+
+      while (true) {
+        auto next = next_vert.at(current);
+        if (next == -1) break;
+
+        next_vert.at(current) = -1;
+
+        // Aggiungi il controllo che current sia un control point!
+        bound.push_back(current);
+
+        // close loop if necessary
+        if (next == key) {
+          complete = true;
+          break;
+        } else
+          current = next;
+      }
+
+      if (complete) boundary.push_back(bound);
     }
   }
-  return shape_borders;
+
+  return boundaries;
 }
 
 void compute_bool_operation(bool_state& state, const bool_operation& op) {

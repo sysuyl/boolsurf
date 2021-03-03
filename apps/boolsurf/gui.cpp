@@ -331,15 +331,16 @@ void key_input(app_state* app, const gui_input& input) {
 
         auto shape_borders = compute_shape_borders(app->mesh, app->state);
 
-        for (auto& [idx, border] : shape_borders) {
-          if (idx == 0) continue;  // Ambient shape
+        for (auto& [idx, borders] : shape_borders) {
+          if (idx == 0) continue;
+          for (auto& border : borders) {
+            for (auto p = 0; p < border.size(); p++) {
+              auto& start = app->mesh.positions[border[p]];
+              auto& end = app->mesh.positions[border[(p + 1) % border.size()]];
 
-          for (auto& edge : border) {
-            auto& start = app->mesh.positions[edge.x];
-            auto& end   = app->mesh.positions[edge.y];
-
-            draw_segment(app->glscene, app->mesh, app->cell_materials[idx + 1],
-                start, end, 0.002f);
+              draw_segment(app->glscene, app->mesh, app->points_material, start,
+                  end, 0.0015f);
+            }
           }
         }
 
