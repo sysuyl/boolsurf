@@ -41,9 +41,10 @@ void init_mesh(bool_mesh& mesh) {
     mesh.quads.clear();
   }
 
-  mesh.normals            = compute_normals(mesh);
-  mesh.adjacencies        = face_adjacencies_fast(mesh.triangles);
-  mesh.original_positions = mesh.positions.size();
+  mesh.normals       = compute_normals(mesh);
+  mesh.adjacencies   = face_adjacencies_fast(mesh.triangles);
+  mesh.num_triangles = (int)mesh.triangles.size();
+  mesh.num_positions = (int)mesh.positions.size();
 
   // Fit shape in [-1, +1]^3
   auto bbox = invalidb3f;
@@ -52,6 +53,12 @@ void init_mesh(bool_mesh& mesh) {
 
   mesh.dual_solver = make_dual_geodesic_solver(
       mesh.triangles, mesh.positions, mesh.adjacencies);
+}
+
+void reset_mesh(bool_mesh& mesh) {
+  mesh.triangles.resize(mesh.num_triangles);
+  mesh.adjacencies.resize(mesh.num_triangles);  // TODO(giacomo): Not correct!
+  mesh.positions.resize(mesh.num_positions);
 }
 
 geodesic_path compute_geodesic_path(
@@ -178,7 +185,7 @@ inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
   if (uv.x < eps && uv.y < eps) return tr.x;
   if (uv.x > 1 - eps && uv.y < eps) return tr.y;
   if (uv.y > 1 - eps && uv.x < eps) return tr.z;
-  auto vertex = (int)mesh.positions.size();
+  auto vertex = mesh.positions.size();
   auto pos    = eval_position(mesh.triangles, mesh.positions, point);
   mesh.positions.push_back(pos);
   return vertex;
@@ -532,8 +539,7 @@ static void update_face_adjacencies(
         auto edge = get_edge(triangles_vec3i[i], k);
 
         // Se è un arco della mesh originale lo processo subito
-        if (edge.x < mesh.original_positions &&
-            edge.y < mesh.original_positions) {
+        if (edge.x < mesh.num_positions && edge.y < mesh.num_positions) {
           // Cerco il triangolo adiacente al triangolo originale su quel lato
           for (int kk = 0; kk < 3; kk++) {
             auto edge0 = get_edge(mesh.triangles[face], kk);
@@ -668,8 +674,8 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
           // Se l'arco che ho trovato è un arco originale della mesh allora
           // salviamo la faccia corrispondente nel mapping da facce originale
           // a facce triangolate
-          if (vertex_start < mesh.original_positions &&
-              vertex < mesh.original_positions) {
+          if (vertex_start < mesh.num_positions &&
+              vertex < mesh.num_positions) {
             triangulated_faces[face] = {face};
           }
 
@@ -738,7 +744,7 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
         if (x == -1) {
           x = -2;
         } else {
-          x += (int)mesh.triangles.size();
+          x += mesh.triangles.size();
         }
       }
     }
@@ -753,7 +759,7 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
       auto v1         = indices[y];
       auto v2         = indices[z];
 
-      auto triangle_idx = (int)mesh.triangles.size();
+      auto triangle_idx = mesh.triangles.size();
       mesh.triangles.push_back({v0, v1, v2});
 
       update_face_edgemap(face_edgemap, {v0, v1}, triangle_idx);
@@ -853,13 +859,13 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
       mesh, hashgrid, face_edgemap, triangulated_faces);
 
   // Annulliamo le facce che sono già state triangolate
-  for (auto& [face, triangles] : triangulated_faces) {
-    if (triangles.size() <= 1) continue;
-    mesh.triangles[face]   = {0, 0, 0};
-    mesh.adjacencies[face] = {-3, -3, -3};
-  }
+  //  for (auto& [face, triangles] : triangulated_faces) {
+  //    if (triangles.size() <= 1) continue;
+  // mesh.triangles[face]   = {0, 0, 0};
+  // mesh.adjacencies[face] = {-3, -3, -3};
+  //  }
 
-  check_tags(mesh);
+  //  check_tags(mesh);
 
   // Trova l'adiacenza fra celle tramite il flood-fill
   state.cells = make_mesh_cells(mesh, mesh.border_tags);

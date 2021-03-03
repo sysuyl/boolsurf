@@ -6,10 +6,12 @@ using namespace yocto;
 using namespace std;
 
 struct bool_mesh : shape_data {
-  vector<vec3i>        adjacencies        = {};
-  dual_geodesic_solver dual_solver        = {};
-  vector<vec3i>        border_tags        = {};
-  int                  original_positions = -1;
+  vector<vec3i>        adjacencies = {};
+  dual_geodesic_solver dual_solver = {};
+  vector<vec3i>        border_tags = {};
+
+  int num_triangles = 0;
+  int num_positions = 0;
 };
 
 struct mesh_segment {
@@ -72,6 +74,7 @@ struct bool_operation {
 }  // namespace yocto
 
 void init_mesh(bool_mesh& mesh);
+void reset_mesh(bool_mesh& mesh);
 void compute_cells(bool_mesh& mesh, bool_state& state);
 void compute_shapes(bool_state& state);
 void compute_bool_operation(bool_state& state, const bool_operation& op);
