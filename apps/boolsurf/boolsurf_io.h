@@ -140,6 +140,8 @@ inline bool load_test(bool_test& test, const string& filename) {
 bool_state state_from_test(const bool_mesh& mesh, const bool_test& test) {
   auto state   = bool_state{};
   state.points = test.points;
+  state.polygons.clear();
+
   for (auto& polygon : test.polygons) {
     // Add new polygon to state.
     auto& mesh_polygon  = state.polygons.emplace_back();
