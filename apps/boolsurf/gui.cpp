@@ -210,9 +210,11 @@ void draw_widgets(app_state* app, const gui_input& input) {
   draw_combobox(widgets, "operation", op, bool_operation::type_names);
   app->operation.type = (bool_operation::Type)op;
   if (draw_button(widgets, "Apply")) {
-    // compute_bool_operation(app->state, app->operation);
+    commit_state(app);
+    compute_bool_operation(app->state, app->operation);
     app->test.operations += app->operation;
-    // update_cell_colors(app);
+    update_cell_colors(app);
+    app->operation = {};
   }
 
   end_imgui(widgets);
@@ -250,7 +252,7 @@ void mouse_input(app_state* app, const gui_input& input) {
   }
 
   if (app->selected_cell != -1) {
-    for (int s = 0; s < app->state.shapes.size(); s++) {
+    for (int s = (int)app->state.shapes.size() - 1; s >= 0; s--) {
       auto& shape = app->state.shapes[s];
       //      if (find_idx(shape.cells, app->selected_cell) != -1) {
       if (shape.cells.count(app->selected_cell) != 0) {

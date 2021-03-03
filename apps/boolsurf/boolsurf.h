@@ -61,8 +61,8 @@ namespace yocto {  // TODO(giacomo): Fix this.
 struct bool_operation {
   enum struct Type {
     op_union,
-    op_intersection,
     op_difference,
+    op_intersection,
     op_symmetrical_difference
   };
   int  shape_a = -1;

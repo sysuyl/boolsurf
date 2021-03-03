@@ -4,7 +4,7 @@
 - [x] Trovare quale fra le celle ambiente candidate e' quella giusta.
 
 # Implementation
-- [ ] Visualizzare booleane.
+- [x] Visualizzare booleane.
 - [ ] Tirare su tests.
 - [ ] Rappresentare il risultato implicitamente come sequenze di punti: inserire intersezioni nei poligoni e taggare i lati per visualizzare bene le booleane.
 - [ ] Integrare bezier.
@@ -12,10 +12,10 @@
 # Performance
 - [ ] Farsi a mano triangle-split con singolo segmento (senza chiamare CDT).
 - [ ] Provare varie hashmaps.
+- [ ] Riordinare triangoli per flood fill.
 - [ ] Provare border_tags rappresentato in maniera sparsa invece che densa, ossia con `hash_map<int, vec3i>` invece che `vector<vec3i>`
-- [ ] Parallelismo?
 
 
 # Giacomo
-- Fix windows build
+- Fix windows build (freetype)
 - Fix windows rendering

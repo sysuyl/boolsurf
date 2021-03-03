@@ -117,11 +117,17 @@ void commit_state(app_state* app) {
   app->history.resize(app->history_index + 1);
   app->history[app->history_index] = app->state;
 }
+
+inline void update_cell_shapes(app_state* app);
+inline void update_cell_colors(app_state* app);
+
 bool undo_state(app_state* app) {
   if (app->history_index <= 1) return false;
   app->history_index -= 1;
   app->state = app->history[app->history_index];
   update_polygons(app);
+  update_cell_shapes(app);
+  update_cell_colors(app);
   return true;
 }
 bool redo_state(app_state* app) {
@@ -129,6 +135,8 @@ bool redo_state(app_state* app) {
   app->history_index += 1;
   app->state = app->history[app->history_index];
   update_polygons(app);
+  update_cell_shapes(app);
+  update_cell_colors(app);
   return true;
 }
 
@@ -422,34 +430,42 @@ inline void update_cell_shapes(app_state* app) {
 // }
 
 inline void update_cell_colors(app_state* app) {
-  auto get_cell_color = [](const mesh_cell& cell, int cell_id) {
-    auto color = vec3f{0, 0, 0};
-    int  count = 0;
-    for (int p = 0; p < cell.labels.size(); p++) {
-      auto label = cell.labels[p];
-      if (label > 0) {
-        color += get_color(p);
-        count += 1;
+  auto& state = app->state;
+  for (int i = 0; i < state.cells.size(); i++) {
+    auto shape_id = 0;
+    for (int s = (int)state.shapes.size() - 1; s >= 0; s--) {
+      if (state.shapes[s].cells.count(i)) {
+        shape_id = s;
+        break;
       }
     }
-    if (count > 0) {
-      color /= count;
-      color += vec3f{1, 1, 1} * 0.1f * yocto::sin(cell_id);
-    } else {
-      color = {0.9, 0.9, 0.9};
-    }
-    return color;
-  };
-
-  for (int i = 0; i < app->state.cells.size(); ++i) {
-    app->cell_shapes[i]->material->color = get_cell_color(
-        app->state.cells[i], i);
+    app->cell_shapes[i]->material->color = get_color(shape_id);
   }
-  // for (int i = 0; i < app->state.shapes.size(); i++) {
-  //   for (auto& c : app->state.shapes[i].cells) {
-  //     if (c < 0) continue;
-  //     app->cell_shapes[c]->material->color = app->state.shapes[i].color;
+
+  // instance->material->color     = get_cell_color(cell.labels, i);
+
+  // auto get_cell_color = [](const mesh_cell& cell, int cell_id) {
+  //   auto color = vec3f{0, 0, 0};
+  //   int  count = 0;
+  //   for (int p = 0; p < cell.labels.size(); p++) {
+  //     auto label = cell.labels[p];
+  //     if (label > 0) {
+  //       color += get_color(p);
+  //       count += 1;
+  //     }
   //   }
+  //   if (count > 0) {
+  //     color /= count;
+  //     color += vec3f{1, 1, 1} * 0.1f * yocto::sin(cell_id);
+  //   } else {
+  //     color = {0.9, 0.9, 0.9};
+  //   }
+  //   return color;
+  // };
+
+  // for (int i = 0; i < app->state.cells.size(); ++i) {
+  //   app->cell_shapes[i]->material->color = get_cell_color(
+  //       app->state.cells[i], i);
   // }
 }
 
