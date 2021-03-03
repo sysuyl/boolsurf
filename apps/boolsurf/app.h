@@ -1,7 +1,6 @@
 // TODO(giacomo): review usless includes
 #include <yocto/yocto_bvh.h>
-#include <yocto/yocto_common.h>
-#include <yocto/yocto_commonio.h>
+//#include <yocto/yocto_common.h>
 #include <yocto/yocto_geometry.h>
 #include <yocto/yocto_image.h>
 #include <yocto/yocto_math.h>
@@ -143,12 +142,14 @@ bool redo_state(app_state* app) {
 void load_shape(app_state* app, const string& filename) {
   app->model_filename = filename;
 
-  auto          error = ""s;
-  vector<vec2f> texcoords;
-  vector<vec3f> colors;
-  vector<vec3f> normals;
-  if (!load_mesh(filename, app->mesh.triangles, app->mesh.positions, normals,
-          texcoords, colors, error)) {
+  auto error = ""s;
+  //  vector<vec2f> texcoords;
+  //  vector<vec3f> colors;
+  //  vector<vec3f> normals;
+  //  if (!load_mesh(filename, app->mesh.triangles, app->mesh.positions,
+  //  normals,
+  //          texcoords, colors, error)) {
+  if (!load_shape(filename, app->mesh, error)) {
     printf("%s\n", error.c_str());
     print_fatal("Error loading model " + filename);
   }
@@ -203,8 +204,7 @@ void init_edges_and_vertices_shapes_and_points(
   // set_instances(vertices_shape, app->mesh.positions);
 }
 
-void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh,
-    progress_callback progress_cb) {
+void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh) {
   // handle progress
   auto progress = vec2i{0, 4};
 
@@ -220,14 +220,15 @@ void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh,
   };
 
   // camera
-  if (progress_cb) progress_cb("convert camera", progress.x++, progress.y);
+  //  if (progress_cb) progress_cb("convert camera", progress.x++, progress.y);
   app->glcamera = add_camera(glscene, camera_frame(0.050, 16.0f / 9.0f, 0.036),
       0.050, 16.0f / 9.0f, 0.036);
   app->glcamera->focus = length(app->glcamera->frame.o);
 
   // material
   // TODO(giacomo): Replace this with a proper colormap.
-  if (progress_cb) progress_cb("convert material", progress.x++, progress.y);
+  //  if (progress_cb) progress_cb("convert material", progress.x++,
+  //  progress.y);
   app->mesh_material = add_material(
       glscene, {0, 0, 0}, {0.5, 0.5, 0.9}, 1, 0, 0.4);
   app->edges_material = add_material(
@@ -266,7 +267,7 @@ void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh,
   app->materials.white = add_material(glscene, {0, 0, 0}, {1, 1, 1}, 1, 0, 0.4);
 
   // shapes
-  if (progress_cb) progress_cb("convert shape", progress.x++, progress.y);
+  //  if (progress_cb) progress_cb("convert shape", progress.x++, progress.y);
   auto mesh_shape = add_shape(glscene, {}, {}, app->mesh.triangles, {},
       app->mesh.positions, app->mesh.normals, {}, {}, true);
 
@@ -319,7 +320,7 @@ void drop(app_state* app, const gui_input& input) {
     app->model_filename = input.dropped[0];
     clear_scene(app->glscene);
     load_shape(app, app->model_filename);
-    init_glscene(app, app->glscene, app->mesh, {});
+    init_glscene(app, app->glscene, app->mesh);
     return;
   }
 }
