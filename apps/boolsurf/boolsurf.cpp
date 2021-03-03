@@ -4,6 +4,37 @@
 
 #include "ext/CDT/CDT/include/CDT.h"
 
+// Build adjacencies between faces (sorted counter-clockwise)
+static vector<vec3i> face_adjacencies_fast(const vector<vec3i>& triangles) {
+  auto get_edge = [](const vec3i& triangle, int i) -> vec2i {
+    auto x = triangle[i], y = triangle[i < 2 ? i + 1 : 0];
+    return x < y ? vec2i{x, y} : vec2i{y, x};
+  };
+  auto adjacencies = vector<vec3i>{triangles.size(), vec3i{-1, -1, -1}};
+  auto edge_map    = hash_map<vec2i, int>();
+  edge_map.reserve((size_t)(triangles.size() * 1.5));
+  for (int i = 0; i < triangles.size(); ++i) {
+    for (int k = 0; k < 3; ++k) {
+      auto edge = get_edge(triangles[i], k);
+      auto it   = edge_map.find(edge);
+      if (it == edge_map.end()) {
+        edge_map[edge] = i;
+      } else {
+        auto neighbor     = it->second;
+        adjacencies[i][k] = neighbor;
+        for (int kk = 0; kk < 3; ++kk) {
+          auto edge2 = get_edge(triangles[neighbor], kk);
+          if (edge2 == edge) {
+            adjacencies[neighbor][kk] = i;
+            break;
+          }
+        }
+      }
+    }
+  }
+  return adjacencies;
+}
+
 void init_mesh(bool_mesh& mesh) {
   if (mesh.quads.size()) {
     mesh.triangles = quads_to_triangles(mesh.quads);
@@ -11,7 +42,7 @@ void init_mesh(bool_mesh& mesh) {
   }
 
   mesh.normals            = compute_normals(mesh);
-  mesh.adjacencies        = face_adjacencies(mesh.triangles);
+  mesh.adjacencies        = face_adjacencies_fast(mesh.triangles);
   mesh.original_positions = mesh.positions.size();
 
   // Fit shape in [-1, +1]^3
@@ -527,7 +558,8 @@ static void update_face_adjacencies(
         // triangolo corrispondente Se l'ho già incontrato ricostruisco
         // l'adiacenza tra il triangolo corrente e il neighbor già trovato
         if (it == border_edgemap.end()) {
-          border_edgemap.insert(it, {edge_key, triangles[i]});
+          //          border_edgemap.insert(it, {edge_key, triangles[i]});
+          border_edgemap[edge_key] = triangles[i];
         } else {
           auto neighbor                     = it->second;
           mesh.adjacencies[triangles[i]][k] = neighbor;
@@ -550,7 +582,8 @@ inline void update_face_edgemap(
   auto key = make_edge_key(edge);
   auto it  = face_edgemap.find(key);
   if (it == face_edgemap.end()) {
-    face_edgemap.insert(it, {key, {face, -1}});
+    //    face_edgemap.insert(it, {key, {face, -1}});
+    face_edgemap[key] = {face, -1};
   } else {
     it->second.y = face;
   }
@@ -699,7 +732,7 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
 #endif
 
     // Calcoliamo l'adiacenza locale e la trasformiamo in globale
-    auto adjacency = face_adjacencies(triangles);
+    auto adjacency = face_adjacencies_fast(triangles);
     for (auto& adj : adjacency) {
       for (auto& x : adj) {
         if (x == -1) {
