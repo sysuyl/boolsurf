@@ -329,31 +329,17 @@ void key_input(app_state* app, const gui_input& input) {
           compute_bool_operation(app->state, op);
         }
 
-        // Create a function (poi)
-        for (auto s = 1; s < app->state.shapes.size(); s++) {
-          auto border_edges = unordered_map<vec2i, int>();
-          for (auto& cell : app->state.shapes[s].cells) {
-            for (auto& face : app->state.cells[cell].faces) {
-              if (app->mesh.border_tags[face] == zero3i) continue;
-              auto& tri = app->mesh.triangles[face];
-              for (auto k = 0; k < 3; k++) {
-                if (app->mesh.border_tags[face][k] == 0) continue;
-                auto edge = make_edge_key(get_edge(tri, k));
+        auto shape_borders = compute_shape_borders(app->mesh, app->state);
 
-                border_edges[edge] += 1;
-              }
-            }
-          }
+        for (auto& [idx, border] : shape_borders) {
+          if (idx == 0) continue;  // Ambient shape
 
-          auto border_points = vector<vec3f>();
-          for (auto& [edge, occs] : border_edges) {
-            if (occs == 1) {
-              auto& start = app->mesh.positions[edge.x];
-              auto& end   = app->mesh.positions[edge.y];
+          for (auto& edge : border) {
+            auto& start = app->mesh.positions[edge.x];
+            auto& end   = app->mesh.positions[edge.y];
 
-              draw_segment(app->glscene, app->mesh, app->points_material, start,
-                  end, 0.0010f);
-            }
+            draw_segment(app->glscene, app->mesh, app->cell_materials[idx + 1],
+                start, end, 0.002f);
           }
         }
 

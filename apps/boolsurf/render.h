@@ -42,6 +42,7 @@ inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
   polygon.polyline_shape->shape->shape->elements = ogl_element_type::line_strip;
   set_instances(polygon.polyline_shape->shape, {}, {});
 }
+
 // inline void draw_triangulation(
 //     ogl_texture* texture, int face, vec2i size = {2048, 2048}) {
 //   auto& triangles = debug_triangles[face];
@@ -190,17 +191,6 @@ inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
 //   }
 // }
 
-[[nodiscard]] shade_instance* draw_sphere(shade_scene* scene,
-    const bool_mesh& mesh, shade_material* material, const vector<vec3f>& pos,
-    float dim) {
-  auto sphere = make_sphere(4, dim);
-
-  auto shape = add_shape(scene, {}, {}, {}, sphere.quads, sphere.positions,
-      sphere.normals, sphere.texcoords, {});
-  set_instances(shape, pos);
-  return add_instance(scene, identity3x4f, shape, material, false);
-}
-
 [[nodiscard]] shade_instance* draw_segment(shade_scene* scene,
     const bool_mesh& mesh, shade_material* material, const vec3f& start,
     const vec3f& end, float radius = 0.0006f) {
@@ -219,6 +209,17 @@ inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
 }
 
 #if 0
+
+[[nodiscard]] shade_instance* draw_sphere(shade_scene* scene,
+    const bool_mesh& mesh, shade_material* material, const vector<vec3f>& pos,
+    float dim) {
+  auto sphere = make_sphere(4, dim);
+
+  auto shape = add_shape(scene, {}, {}, {}, sphere.quads, sphere.positions,
+      sphere.normals, sphere.texcoords, {});
+  set_instances(shape, pos);
+  return add_instance(scene, identity3x4f, shape, material, false);
+}
 
 [[nodiscard]] shade_instance* draw_mesh_point(shade_scene* scene,
     const bool_mesh& mesh, shade_material* material, const mesh_point& point,

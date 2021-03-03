@@ -77,6 +77,8 @@ struct bool_operation {
 void init_mesh(bool_mesh& mesh);
 void compute_cells(bool_mesh& mesh, bool_state& state);
 void compute_shapes(bool_state& state);
+unordered_map<int, vector<vec2i>> compute_shape_borders(
+    bool_mesh& mesh, bool_state& state);
 void compute_bool_operation(bool_state& state, const bool_operation& op);
 
 vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,

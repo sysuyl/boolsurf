@@ -899,6 +899,40 @@ void compute_shapes(bool_state& state) {
   }
 }
 
+unordered_map<int, vector<vec2i>> compute_shape_borders(
+    bool_mesh& mesh, bool_state& state) {
+  // Calcoliamo un bordo per shape
+  auto shape_borders = unordered_map<int, vector<vec2i>>();
+
+  for (auto s = 0; s < state.shapes.size(); s++) {
+    auto& shape        = state.shapes[s];
+    auto& shape_border = shape_borders[s];
+    auto  edgemap      = unordered_map<vec2i, int>();
+
+    for (auto c : shape.cells) {
+      auto& cell = state.cells[c];
+
+      for (auto face : cell.faces) {
+        // Se la faccia è al centro di una shape continuo
+        if (mesh.border_tags[face] == zero3i) continue;
+
+        auto& tri = mesh.triangles[face];
+        for (auto k = 0; k < 3; k++) {
+          if (mesh.border_tags[face][k] == 0) continue;
+          auto edge = make_edge_key(get_edge(tri, k));
+
+          edgemap[edge] += 1;
+        }
+      }
+    }
+
+    for (auto& [edge, value] : edgemap) {
+      if (value == 1) shape_border.push_back(edge);
+    }
+  }
+  return shape_borders;
+}
+
 void compute_bool_operation(bool_state& state, const bool_operation& op) {
   auto& a = state.shapes[op.shape_a];
   auto& b = state.shapes[op.shape_b];
