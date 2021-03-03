@@ -190,8 +190,6 @@ inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
 //   }
 // }
 
-#if 0
-
 [[nodiscard]] shade_instance* draw_sphere(shade_scene* scene,
     const bool_mesh& mesh, shade_material* material, const vector<vec3f>& pos,
     float dim) {
@@ -202,6 +200,25 @@ inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
   set_instances(shape, pos);
   return add_instance(scene, identity3x4f, shape, material, false);
 }
+
+[[nodiscard]] shade_instance* draw_segment(shade_scene* scene,
+    const bool_mesh& mesh, shade_material* material, const vec3f& start,
+    const vec3f& end, float radius = 0.0006f) {
+  auto cylinder = make_uvcylinder({4, 1, 1}, {radius, 1});
+  for (auto& p : cylinder.positions) {
+    p.z = p.z * 0.5 + 0.5;
+  }
+
+  auto shape = add_shape(scene);
+  set_quads(shape, cylinder.quads);
+  set_positions(shape, cylinder.positions);
+  set_normals(shape, cylinder.normals);
+  set_texcoords(shape, cylinder.texcoords);
+  set_instances(shape, {start}, {end});
+  return add_instance(scene, identity3x4f, shape, material, false);
+}
+
+#if 0
 
 [[nodiscard]] shade_instance* draw_mesh_point(shade_scene* scene,
     const bool_mesh& mesh, shade_material* material, const mesh_point& point,
@@ -311,22 +328,6 @@ void update_path_shape(shade_shape* shape, const bool_mesh& mesh,
   set_instances(shape, froms, tos);
 }
 
-[[nodiscard]] shade_instance* draw_segment(shade_scene* scene,
-    const bool_mesh& mesh, shade_material* material, const vec3f& start,
-    const vec3f& end, float radius = 0.0006f) {
-  auto cylinder = make_uvcylinder({4, 1, 1}, {radius, 1});
-  for (auto& p : cylinder.positions) {
-    p.z = p.z * 0.5 + 0.5;
-  }
-
-  auto shape = add_shape(scene);
-  set_quads(shape, cylinder.quads);
-  set_positions(shape, cylinder.positions);
-  set_normals(shape, cylinder.normals);
-  set_texcoords(shape, cylinder.texcoords);
-  set_instances(shape, {start}, {end});
-  return add_instance(scene, identity3x4f, shape, material, false);
-}
 
 [[nodiscard]] shade_instance* draw_mesh_segment(shade_scene* scene,
     const bool_mesh& mesh, shade_material* material,
