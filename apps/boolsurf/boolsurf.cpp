@@ -152,13 +152,15 @@ static vector<vector<int>> add_vertices(
     bool_mesh& mesh, const vector<mesh_polygon>& polygons) {
   auto vertices = vector<vector<int>>(polygons.size());
   for (int i = 0; i < polygons.size(); i++) {
-    auto& segments = polygons[i].segments;
-    vertices[i].resize(segments.size());
+    vertices[i].reserve(polygons[i].length);
 
-    for (auto s = 0; s < segments.size(); s++) {
-      vertices[i][s] = add_vertex(mesh, {segments[s].face, segments[s].end});
+    for (auto& edge : polygons[i].edges) {
+      for (auto& segment : edge) {
+        vertices[i].push_back(add_vertex(mesh, {segment.face, segment.end}));
+      }
     }
   }
+
   return vertices;
 }
 
