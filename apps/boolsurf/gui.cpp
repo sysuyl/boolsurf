@@ -329,17 +329,19 @@ void key_input(app_state* app, const gui_input& input) {
           compute_bool_operation(app->state, op);
         }
 
-        auto shape_borders = compute_shape_borders(app->mesh, app->state);
+        compute_shape_borders(app->mesh, app->state);
 
-        for (auto& [idx, borders] : shape_borders) {
-          if (idx == 0) continue;
-          for (auto& border : borders) {
+        for (auto s = 0; s < app->state.shapes.size(); s++) {
+          if (s == 0) continue;
+
+          auto& shape = app->state.shapes[s];
+          for (auto& border : shape.borders) {
             for (auto p = 0; p < border.size(); p++) {
               auto& start = app->mesh.positions[border[p]];
               auto& end = app->mesh.positions[border[(p + 1) % border.size()]];
 
-              draw_segment(app->glscene, app->mesh, app->points_material, start,
-                  end, 0.0015f);
+              draw_segment(app->glscene, app->mesh, app->cell_materials[s + 1],
+                  start, end, 0.0015f);
             }
           }
         }

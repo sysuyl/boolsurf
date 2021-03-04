@@ -46,6 +46,8 @@ struct mesh_cell {
 struct mesh_shape {
   vec3f         color = {0, 0, 0};
   hash_set<int> cells = {};
+
+  vector<vector<int>> borders = {};
 };
 
 struct bool_state {
@@ -77,8 +79,7 @@ struct bool_operation {
 void init_mesh(bool_mesh& mesh);
 void compute_cells(bool_mesh& mesh, bool_state& state);
 void compute_shapes(bool_state& state);
-unordered_map<int, vector<vector<int>>> compute_shape_borders(
-    bool_mesh& mesh, bool_state& state);
+void compute_shape_borders(bool_mesh& mesh, bool_state& state);
 void compute_bool_operation(bool_state& state, const bool_operation& op);
 
 vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,

@@ -899,14 +899,12 @@ void compute_shapes(bool_state& state) {
   }
 }
 
-unordered_map<int, vector<vector<int>>> compute_shape_borders(
-    bool_mesh& mesh, bool_state& state) {
+void compute_shape_borders(bool_mesh& mesh, bool_state& state) {
   // Calcoliamo un bordo per shape
-  auto boundaries = unordered_map<int, vector<vector<int>>>();
 
   for (auto s = 0; s < state.shapes.size(); s++) {
-    auto& shape    = state.shapes[s];
-    auto& boundary = boundaries[s];
+    auto& shape   = state.shapes[s];
+    auto& borders = state.shapes[s].borders;
 
     // Step 1: Calcoliamo gli edges che stanno sul bordo
     auto edges = unordered_set<vec2i>();
@@ -940,7 +938,7 @@ unordered_map<int, vector<vector<int>>> compute_shape_borders(
       if (value == -1) continue;
 
       // add new empty boundary
-      auto bound    = vector<int>();
+      auto border   = vector<int>();
       auto complete = false;
       auto current  = key;
 
@@ -951,7 +949,7 @@ unordered_map<int, vector<vector<int>>> compute_shape_borders(
         next_vert.at(current) = -1;
 
         // Aggiungi il controllo che current sia un control point!
-        bound.push_back(current);
+        border.push_back(current);
 
         // close loop if necessary
         if (next == key) {
@@ -961,11 +959,9 @@ unordered_map<int, vector<vector<int>>> compute_shape_borders(
           current = next;
       }
 
-      if (complete) boundary.push_back(bound);
+      if (complete) borders.push_back(border);
     }
   }
-
-  return boundaries;
 }
 
 void compute_bool_operation(bool_state& state, const bool_operation& op) {
