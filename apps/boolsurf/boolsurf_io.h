@@ -297,9 +297,6 @@ void init_from_svg(bool_state& state, const bool_mesh& mesh,
           uv *= svg_size;
           auto line = straightest_path(mesh, center, uv);
           control_points += line.end;
-          // polygon.points.push_back((int)state.points.size());
-          // auto& point = state.points.emplace_back();
-          // point       = line.end;
         }
       }
       auto& segment = path.back();
@@ -309,15 +306,14 @@ void init_from_svg(bool_state& state, const bool_mesh& mesh,
       uv *= svg_size;
       auto line = straightest_path(mesh, center, uv);
       control_points += line.end;
-      // polygon.points.push_back((int)state.points.size());
-      // auto& point = state.points.emplace_back();
-      // point       = line.end;
+
       auto bezier = compute_bezier_path(mesh.dual_solver, mesh.triangles,
           mesh.positions, mesh.adjacencies, control_points, 2);
 
-      for (auto& p : bezier) {
+      for (int i = 0; i < bezier.size() - 1; i++) {
+        if (i > 0 && bezier[i] == bezier[i - 1]) continue;
         polygon.points += (int)state.points.size();
-        state.points += p;
+        state.points += bezier[i];
       }
     }
   }

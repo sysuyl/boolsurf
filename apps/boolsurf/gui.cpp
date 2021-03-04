@@ -494,15 +494,11 @@ int main(int argc, const char* argv[]) {
 
   // parse command line
   auto cli = make_cli("yboolsurf", "views shapes inteactively");
-  add_option(cli, "--camera", camera_name, "Camera name.");
-  add_option(
-      cli, "--resolution,-r", app->drawgl_prms.resolution, "Image resolution.");
-  add_option(cli, "--lighting", app->drawgl_prms.lighting, "Lighting type.",
-      shade_lighting_names);
+  add_option(cli, "camera", camera_name, "Camera name.");
   add_argument(cli, "input", input,
       "Input filename. Either a model or a json test file");
-  add_option(cli, "--msaa", window->msaa, "Multisample anti-aliasing.");
-  add_option(cli, "--test", app->test_filename, "Test filename.");
+  add_option(cli, "msaa", window->msaa, "Multisample anti-aliasing.");
+  add_option(cli, "test", app->test_filename, "Test filename.");
   add_option(cli, "svg", app->svg_filename, "Svg filename.");
   add_option(cli, "svg-size", app->svg_size, "Svg size.");
   parse_cli(cli, argc, argv);
