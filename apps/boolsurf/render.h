@@ -43,6 +43,33 @@ inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
   set_instances(polygon.polyline_shape->shape, {}, {});
 }
 
+inline void set_border_shape(
+    shade_scene* scene, const bool_mesh& mesh, mesh_shape& shape, int index) {
+  if (!shape.borders_shape) {
+    shape.borders_shape           = add_instance(scene);
+    shape.borders_shape->material = add_material(scene);
+  }
+
+  if (!shape.borders_shape->shape) {
+    shape.borders_shape->shape = add_shape(scene);
+  }
+
+  shape.borders_shape->material->color = get_color(index);
+
+  if (shape.borders.empty()) return;
+
+  auto positions = vector<vec3f>();
+  for (auto& border : shape.borders) {
+    for (auto& point : border) {
+      positions.push_back(mesh.positions[point]);
+    }
+  }
+
+  set_positions(shape.borders_shape->shape, positions);
+  shape.borders_shape->shape->shape->elements = ogl_element_type::line_strip;
+  set_instances(shape.borders_shape->shape, {}, {});
+}
+
 // inline void draw_triangulation(
 //     ogl_texture* texture, int face, vec2i size = {2048, 2048}) {
 //   auto& triangles = debug_triangles[face];

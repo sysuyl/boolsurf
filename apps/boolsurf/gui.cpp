@@ -333,6 +333,8 @@ void key_input(app_state* app, const gui_input& input) {
 
         for (auto s = 0; s < app->state.shapes.size(); s++) {
           if (s == 0) continue;
+          // set_border_shape(
+          //     app->glscene, app->mesh, app->state.shapes[s], s + 1);
 
           auto& shape = app->state.shapes[s];
           for (auto& border : shape.borders) {
