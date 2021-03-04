@@ -86,7 +86,7 @@ static mesh_hashgrid compute_hashgrid(
     auto& polygon   = polygons[polygon_id];
     int   last_face = -1;
 
-    if (polygon.segments.empty()) continue;
+    if (polygon.length == 0) continue;
     int first_face = polygon.segments[0].face;
     int s_first    = -1;
 
@@ -149,14 +149,19 @@ inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
 }
 
 static vector<vector<int>> add_vertices(
-    bool_mesh& mesh, const vector<mesh_polygon>& polygons) {
+    bool_state& state, bool_mesh& mesh, const vector<mesh_polygon>& polygons) {
   auto vertices = vector<vector<int>>(polygons.size());
   for (int i = 0; i < polygons.size(); i++) {
     vertices[i].reserve(polygons[i].length);
+    auto& edges = polygons[i].edges;
 
-    for (auto& edge : polygons[i].edges) {
-      for (auto& segment : edge) {
-        vertices[i].push_back(add_vertex(mesh, {segment.face, segment.end}));
+    for (auto e = 0; e < edges.size(); e++) {
+      auto& segments = edges[e];
+      for (auto s = 0; s < segments.size(); s++) {
+        auto vertex = add_vertex(mesh, {segments[s].face, segments[s].end});
+        vertices[i].push_back(vertex);
+
+        if (s == segments.size() - 1) state.vertices.insert(vertex);
       }
     }
   }
@@ -366,7 +371,7 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
   }
 }
 
-static void compute_intersections(
+static void compute_intersections(bool_state& state,
     hash_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
   for (auto& [face, polylines] : hashgrid) {
     // Check for polyline self interesctions
@@ -387,7 +392,9 @@ static void compute_intersections(
           }
 
           auto uv     = lerp(start1, end1, l.y);
-          auto vertex = add_vertex(mesh, {face, uv});
+          auto point  = mesh_point{face, uv};
+          auto vertex = add_vertex(mesh, point);
+          state.vertices.insert(vertex);
 
           insert(poly.points, s0 + 1, uv);
           insert(poly.vertices, s0 + 1, vertex);
@@ -418,7 +425,9 @@ static void compute_intersections(
             }
 
             auto uv     = lerp(start1, end1, l.y);
-            auto vertex = add_vertex(mesh, {face, uv});
+            auto point  = mesh_point{face, uv};
+            auto vertex = add_vertex(mesh, point);
+            state.vertices.insert(vertex);
 
             insert(poly0.points, s0 + 1, uv);
             insert(poly0.vertices, s0 + 1, vertex);
@@ -799,10 +808,12 @@ static vector<vec3i> face_tags(const bool_mesh& mesh,
 void compute_cells(bool_mesh& mesh, bool_state& state) {
   auto& polygons = state.polygons;
 
-  auto vertices = add_vertices(mesh, polygons);
+  auto vertices = add_vertices(state, mesh, polygons);
 
   auto hashgrid = compute_hashgrid(polygons, vertices);
-  compute_intersections(hashgrid, mesh);
+  compute_intersections(state, hashgrid, mesh);
+
+  for (auto& v : state.vertices) printf("%d \n", v);
 
   // Mappa a ogni edge generato le due facce generate adiacenti.
   auto face_edgemap       = hash_map<vec2i, vec2i>{};
@@ -905,8 +916,7 @@ void compute_shape_borders(bool_mesh& mesh, bool_state& state) {
   // Calcoliamo un bordo per shape
 
   for (auto s = 0; s < state.shapes.size(); s++) {
-    auto& shape   = state.shapes[s];
-    auto& borders = state.shapes[s].borders;
+    auto& shape = state.shapes[s];
 
     // Step 1: Calcoliamo gli edges che stanno sul bordo
     auto edges = unordered_set<vec2i>();
@@ -940,7 +950,9 @@ void compute_shape_borders(bool_mesh& mesh, bool_state& state) {
       if (value == -1) continue;
 
       // add new empty boundary
-      auto border   = vector<int>();
+      auto border_segments = vector<int>();
+      auto border_points   = vector<int>();
+
       auto complete = false;
       auto current  = key;
 
@@ -951,7 +963,10 @@ void compute_shape_borders(bool_mesh& mesh, bool_state& state) {
         next_vert.at(current) = -1;
 
         // Aggiungi il controllo che current sia un control point!
-        border.push_back(current);
+        if (state.vertices.find(current) != state.vertices.end())
+          border_points.push_back(current);
+
+        border_segments.push_back(current);
 
         // close loop if necessary
         if (next == key) {
@@ -961,7 +976,10 @@ void compute_shape_borders(bool_mesh& mesh, bool_state& state) {
           current = next;
       }
 
-      if (complete) borders.push_back(border);
+      if (complete) {
+        shape.border_points.push_back(border_points);
+        shape.border_segments.push_back(border_segments);
+      }
     }
   }
 }

@@ -61,10 +61,10 @@ inline void set_border_shape(
 
   shape.borders_shape->material->color = get_color(index);
 
-  if (shape.borders.empty()) return;
+  if (shape.border_segments.empty()) return;
 
   auto positions = vector<vec3f>();
-  for (auto& border : shape.borders) {
+  for (auto& border : shape.border_segments) {
     for (auto& point : border) {
       positions.push_back(mesh.positions[point]);
     }
@@ -240,6 +240,21 @@ inline void set_border_shape(
   return add_instance(scene, identity3x4f, shape, material, false);
 }
 
+[[nodiscard]] shade_instance* draw_mesh_segment(shade_scene* scene,
+    const bool_mesh& mesh, shade_material* material,
+    const mesh_segment& segment, float radius = 0.0012f) {
+  auto start = mesh_point{segment.face, segment.start};
+  auto end   = mesh_point{segment.face, segment.end};
+
+  // draw_mesh_point(scene, mesh, material, start, radius);
+  // draw_mesh_point(scene, mesh, material, end, radius);
+
+  auto pos_start = eval_position(mesh.triangles, mesh.positions, start);
+  auto pos_end   = eval_position(mesh.triangles, mesh.positions, end);
+
+  return draw_segment(scene, mesh, material, pos_start, pos_end, radius / 2);
+}
+
 #if 0
 
 [[nodiscard]] shade_instance* draw_sphere(shade_scene* scene,
@@ -362,20 +377,7 @@ void update_path_shape(shade_shape* shape, const bool_mesh& mesh,
 }
 
 
-[[nodiscard]] shade_instance* draw_mesh_segment(shade_scene* scene,
-    const bool_mesh& mesh, shade_material* material,
-    const mesh_segment& segment, float radius = 0.0012f) {
-  auto start = mesh_point{segment.face, segment.start};
-  auto end   = mesh_point{segment.face, segment.end};
 
-  draw_mesh_point(scene, mesh, material, start, radius);
-  draw_mesh_point(scene, mesh, material, end, radius);
-
-  auto pos_start = eval_position(mesh.triangles, mesh.positions, start);
-  auto pos_end   = eval_position(mesh.triangles, mesh.positions, end);
-
-  return draw_segment(scene, mesh, material, pos_start, pos_end, radius / 2);
-}
 
 [[nodiscard]] vector<shade_instance*> draw_arrangement(shade_scene* scene,
     const bool_mesh& mesh, const vector<shade_material*>& material,

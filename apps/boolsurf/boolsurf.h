@@ -50,13 +50,15 @@ struct mesh_shape {
   vec3f         color = {0, 0, 0};
   hash_set<int> cells = {};
 
-  vector<vector<int>> borders       = {};
-  shade_instance*     borders_shape = nullptr;
+  vector<vector<int>> border_points   = {};
+  vector<vector<int>> border_segments = {};
+  shade_instance*     borders_shape   = nullptr;
 };
 
 struct bool_state {
   vector<mesh_polygon> polygons = {{}};
   vector<mesh_point>   points   = {};
+  hash_set<int>        vertices = {};
 
   int                ambient_cell = -1;
   vector<mesh_cell>  cells        = {};
