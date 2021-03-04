@@ -22,21 +22,26 @@ inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
     polygon.polyline_shape->material   = add_material(scene);
     polygon.polyline_shape->depth_test = ogl_depth_test::always;
   }
+
   if (!polygon.polyline_shape->shape) {
     polygon.polyline_shape->shape = add_shape(scene);
   }
+
   polygon.polyline_shape->material->color = get_color(index);
 
-  if (polygon.segments.empty()) return;
-  auto positions = vector<vec3f>(polygon.segments.size() + 1);
-  for (int i = 0; i < polygon.segments.size(); i++) {
-    auto& segment = polygon.segments[i];
-    positions[i]  = eval_position(mesh, {segment.face, segment.start});
+  if (polygon.length == 0) return;
+
+  auto positions = vector<vec3f>();
+  positions.reserve(polygon.length + 1);
+
+  for (auto& edge : polygon.edges) {
+    for (auto& segment : edge) {
+      positions.push_back(eval_position(mesh, {segment.face, segment.start}));
+    }
   }
-  {
-    auto& segment    = polygon.segments.back();
-    positions.back() = eval_position(mesh, {segment.face, segment.end});
-  }
+
+  auto& segment = polygon.edges.back().back();
+  positions.push_back(eval_position(mesh, {segment.face, segment.end}));
 
   set_positions(polygon.polyline_shape->shape, positions);
   polygon.polyline_shape->shape->shape->elements = ogl_element_type::line_strip;

@@ -26,10 +26,13 @@ struct shade_instance;
 }
 
 struct mesh_polygon {
-  vector<int>          points      = {};
-  vector<mesh_segment> segments    = {};
-  vector<int>          inner_faces = {};
-  vector<int>          outer_faces = {};
+  vector<int>                  points   = {};
+  vector<vector<mesh_segment>> edges    = {};
+  vector<mesh_segment>         segments = {};
+  int                          length   = 0;
+
+  vector<int> inner_faces = {};
+  vector<int> outer_faces = {};
 
   // TODO(giacomo): Put them in app.
   shade_instance* polyline_shape = nullptr;
