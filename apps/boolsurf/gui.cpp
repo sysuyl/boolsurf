@@ -34,7 +34,7 @@ void debug_draw(app_state* app, int face, const vector<vec2i>& edges,
 
   // save_triangulation(replace_extension(base, ext0), face);
 
-  save_test(app, "data/tests/crash.json");
+  save_test(app, app->state, "data/tests/crash.json");
   count += 1;
 }
 
@@ -76,7 +76,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
   static auto filename = ""s;
   if (draw_filedialog_button(widgets, "save test", true, "save file", filename,
           true, "data/tests", "test.json", "*.json")) {
-    save_test(app, filename);
+    save_test(app, app->state, filename);
   }
 
   static auto view_triangulation = false;
@@ -396,7 +396,12 @@ void key_input(app_state* app, const gui_input& input) {
             }
           }
         }
+
+        save_test(app, state, "data/tests/tmp.json");
+        return;
+
         app->mesh = app->mesh_original;
+
         for (auto& mesh_polygon : state.polygons) {
           for (int i = 0; i < mesh_polygon.points.size(); i++) {
             auto start = mesh_polygon.points[i];
@@ -416,6 +421,7 @@ void key_input(app_state* app, const gui_input& input) {
         for (auto& polygon : app->state.polygons) {
           clear_shape(polygon.polyline_shape->shape);
         }
+
         app->state = state;
         for (int i = 0; i < app->state.polygons.size(); i++) {
           auto& polygon = app->state.polygons[i];

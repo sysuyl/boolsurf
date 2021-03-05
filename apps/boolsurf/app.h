@@ -474,10 +474,11 @@ inline void update_cell_colors(app_state* app) {
   // }
 }
 
-void save_test(app_state* app, const string& filename) {
-  app->test.points   = app->state.points;
+void save_test(
+    app_state* app, const bool_state& state, const string& filename) {
+  app->test.points   = state.points;
   app->test.polygons = {{}};
-  for (auto& mesh_polygon : app->state.polygons) {
+  for (auto& mesh_polygon : state.polygons) {
     if (mesh_polygon.points.size()) {
       app->test.polygons.push_back(mesh_polygon.points);
     }

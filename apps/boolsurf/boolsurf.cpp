@@ -818,8 +818,6 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   auto hashgrid = compute_hashgrid(polygons, vertices);
   compute_intersections(state, hashgrid, mesh);
 
-  for (auto& v : state.border_vertices) printf("%d \n", v);
-
   // Mappa a ogni edge generato le due facce generate adiacenti.
   auto face_edgemap       = hash_map<vec2i, vec2i>{};
   auto triangulated_faces = hash_map<int, vector<int>>{};
@@ -920,7 +918,7 @@ void compute_shapes(bool_state& state) {
 void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
   // Calcoliamo un bordo per shape
 
-  for (auto s = 0; s < state.shapes.size(); s++) {
+  for (auto s = 1; s < state.shapes.size(); s++) {
     auto& shape = state.shapes[s];
 
     // Step 1: Calcoliamo gli edges che stanno sul bordo
