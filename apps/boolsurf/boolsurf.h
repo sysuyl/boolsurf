@@ -58,11 +58,11 @@ struct mesh_shape {
 struct bool_state {
   vector<mesh_polygon> polygons = {{}};
   vector<mesh_point>   points   = {};
-  hash_set<int>        vertices = {};
 
-  int                ambient_cell = -1;
-  vector<mesh_cell>  cells        = {};
-  vector<mesh_shape> shapes       = {};
+  hash_map<int, int> border_vertices = {};
+  int                ambient_cell    = -1;
+  vector<mesh_cell>  cells           = {};
+  vector<mesh_shape> shapes          = {};
 };
 
 namespace yocto {  // TODO(giacomo): Fix this.
@@ -85,7 +85,7 @@ struct bool_operation {
 void init_mesh(bool_mesh& mesh);
 void compute_cells(bool_mesh& mesh, bool_state& state);
 void compute_shapes(bool_state& state);
-void compute_shape_borders(bool_mesh& mesh, bool_state& state);
+void compute_shape_borders(const bool_mesh& mesh, bool_state& state);
 void compute_bool_operation(bool_state& state, const bool_operation& op);
 
 vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,

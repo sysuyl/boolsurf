@@ -148,6 +148,7 @@ bool_state state_from_test(const bool_mesh& mesh, const bool_test& test) {
     mesh_polygon.points = polygon;
   }
 
+  // TODO(giacomo): Make this a function.
   for (auto& mesh_polygon : state.polygons) {
     for (int i = 0; i < mesh_polygon.points.size(); i++) {
       auto start = mesh_polygon.points[i];

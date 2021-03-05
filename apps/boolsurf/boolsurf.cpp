@@ -161,7 +161,10 @@ static vector<vector<int>> add_vertices(
         auto vertex = add_vertex(mesh, {segments[s].face, segments[s].end});
         vertices[i].push_back(vertex);
 
-        if (s == segments.size() - 1) state.vertices.insert(vertex);
+        if (s == segments.size() - 1) {
+          state.border_vertices[vertex] =
+              polygons[i].points[(e + 1) % edges.size()];
+        }
       }
     }
   }
@@ -391,10 +394,11 @@ static void compute_intersections(bool_state& state,
             continue;
           }
 
-          auto uv     = lerp(start1, end1, l.y);
-          auto point  = mesh_point{face, uv};
-          auto vertex = add_vertex(mesh, point);
-          state.vertices.insert(vertex);
+          auto uv                       = lerp(start1, end1, l.y);
+          auto point                    = mesh_point{face, uv};
+          auto vertex                   = add_vertex(mesh, point);
+          state.border_vertices[vertex] = state.points.size();
+          state.points.push_back(point);
 
           insert(poly.points, s0 + 1, uv);
           insert(poly.vertices, s0 + 1, vertex);
@@ -424,10 +428,11 @@ static void compute_intersections(bool_state& state,
               continue;
             }
 
-            auto uv     = lerp(start1, end1, l.y);
-            auto point  = mesh_point{face, uv};
-            auto vertex = add_vertex(mesh, point);
-            state.vertices.insert(vertex);
+            auto uv                       = lerp(start1, end1, l.y);
+            auto point                    = mesh_point{face, uv};
+            auto vertex                   = add_vertex(mesh, point);
+            state.border_vertices[vertex] = state.points.size();
+            state.points.push_back(point);
 
             insert(poly0.points, s0 + 1, uv);
             insert(poly0.vertices, s0 + 1, vertex);
@@ -813,7 +818,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   auto hashgrid = compute_hashgrid(polygons, vertices);
   compute_intersections(state, hashgrid, mesh);
 
-  for (auto& v : state.vertices) printf("%d \n", v);
+  for (auto& v : state.border_vertices) printf("%d \n", v);
 
   // Mappa a ogni edge generato le due facce generate adiacenti.
   auto face_edgemap       = hash_map<vec2i, vec2i>{};
@@ -912,14 +917,14 @@ void compute_shapes(bool_state& state) {
   }
 }
 
-void compute_shape_borders(bool_mesh& mesh, bool_state& state) {
+void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
   // Calcoliamo un bordo per shape
 
   for (auto s = 0; s < state.shapes.size(); s++) {
     auto& shape = state.shapes[s];
 
     // Step 1: Calcoliamo gli edges che stanno sul bordo
-    auto edges = unordered_set<vec2i>();
+    auto edges = hash_set<vec2i>();
     for (auto c : shape.cells) {
       auto& cell = state.cells[c];
 
@@ -943,7 +948,7 @@ void compute_shape_borders(bool_mesh& mesh, bool_state& state) {
     }
 
     // Step 2: Riordiniamo i bordi
-    auto next_vert = unordered_map<int, int>();
+    auto next_vert = hash_map<int, int>();
     for (auto& edge : edges) next_vert[edge.x] = edge.y;
 
     for (auto& [key, value] : next_vert) {
@@ -963,7 +968,7 @@ void compute_shape_borders(bool_mesh& mesh, bool_state& state) {
         next_vert.at(current) = -1;
 
         // Aggiungi il controllo che current sia un control point!
-        if (state.vertices.find(current) != state.vertices.end())
+        if (state.border_vertices.find(current) != state.border_vertices.end())
           border_points.push_back(current);
 
         border_segments.push_back(current);

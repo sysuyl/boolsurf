@@ -331,21 +331,62 @@ void key_input(app_state* app, const gui_input& input) {
 
         compute_shape_borders(app->mesh, app->state);
 
-        for (auto s = 0; s < app->state.shapes.size(); s++) {
-          if (s == 0) continue;
-          // set_border_shape(
-          //     app->glscene, app->mesh, app->state.shapes[s], s + 1);
-          auto& shape = app->state.shapes[s];
-          for (auto& border : shape.border_segments) {
-            for (auto p = 0; p < border.size(); p++) {
-              auto start = app->mesh.positions[border[p]];
-              auto end   = app->mesh.positions[border[(p + 1) % border.size()]];
+        auto state   = bool_state{};
+        state.points = app->state.points;
 
-              draw_segment(app->glscene, app->mesh, app->cell_materials[s + 1],
-                  start, end, 0.0015f);
+        for (auto& shape : app->state.shapes) {
+          for (auto& border : shape.border_points) {
+            auto& polygon = state.polygons.emplace_back();
+            for (auto v : border) {
+              auto id = app->state.border_vertices.at(v);
+              polygon.points.push_back(id);
             }
           }
         }
+        app->mesh = app->mesh_original;
+        for (auto& mesh_polygon : state.polygons) {
+          for (int i = 0; i < mesh_polygon.points.size(); i++) {
+            auto start = mesh_polygon.points[i];
+            auto end =
+                mesh_polygon.points[(i + 1) % mesh_polygon.points.size()];
+            auto path = compute_geodesic_path(
+                app->mesh, state.points[start], state.points[end]);
+            auto segments = mesh_segments(app->mesh.triangles, path.strip,
+                path.lerps, path.start, path.end);
+            mesh_polygon.segments += segments;
+
+            mesh_polygon.edges.push_back(segments);
+            mesh_polygon.length += segments.size();
+          }
+        }
+
+        for (auto& polygon : app->state.polygons) {
+          clear_shape(polygon.polyline_shape->shape);
+        }
+        app->state = state;
+        for (int i = 0; i < app->state.polygons.size(); i++) {
+          auto& polygon = app->state.polygons[i];
+          set_polygon_shape(app->glscene, app->mesh, polygon, i);
+        }
+        return;
+
+        // for (auto s = 0; s < app->state.shapes.size(); s++) {
+        //   if (s == 0) continue;
+        //   // set_border_shape(
+        //   //     app->glscene, app->mesh, app->state.shapes[s], s + 1);
+        //   auto& shape = app->state.shapes[s];
+        //   for (auto& border : shape.border_segments) {
+        //     for (auto p = 0; p < border.size(); p++) {
+        //       auto start = app->mesh.positions[border[p]];
+        //       auto end   = app->mesh.positions[border[(p + 1) %
+        //       border.size()]];
+
+        //       draw_segment(app->glscene, app->mesh, app->cell_materials[s +
+        //       1],
+        //           start, end, 0.0015f);
+        //     }
+        //   }
+        // }
 
         app->cell_shapes.resize(app->state.cells.size());
         for (int i = 0; i < app->state.cells.size(); i++) {
