@@ -398,6 +398,8 @@ static void compute_intersections(bool_state& state,
           auto point                    = mesh_point{face, uv};
           auto vertex                   = add_vertex(mesh, point);
           state.border_vertices[vertex] = state.points.size();
+          state.isec_polygons[vertex]   = {poly.polygon, poly.polygon};
+
           state.points.push_back(point);
 
           insert(poly.points, s0 + 1, uv);
@@ -432,6 +434,8 @@ static void compute_intersections(bool_state& state,
             auto point                    = mesh_point{face, uv};
             auto vertex                   = add_vertex(mesh, point);
             state.border_vertices[vertex] = state.points.size();
+            state.isec_polygons[vertex]   = {poly0.polygon, poly1.polygon};
+
             state.points.push_back(point);
 
             insert(poly0.points, s0 + 1, uv);
@@ -813,7 +817,8 @@ static vector<vec3i> face_tags(const bool_mesh& mesh,
 void compute_cells(bool_mesh& mesh, bool_state& state) {
   auto& polygons = state.polygons;
 
-  auto vertices = add_vertices(state, mesh, polygons);
+  auto vertices             = add_vertices(state, mesh, polygons);
+  state.num_original_points = (int)state.points.size();
 
   auto hashgrid = compute_hashgrid(polygons, vertices);
   compute_intersections(state, hashgrid, mesh);
@@ -902,6 +907,7 @@ void compute_shapes(bool_state& state) {
 
   // Assign a polygon and a color to each shape.
   for (auto p = 0; p < state.polygons.size(); p++) {
+    if (shapes[p].polygon == 0) shapes[p].polygon = p;
     if (shapes[p].color == zero3f) shapes[p].color = get_color(p);
   }
 
@@ -917,12 +923,28 @@ void compute_shapes(bool_state& state) {
   }
 }
 
+void compute_generator_polygons(
+    const bool_state& state, int shape_idx, hash_set<int>& result) {
+  auto& shape = state.shapes[shape_idx];
+
+  if (shape.generators == vec2i{-1, -1}) {
+    result.insert(shape.polygon);
+    return;
+  }
+
+  compute_generator_polygons(state, shape.generators.x, result);
+  compute_generator_polygons(state, shape.generators.y, result);
+}
+
 void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
   // Calcoliamo un bordo per shape
 
   for (auto s = 0; s < state.shapes.size(); s++) {
     auto& shape = state.shapes[s];
     if (!shape.is_root) continue;
+
+    auto generator_polygons = hash_set<int>();
+    compute_generator_polygons(state, s, generator_polygons);
 
     // Step 1: Calcoliamo gli edges che stanno sul bordo
     auto edges = hash_set<vec2i>();
@@ -969,8 +991,17 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
         next_vert.at(current) = -1;
 
         // Aggiungi il controllo che current sia un control point!
-        if (state.border_vertices.find(current) != state.border_vertices.end())
-          border_points.push_back(current);
+        if (state.border_vertices.find(current) !=
+            state.border_vertices.end()) {
+          if (contains(state.isec_polygons, current)) {
+            auto& isec_generators = state.isec_polygons.at(current);
+
+            if (contains(generator_polygons, isec_generators.x) &&
+                contains(generator_polygons, isec_generators.y))
+              border_points.push_back(current);
+          } else
+            border_points.push_back(current);
+        }
 
         border_segments.push_back(current);
 

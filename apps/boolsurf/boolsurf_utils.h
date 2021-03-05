@@ -184,6 +184,16 @@ template <typename Key>
 using hash_set = std::unordered_set<Key>;
 #endif
 
+template <class K, class V>
+inline bool contains(const hash_map<K, V>& map, const K& x) {
+  return map.find(x) != map.end();
+}
+
+template <class T>
+inline bool contains(const hash_set<T>& set, const T& x) {
+  return set.find(x) != set.end();
+}
+
 #ifdef MY_DEBUG
 static auto debug_triangles = hash_map<int, vector<vec3i>>{};
 static auto debug_edges     = hash_map<int, vector<vec2i>>{};

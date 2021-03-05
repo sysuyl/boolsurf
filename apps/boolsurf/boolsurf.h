@@ -47,6 +47,7 @@ struct mesh_cell {
 };
 
 struct mesh_shape {
+  int   polygon    = 0;
   vec2i generators = {-1, -1};
   bool  is_root    = true;
 
@@ -62,10 +63,13 @@ struct bool_state {
   vector<mesh_polygon> polygons = {{}};
   vector<mesh_point>   points   = {};
 
-  hash_map<int, int> border_vertices = {};
-  int                ambient_cell    = -1;
-  vector<mesh_cell>  cells           = {};
-  vector<mesh_shape> shapes          = {};
+  int                  num_original_points = 0;
+  hash_map<int, int>   border_vertices     = {};
+  hash_map<int, vec2i> isec_polygons       = {};
+
+  int                ambient_cell = -1;
+  vector<mesh_cell>  cells        = {};
+  vector<mesh_shape> shapes       = {};
 };
 
 namespace yocto {  // TODO(giacomo): Fix this.
