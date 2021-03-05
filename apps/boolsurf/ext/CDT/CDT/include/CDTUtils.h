@@ -43,6 +43,7 @@ typedef char couldnt_parse_cxx_standard[-1]; ///< Error: couldn't parse standard
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <stdexcept>
 #include <vector>
 
 #ifdef CDT_USE_BOOST

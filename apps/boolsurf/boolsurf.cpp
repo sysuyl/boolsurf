@@ -906,7 +906,9 @@ void compute_shapes(bool_state& state) {
   }
 
   // Distribute cells to shapes
-  shapes[0].cells = {state.ambient_cell};
+  shapes[0].cells   = {state.ambient_cell};
+  shapes[0].is_root = false;
+
   for (auto c = 0; c < state.cells.size(); c++) {
     auto& cell = state.cells[c];
     for (auto p = 0; p < cell.labels.size(); p++) {
@@ -918,8 +920,9 @@ void compute_shapes(bool_state& state) {
 void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
   // Calcoliamo un bordo per shape
 
-  for (auto s = 1; s < state.shapes.size(); s++) {
+  for (auto s = 0; s < state.shapes.size(); s++) {
     auto& shape = state.shapes[s];
+    if (!shape.is_root) continue;
 
     // Step 1: Calcoliamo gli edges che stanno sul bordo
     auto edges = hash_set<vec2i>();
@@ -1007,10 +1010,13 @@ void compute_bool_operation(bool_state& state, const bool_operation& op) {
   } else if (op.type == bool_operation::Type::op_symmetrical_difference) {
     for (auto i = 0; i < aa.size(); i++) aa[i] = aa[i] != bb[i];
   }
-  // Converting back to set of ints
-  a.cells.clear();
-  for (auto i = 0; i < aa.size(); i++)
-    if (aa[i]) a.cells.insert(i);
 
-  b.cells.clear();
+  a.is_root = false;
+  b.is_root = false;
+
+  // Converting back to set of ints
+  auto& c      = state.shapes.emplace_back();
+  c.generators = {op.shape_a, op.shape_b};
+  for (auto i = 0; i < aa.size(); i++)
+    if (aa[i]) c.cells.insert(i);
 }

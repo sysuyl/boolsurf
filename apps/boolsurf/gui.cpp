@@ -388,6 +388,7 @@ void key_input(app_state* app, const gui_input& input) {
         state.points = app->state.points;
 
         for (auto& shape : app->state.shapes) {
+          if (!shape.is_root) continue;
           for (auto& border : shape.border_points) {
             auto& polygon = state.polygons.emplace_back();
             for (auto v : border) {
