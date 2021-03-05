@@ -394,11 +394,11 @@ static void compute_intersections(bool_state& state,
             continue;
           }
 
-          auto uv                       = lerp(start1, end1, l.y);
-          auto point                    = mesh_point{face, uv};
-          auto vertex                   = add_vertex(mesh, point);
-          state.border_vertices[vertex] = state.points.size();
-          state.isec_polygons[vertex]   = {poly.polygon, poly.polygon};
+          auto uv                        = lerp(start1, end1, l.y);
+          auto point                     = mesh_point{face, uv};
+          auto vertex                    = add_vertex(mesh, point);
+          state.border_vertices[vertex]  = state.points.size();
+          state.isecs_generators[vertex] = {poly.polygon, poly.polygon};
 
           state.points.push_back(point);
 
@@ -430,11 +430,11 @@ static void compute_intersections(bool_state& state,
               continue;
             }
 
-            auto uv                       = lerp(start1, end1, l.y);
-            auto point                    = mesh_point{face, uv};
-            auto vertex                   = add_vertex(mesh, point);
-            state.border_vertices[vertex] = state.points.size();
-            state.isec_polygons[vertex]   = {poly0.polygon, poly1.polygon};
+            auto uv                        = lerp(start1, end1, l.y);
+            auto point                     = mesh_point{face, uv};
+            auto vertex                    = add_vertex(mesh, point);
+            state.border_vertices[vertex]  = state.points.size();
+            state.isecs_generators[vertex] = {poly0.polygon, poly1.polygon};
 
             state.points.push_back(point);
 
@@ -925,35 +925,51 @@ void compute_shapes(bool_state& state) {
 
 void compute_generator_polygons(
     const bool_state& state, int shape_idx, hash_set<int>& result) {
+  // Calcoliamo ricorsivamente i poligoni iniziali coinvolti nelle operazioni
+  // che hanno generato la shape corrente
   auto& shape = state.shapes[shape_idx];
 
+  // Se la shape non ha generatori allora corrisponde ad una shape di un
+  // poligono
   if (shape.generators == vec2i{-1, -1}) {
     result.insert(shape.polygon);
     return;
   }
 
+  // Calcolo i generatori per le shape che hanno generato quella corrente
   compute_generator_polygons(state, shape.generators.x, result);
   compute_generator_polygons(state, shape.generators.y, result);
 }
 
 void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
-  // Calcoliamo un bordo per shape
+  // Calcoliamo tutti i bordi di una shape
 
   for (auto s = 0; s < state.shapes.size(); s++) {
     auto& shape = state.shapes[s];
+
+    // Calcoliamo il bordo solo per le shape root dell'albero csg
     if (!shape.is_root) continue;
 
+    // Calcoliamo i poligoni iniziali coinvolti nelle operazioni che hanno
+    // generato la root (ci serve successivamente per salvare nel bordo
+    // solamente i punti corretti)
     auto generator_polygons = hash_set<int>();
     compute_generator_polygons(state, s, generator_polygons);
 
     // Step 1: Calcoliamo gli edges che stanno sul bordo
     auto edges = hash_set<vec2i>();
+
     for (auto c : shape.cells) {
       auto& cell = state.cells[c];
 
+      // Per ogni cella che compone la shape calcolo il bordo a partire dalle
+      // facce che ne fanno parte
       for (auto face : cell.faces) {
+        // Se è una faccia interna allora non costituirà il bordo
         if (mesh.border_tags[face] == zero3i) continue;
 
+        // Per ogni lato del triangolo considero solamente quelli che sono di
+        // bordo (tag != 0)
         auto& tri = mesh.triangles[face];
         for (auto k = 0; k < 3; k++) {
           auto tag = mesh.border_tags[face][k];
@@ -961,6 +977,8 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
           auto edge     = get_edge(tri, k);
           auto rev_edge = vec2i{edge.y, edge.x};
 
+          // Se 'edge' è già stato incontrato allora esso è un bordo tra due
+          // celle che fanno parte dela stessa shape, quindi lo elimino dal set.
           auto it = edges.find(rev_edge);
           if (it == edges.end())
             edges.insert(edge);
@@ -971,13 +989,16 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
     }
 
     // Step 2: Riordiniamo i bordi
+    // Per ogni vertice salviamo il proprio successivo
     auto next_vert = hash_map<int, int>();
     for (auto& edge : edges) next_vert[edge.x] = edge.y;
 
     for (auto& [key, value] : next_vert) {
+      // Se il valore è -1 abbiamo già processato il punto
       if (value == -1) continue;
 
-      // add new empty boundary
+      // Aggiungiamo un nuovo bordo
+      // TODO(marzia): border_segments sparirà
       auto border_segments = vector<int>();
       auto border_points   = vector<int>();
 
@@ -990,11 +1011,14 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
 
         next_vert.at(current) = -1;
 
-        // Aggiungi il controllo che current sia un control point!
+        // Se il vertice corrente è un punto di controllo lo aggiungo al bordo
         if (state.border_vertices.find(current) !=
             state.border_vertices.end()) {
-          if (contains(state.isec_polygons, current)) {
-            auto& isec_generators = state.isec_polygons.at(current);
+          // Se è un punto di intersezione controlliamo che i poligoni che lo
+          // hanno generato siano entrambi compresi nei poligoni che hanno
+          // generato anche la shape.
+          if (contains(state.isecs_generators, current)) {
+            auto& isec_generators = state.isecs_generators.at(current);
 
             if (contains(generator_polygons, isec_generators.x) &&
                 contains(generator_polygons, isec_generators.y))
@@ -1005,7 +1029,7 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
 
         border_segments.push_back(current);
 
-        // close loop if necessary
+        // Chiudiamo il bordo
         if (next == key) {
           complete = true;
           break;
@@ -1013,6 +1037,8 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
           current = next;
       }
 
+      // Se un bordo è stato chiuso correttamente lo inseriamo tra i bordi della
+      // shape
       if (complete) {
         shape.border_points.push_back(border_points);
         shape.border_segments.push_back(border_segments);
@@ -1025,7 +1051,7 @@ void compute_bool_operation(bool_state& state, const bool_operation& op) {
   auto& a = state.shapes[op.shape_a];
   auto& b = state.shapes[op.shape_b];
 
-  // Converting to vector of bools to simplify operations
+  // Convertiamo il vettore di interi in bool per semplificare le operazioni
   auto aa = vector<bool>(state.cells.size(), false);
   for (auto& c : a.cells) aa[c] = true;
 
@@ -1042,10 +1068,13 @@ void compute_bool_operation(bool_state& state, const bool_operation& op) {
     for (auto i = 0; i < aa.size(); i++) aa[i] = aa[i] != bb[i];
   }
 
+  // Le shape 'a' e 'b' sono state usate nell'operazione,
+  // quindi non sono root del csg tree
   a.is_root = false;
   b.is_root = false;
 
-  // Converting back to set of ints
+  // Creiamo una nuova shape risultato, settando come generatori le shape 'a' e
+  // 'b' e riconvertendo il vettore di bool a interi
   auto& c      = state.shapes.emplace_back();
   c.generators = {op.shape_a, op.shape_b};
   for (auto i = 0; i < aa.size(); i++)

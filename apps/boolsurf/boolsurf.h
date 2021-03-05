@@ -60,12 +60,13 @@ struct mesh_shape {
 };
 
 struct bool_state {
+  // Input infos
   vector<mesh_polygon> polygons = {{}};
   vector<mesh_point>   points   = {};
 
   int                  num_original_points = 0;
   hash_map<int, int>   border_vertices     = {};
-  hash_map<int, vec2i> isec_polygons       = {};
+  hash_map<int, vec2i> isecs_generators    = {};
 
   int                ambient_cell = -1;
   vector<mesh_cell>  cells        = {};
