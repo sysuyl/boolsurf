@@ -216,6 +216,11 @@ void draw_widgets(app_state* app, const gui_input& input) {
     update_cell_colors(app);
     app->operation = {};
   }
+  if (draw_button(widgets, "Clear operations")) {
+    commit_state(app);
+    app->operation = {};
+    app->test.operations.clear();
+  }
 
   end_imgui(widgets);
 }
@@ -325,50 +330,6 @@ void key_input(app_state* app, const gui_input& input) {
 #endif
 
         compute_shapes(app->state);
-        for (auto& op : app->test.operations) {
-          compute_bool_operation(app->state, op);
-        }
-
-        compute_shape_borders(app->mesh, app->state);
-
-        auto state   = bool_state{};
-        state.points = app->state.points;
-
-        for (auto& shape : app->state.shapes) {
-          for (auto& border : shape.border_points) {
-            auto& polygon = state.polygons.emplace_back();
-            for (auto v : border) {
-              auto id = app->state.border_vertices.at(v);
-              polygon.points.push_back(id);
-            }
-          }
-        }
-        app->mesh = app->mesh_original;
-        for (auto& mesh_polygon : state.polygons) {
-          for (int i = 0; i < mesh_polygon.points.size(); i++) {
-            auto start = mesh_polygon.points[i];
-            auto end =
-                mesh_polygon.points[(i + 1) % mesh_polygon.points.size()];
-            auto path = compute_geodesic_path(
-                app->mesh, state.points[start], state.points[end]);
-            auto segments = mesh_segments(app->mesh.triangles, path.strip,
-                path.lerps, path.start, path.end);
-            mesh_polygon.segments += segments;
-
-            mesh_polygon.edges.push_back(segments);
-            mesh_polygon.length += segments.size();
-          }
-        }
-
-        for (auto& polygon : app->state.polygons) {
-          clear_shape(polygon.polyline_shape->shape);
-        }
-        app->state = state;
-        for (int i = 0; i < app->state.polygons.size(); i++) {
-          auto& polygon = app->state.polygons[i];
-          set_polygon_shape(app->glscene, app->mesh, polygon, i);
-        }
-        return;
 
         // for (auto s = 0; s < app->state.shapes.size(); s++) {
         //   if (s == 0) continue;
@@ -414,6 +375,53 @@ void key_input(app_state* app, const gui_input& input) {
         set_normals(app->mesh_instance->shape, app->mesh.normals);
         init_edges_and_vertices_shapes_and_points(app);
         app->mesh_instance->hidden = true;
+      } break;
+
+      case (int)gui_key('O'): {
+        for (auto& op : app->test.operations) {
+          compute_bool_operation(app->state, op);
+        }
+
+        compute_shape_borders(app->mesh, app->state);
+
+        auto state   = bool_state{};
+        state.points = app->state.points;
+
+        for (auto& shape : app->state.shapes) {
+          for (auto& border : shape.border_points) {
+            auto& polygon = state.polygons.emplace_back();
+            for (auto v : border) {
+              auto id = app->state.border_vertices.at(v);
+              polygon.points.push_back(id);
+            }
+          }
+        }
+        app->mesh = app->mesh_original;
+        for (auto& mesh_polygon : state.polygons) {
+          for (int i = 0; i < mesh_polygon.points.size(); i++) {
+            auto start = mesh_polygon.points[i];
+            auto end =
+                mesh_polygon.points[(i + 1) % mesh_polygon.points.size()];
+            auto path = compute_geodesic_path(
+                app->mesh, state.points[start], state.points[end]);
+            auto segments = mesh_segments(app->mesh.triangles, path.strip,
+                path.lerps, path.start, path.end);
+            mesh_polygon.segments += segments;
+
+            mesh_polygon.edges.push_back(segments);
+            mesh_polygon.length += segments.size();
+          }
+        }
+
+        for (auto& polygon : app->state.polygons) {
+          clear_shape(polygon.polyline_shape->shape);
+        }
+        app->state = state;
+        for (int i = 0; i < app->state.polygons.size(); i++) {
+          auto& polygon = app->state.polygons[i];
+          set_polygon_shape(app->glscene, app->mesh, polygon, i);
+        }
+        return;
       } break;
 
       case (int)gui_key('S'): {
