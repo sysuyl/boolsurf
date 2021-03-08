@@ -25,10 +25,13 @@ struct shade_instance;
 }
 
 struct mesh_polygon {
-  vector<int>          points      = {};
-  vector<mesh_segment> segments    = {};
-  vector<int>          inner_faces = {};
-  vector<int>          outer_faces = {};
+  vector<int>                  points   = {};
+  vector<vector<mesh_segment>> edges    = {};
+  vector<mesh_segment>         segments = {};
+  int                          length   = 0;
+
+  vector<int> inner_faces = {};
+  vector<int> outer_faces = {};
 
   // TODO(giacomo): Put them in app.
   shade_instance* polyline_shape = nullptr;
@@ -43,13 +46,25 @@ struct mesh_cell {
 };
 
 struct mesh_shape {
+  int   polygon    = 0;
+  vec2i generators = {-1, -1};
+  bool  is_root    = true;
+
   vec3f         color = {0, 0, 0};
   hash_set<int> cells = {};
+
+  vector<vector<int>> border_points   = {};
+  vector<vector<int>> border_segments = {};
+  shade_instance*     borders_shape   = nullptr;
 };
 
 struct bool_state {
   vector<mesh_polygon> polygons = {{}};
   vector<mesh_point>   points   = {};
+
+  int                  num_original_points = 0;
+  hash_map<int, int>   border_vertices     = {};
+  hash_map<int, vec2i> isecs_generators    = {};
 
   int                ambient_cell = -1;
   vector<mesh_cell>  cells        = {};
@@ -77,6 +92,7 @@ void init_mesh(bool_mesh& mesh);
 void reset_mesh(bool_mesh& mesh);
 void compute_cells(bool_mesh& mesh, bool_state& state);
 void compute_shapes(bool_state& state);
+void compute_shape_borders(const bool_mesh& mesh, bool_state& state);
 void compute_bool_operation(bool_state& state, const bool_operation& op);
 
 vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,

@@ -22,26 +22,59 @@ inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
     polygon.polyline_shape->material   = add_material(scene);
     polygon.polyline_shape->depth_test = ogl_depth_test::always;
   }
+
   if (!polygon.polyline_shape->shape) {
     polygon.polyline_shape->shape = add_shape(scene);
   }
+
   polygon.polyline_shape->material->color = get_color(index);
 
-  if (polygon.segments.empty()) return;
-  auto positions = vector<vec3f>(polygon.segments.size() + 1);
-  for (int i = 0; i < polygon.segments.size(); i++) {
-    auto& segment = polygon.segments[i];
-    positions[i]  = eval_position(mesh, {segment.face, segment.start});
+  if (polygon.length == 0) return;
+
+  auto positions = vector<vec3f>();
+  positions.reserve(polygon.length + 1);
+
+  for (auto& edge : polygon.edges) {
+    for (auto& segment : edge) {
+      positions.push_back(eval_position(mesh, {segment.face, segment.start}));
+    }
   }
-  {
-    auto& segment    = polygon.segments.back();
-    positions.back() = eval_position(mesh, {segment.face, segment.end});
-  }
+
+  auto& segment = polygon.edges.back().back();
+  positions.push_back(eval_position(mesh, {segment.face, segment.end}));
 
   set_positions(polygon.polyline_shape->shape, positions);
   polygon.polyline_shape->shape->shape->elements = ogl_element_type::line_strip;
   set_instances(polygon.polyline_shape->shape, {}, {});
 }
+
+inline void set_border_shape(
+    shade_scene* scene, const bool_mesh& mesh, mesh_shape& shape, int index) {
+  if (!shape.borders_shape) {
+    shape.borders_shape           = add_instance(scene);
+    shape.borders_shape->material = add_material(scene);
+  }
+
+  if (!shape.borders_shape->shape) {
+    shape.borders_shape->shape = add_shape(scene);
+  }
+
+  shape.borders_shape->material->color = get_color(index);
+
+  if (shape.border_segments.empty()) return;
+
+  auto positions = vector<vec3f>();
+  for (auto& border : shape.border_segments) {
+    for (auto& point : border) {
+      positions.push_back(mesh.positions[point]);
+    }
+  }
+
+  set_positions(shape.borders_shape->shape, positions);
+  shape.borders_shape->shape->shape->elements = ogl_element_type::line_strip;
+  set_instances(shape.borders_shape->shape, {}, {});
+}
+
 // inline void draw_triangulation(
 //     ogl_texture* texture, int face, vec2i size = {2048, 2048}) {
 //   auto& triangles = debug_triangles[face];
@@ -190,6 +223,38 @@ inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
 //   }
 // }
 
+[[nodiscard]] shade_instance* draw_segment(shade_scene* scene,
+    const bool_mesh& mesh, shade_material* material, const vec3f& start,
+    const vec3f& end, float radius = 0.0006f) {
+  auto cylinder = make_uvcylinder({4, 1, 1}, {radius, 1});
+  for (auto& p : cylinder.positions) {
+    p.z = p.z * 0.5 + 0.5;
+  }
+
+  auto shape = add_shape(scene);
+  set_quads(shape, cylinder.quads);
+  set_positions(shape, cylinder.positions);
+  set_normals(shape, cylinder.normals);
+  set_texcoords(shape, cylinder.texcoords);
+  set_instances(shape, {start}, {end});
+  return add_instance(scene, identity3x4f, shape, material, false);
+}
+
+[[nodiscard]] shade_instance* draw_mesh_segment(shade_scene* scene,
+    const bool_mesh& mesh, shade_material* material,
+    const mesh_segment& segment, float radius = 0.0012f) {
+  auto start = mesh_point{segment.face, segment.start};
+  auto end   = mesh_point{segment.face, segment.end};
+
+  // draw_mesh_point(scene, mesh, material, start, radius);
+  // draw_mesh_point(scene, mesh, material, end, radius);
+
+  auto pos_start = eval_position(mesh.triangles, mesh.positions, start);
+  auto pos_end   = eval_position(mesh.triangles, mesh.positions, end);
+
+  return draw_segment(scene, mesh, material, pos_start, pos_end, radius / 2);
+}
+
 #if 0
 
 [[nodiscard]] shade_instance* draw_sphere(shade_scene* scene,
@@ -311,37 +376,8 @@ void update_path_shape(shade_shape* shape, const bool_mesh& mesh,
   set_instances(shape, froms, tos);
 }
 
-[[nodiscard]] shade_instance* draw_segment(shade_scene* scene,
-    const bool_mesh& mesh, shade_material* material, const vec3f& start,
-    const vec3f& end, float radius = 0.0006f) {
-  auto cylinder = make_uvcylinder({4, 1, 1}, {radius, 1});
-  for (auto& p : cylinder.positions) {
-    p.z = p.z * 0.5 + 0.5;
-  }
 
-  auto shape = add_shape(scene);
-  set_quads(shape, cylinder.quads);
-  set_positions(shape, cylinder.positions);
-  set_normals(shape, cylinder.normals);
-  set_texcoords(shape, cylinder.texcoords);
-  set_instances(shape, {start}, {end});
-  return add_instance(scene, identity3x4f, shape, material, false);
-}
 
-[[nodiscard]] shade_instance* draw_mesh_segment(shade_scene* scene,
-    const bool_mesh& mesh, shade_material* material,
-    const mesh_segment& segment, float radius = 0.0012f) {
-  auto start = mesh_point{segment.face, segment.start};
-  auto end   = mesh_point{segment.face, segment.end};
-
-  draw_mesh_point(scene, mesh, material, start, radius);
-  draw_mesh_point(scene, mesh, material, end, radius);
-
-  auto pos_start = eval_position(mesh.triangles, mesh.positions, start);
-  auto pos_end   = eval_position(mesh.triangles, mesh.positions, end);
-
-  return draw_segment(scene, mesh, material, pos_start, pos_end, radius / 2);
-}
 
 [[nodiscard]] vector<shade_instance*> draw_arrangement(shade_scene* scene,
     const bool_mesh& mesh, const vector<shade_material*>& material,

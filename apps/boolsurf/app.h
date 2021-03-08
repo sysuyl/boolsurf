@@ -89,7 +89,9 @@ struct app_state {
 void update_polygon(app_state* app, int polygon_id) {
   auto& mesh_polygon = app->state.polygons[polygon_id];
 
+  // TODO (marzia) Remove segments from here
   mesh_polygon.segments.clear();
+  mesh_polygon.edges.clear();
 
   // Draw polygon.
   for (int i = 0; i < mesh_polygon.points.size(); i++) {
@@ -101,6 +103,9 @@ void update_polygon(app_state* app, int polygon_id) {
         app->mesh.triangles, path.strip, path.lerps, path.start, path.end);
     mesh_polygon.segments.insert(
         mesh_polygon.segments.end(), segments.begin(), segments.end());
+
+    mesh_polygon.edges.push_back(segments);
+    mesh_polygon.length += segments.size();
   }
   set_polygon_shape(app->glscene, app->mesh, mesh_polygon, polygon_id);
 }
@@ -470,10 +475,11 @@ inline void update_cell_colors(app_state* app) {
   // }
 }
 
-void save_test(app_state* app, const string& filename) {
-  app->test.points   = app->state.points;
+void save_test(
+    app_state* app, const bool_state& state, const string& filename) {
+  app->test.points   = state.points;
   app->test.polygons = {{}};
-  for (auto& mesh_polygon : app->state.polygons) {
+  for (auto& mesh_polygon : state.polygons) {
     if (mesh_polygon.points.size()) {
       app->test.polygons.push_back(mesh_polygon.points);
     }

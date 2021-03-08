@@ -129,7 +129,7 @@ static mesh_hashgrid compute_hashgrid(
     auto& polygon   = polygons[polygon_id];
     int   last_face = -1;
 
-    if (polygon.segments.empty()) continue;
+    if (polygon.length == 0) continue;
     int first_face = polygon.segments[0].face;
     int s_first    = -1;
 
@@ -192,16 +192,26 @@ inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
 }
 
 static vector<vector<int>> add_vertices(
-    bool_mesh& mesh, const vector<mesh_polygon>& polygons) {
+    bool_state& state, bool_mesh& mesh, const vector<mesh_polygon>& polygons) {
   auto vertices = vector<vector<int>>(polygons.size());
   for (int i = 0; i < polygons.size(); i++) {
-    auto& segments = polygons[i].segments;
-    vertices[i].resize(segments.size());
+    vertices[i].reserve(polygons[i].length);
+    auto& edges = polygons[i].edges;
 
-    for (auto s = 0; s < segments.size(); s++) {
-      vertices[i][s] = add_vertex(mesh, {segments[s].face, segments[s].end});
+    for (auto e = 0; e < edges.size(); e++) {
+      auto& segments = edges[e];
+      for (auto s = 0; s < segments.size(); s++) {
+        auto vertex = add_vertex(mesh, {segments[s].face, segments[s].end});
+        vertices[i].push_back(vertex);
+
+        if (s == segments.size() - 1) {
+          state.border_vertices[vertex] =
+              polygons[i].points[(e + 1) % edges.size()];
+        }
+      }
     }
   }
+
   return vertices;
 }
 
@@ -363,6 +373,39 @@ inline vector<vector<vec2i>> compute_graph_cycles(
   return cycles;
 }
 
+inline vector<vector<int>> compute_components(
+    const bool_state& state, const mesh_shape& shape) {
+  auto cells   = vector<int>(shape.cells.begin(), shape.cells.end());
+  auto visited = hash_map<int, bool>();
+  for (auto cell : cells) visited[cell] = false;
+
+  auto components = vector<vector<int>>();
+
+  for (auto cell : cells) {
+    if (visited[cell]) continue;
+
+    auto& component = components.emplace_back();
+
+    auto stack = vector<int>();
+    stack.push_back(cell);
+
+    while (!stack.empty()) {
+      auto cell_idx = stack.back();
+      stack.pop_back();
+
+      visited[cell_idx] = true;
+      component.push_back(cell_idx);
+
+      auto& cell = state.cells[cell_idx];
+      for (auto& [neighbor, _] : cell.adjacency) {
+        if (find_idx(cells, neighbor) == -1) continue;
+        if (!visited[neighbor]) stack.push_back(neighbor);
+      }
+    }
+  }
+  return components;
+}
+
 static void compute_cell_labels(vector<mesh_cell>& cells,
     const vector<int>& start, const vector<int>& skip_polygons) {
   auto visited = vector<bool>(cells.size(), false);
@@ -407,7 +450,7 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
   }
 }
 
-static void compute_intersections(
+static void compute_intersections(bool_state& state,
     hash_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
   for (auto& [face, polylines] : hashgrid) {
     // Check for polyline self interesctions
@@ -427,8 +470,13 @@ static void compute_intersections(
             continue;
           }
 
-          auto uv     = lerp(start1, end1, l.y);
-          auto vertex = add_vertex(mesh, {face, uv});
+          auto uv                        = lerp(start1, end1, l.y);
+          auto point                     = mesh_point{face, uv};
+          auto vertex                    = add_vertex(mesh, point);
+          state.border_vertices[vertex]  = state.points.size();
+          state.isecs_generators[vertex] = {poly.polygon, poly.polygon};
+
+          state.points.push_back(point);
 
           insert(poly.points, s0 + 1, uv);
           insert(poly.vertices, s0 + 1, vertex);
@@ -458,8 +506,13 @@ static void compute_intersections(
               continue;
             }
 
-            auto uv     = lerp(start1, end1, l.y);
-            auto vertex = add_vertex(mesh, {face, uv});
+            auto uv                        = lerp(start1, end1, l.y);
+            auto point                     = mesh_point{face, uv};
+            auto vertex                    = add_vertex(mesh, point);
+            state.border_vertices[vertex]  = state.points.size();
+            state.isecs_generators[vertex] = {poly0.polygon, poly1.polygon};
+
+            state.points.push_back(point);
 
             insert(poly0.points, s0 + 1, uv);
             insert(poly0.vertices, s0 + 1, vertex);
@@ -843,10 +896,11 @@ static vector<vec3i> face_tags(const bool_mesh& mesh,
 void compute_cells(bool_mesh& mesh, bool_state& state) {
   auto& polygons = state.polygons;
 
-  auto vertices = add_vertices(mesh, polygons);
+  auto vertices             = add_vertices(state, mesh, polygons);
+  state.num_original_points = (int)state.points.size();
 
   auto hashgrid = compute_hashgrid(polygons, vertices);
-  compute_intersections(hashgrid, mesh);
+  compute_intersections(state, hashgrid, mesh);
 
   // Mappa a ogni edge generato le due facce generate adiacenti.
   auto face_edgemap       = hash_map<vec2i, vec2i>{};
@@ -925,11 +979,14 @@ void compute_shapes(bool_state& state) {
 
   // Assign a polygon and a color to each shape.
   for (auto p = 0; p < state.polygons.size(); p++) {
+    if (shapes[p].polygon == 0) shapes[p].polygon = p;
     if (shapes[p].color == zero3f) shapes[p].color = get_color(p);
   }
 
   // Distribute cells to shapes
-  shapes[0].cells = {state.ambient_cell};
+  shapes[0].cells   = {state.ambient_cell};
+  shapes[0].is_root = false;
+
   for (auto c = 0; c < state.cells.size(); c++) {
     auto& cell = state.cells[c];
     for (auto p = 0; p < cell.labels.size(); p++) {
@@ -938,11 +995,140 @@ void compute_shapes(bool_state& state) {
   }
 }
 
+void compute_generator_polygons(
+    const bool_state& state, int shape_idx, hash_set<int>& result) {
+  // Calcoliamo ricorsivamente i poligoni iniziali coinvolti nelle operazioni
+  // che hanno generato la shape corrente
+  auto& shape = state.shapes[shape_idx];
+
+  // Se la shape non ha generatori allora corrisponde ad una shape di un
+  // poligono
+  if (shape.generators == vec2i{-1, -1}) {
+    result.insert(shape.polygon);
+    return;
+  }
+
+  // Calcolo i generatori per le shape che hanno generato quella corrente
+  compute_generator_polygons(state, shape.generators.x, result);
+  compute_generator_polygons(state, shape.generators.y, result);
+}
+
+void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
+  // Calcoliamo tutti i bordi di una shape
+
+  for (auto s = 0; s < state.shapes.size(); s++) {
+    auto& shape = state.shapes[s];
+
+    // Calcoliamo il bordo solo per le shape root dell'albero csg
+    if (!shape.is_root) continue;
+
+    // Calcoliamo i poligoni iniziali coinvolti nelle operazioni che hanno
+    // generato la root (ci serve successivamente per salvare nel bordo
+    // solamente i punti corretti)
+    auto generator_polygons = hash_set<int>();
+    compute_generator_polygons(state, s, generator_polygons);
+
+    auto components = compute_components(state, shape);
+    for (auto& component : components) {
+      // Step 1: Calcoliamo gli edges che stanno sul bordo
+      auto edges = hash_set<vec2i>();
+
+      for (auto c : component) {
+        auto& cell = state.cells[c];
+
+        // Per ogni cella che compone la shape calcolo il bordo a partire dalle
+        // facce che ne fanno parte
+        for (auto face : cell.faces) {
+          // Se è una faccia interna allora non costituirà il bordo
+          if (mesh.border_tags[face] == zero3i) continue;
+
+          // Per ogni lato del triangolo considero solamente quelli che sono di
+          // bordo (tag != 0)
+          auto& tri = mesh.triangles[face];
+          for (auto k = 0; k < 3; k++) {
+            auto tag = mesh.border_tags[face][k];
+            if (tag == 0) continue;
+            auto edge     = get_edge(tri, k);
+            auto rev_edge = vec2i{edge.y, edge.x};
+
+            // Se 'edge' è già stato incontrato allora esso è un bordo tra due
+            // celle che fanno parte dela stessa shape, quindi lo elimino dal
+            // set.
+            auto it = edges.find(rev_edge);
+            if (it == edges.end())
+              edges.insert(edge);
+            else
+              edges.erase(it);
+          }
+        }
+      }
+
+      // Step 2: Riordiniamo i bordi
+      // Per ogni vertice salviamo il proprio successivo
+      auto next_vert = hash_map<int, int>();
+      for (auto& edge : edges) next_vert[edge.x] = edge.y;
+
+      for (auto& [key, value] : next_vert) {
+        // Se il valore è -1 abbiamo già processato il punto
+        if (value == -1) continue;
+
+        // Aggiungiamo un nuovo bordo
+        // TODO(marzia): border_segments sparirà
+        auto border_segments = vector<int>();
+        auto border_points   = vector<int>();
+
+        auto complete = false;
+        auto current  = key;
+
+        while (true) {
+          auto next = next_vert.at(current);
+          if (next == -1) break;
+
+          next_vert.at(current) = -1;
+
+          // Se il vertice corrente è un punto di controllo lo aggiungo al bordo
+          if (state.border_vertices.find(current) !=
+              state.border_vertices.end()) {
+            // Se è un punto di intersezione controlliamo che i poligoni che lo
+            // hanno generato siano entrambi compresi nei poligoni che hanno
+            // generato anche la shape.
+            if (contains(state.isecs_generators, current)) {
+              auto& isec_generators = state.isecs_generators.at(current);
+
+              if (contains(generator_polygons, isec_generators.x) &&
+                  contains(generator_polygons, isec_generators.y))
+                border_points.push_back(current);
+            } else
+              border_points.push_back(current);
+          }
+
+          border_segments.push_back(current);
+
+          // Chiudiamo il bordo
+          if (next == key) {
+            complete = true;
+            break;
+          } else
+            current = next;
+        }
+
+        // Se un bordo è stato chiuso correttamente lo inseriamo tra i bordi
+        // della shape
+        if (complete) {
+          shape.border_points.push_back(border_points);
+          shape.border_segments.push_back(border_segments);
+        }
+      }
+    }
+    printf("Borders: %d\n", shape.border_points.size());
+  }
+}
+
 void compute_bool_operation(bool_state& state, const bool_operation& op) {
   auto& a = state.shapes[op.shape_a];
   auto& b = state.shapes[op.shape_b];
 
-  // Converting to vector of bools to simplify operations
+  // Convertiamo il vettore di interi in bool per semplificare le operazioni
   auto aa = vector<bool>(state.cells.size(), false);
   for (auto& c : a.cells) aa[c] = true;
 
@@ -958,10 +1144,16 @@ void compute_bool_operation(bool_state& state, const bool_operation& op) {
   } else if (op.type == bool_operation::Type::op_symmetrical_difference) {
     for (auto i = 0; i < aa.size(); i++) aa[i] = aa[i] != bb[i];
   }
-  // Converting back to set of ints
-  a.cells.clear();
-  for (auto i = 0; i < aa.size(); i++)
-    if (aa[i]) a.cells.insert(i);
 
-  b.cells.clear();
+  // Le shape 'a' e 'b' sono state usate nell'operazione,
+  // quindi non sono root del csg tree
+  a.is_root = false;
+  b.is_root = false;
+
+  // Creiamo una nuova shape risultato, settando come generatori le shape 'a' e
+  // 'b' e riconvertendo il vettore di bool a interi
+  auto& c      = state.shapes.emplace_back();
+  c.generators = {op.shape_a, op.shape_b};
+  for (auto i = 0; i < aa.size(); i++)
+    if (aa[i]) c.cells.insert(i);
 }
