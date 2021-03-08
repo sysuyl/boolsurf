@@ -48,8 +48,8 @@ inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
   set_instances(polygon.polyline_shape->shape, {}, {});
 }
 
-inline void set_border_shape(
-    shade_scene* scene, const bool_mesh& mesh, mesh_shape& shape, int index) {
+inline void set_border_shape(shade_scene* scene, const bool_state& state,
+    const bool_mesh& mesh, mesh_shape& shape, int index) {
   if (!shape.borders_shape) {
     shape.borders_shape           = add_instance(scene);
     shape.borders_shape->material = add_material(scene);
@@ -61,12 +61,24 @@ inline void set_border_shape(
 
   shape.borders_shape->material->color = get_color(index);
 
-  if (shape.border_segments.empty()) return;
+  if (shape.border_points.empty()) return;
 
   auto positions = vector<vec3f>();
-  for (auto& border : shape.border_segments) {
-    for (auto& point : border) {
-      positions.push_back(mesh.positions[point]);
+
+  for (auto& border : shape.border_points) {
+    for (auto p = 0; p < border.size(); p++) {
+      auto start = border[p];
+      auto end   = border[(p + 1) % border.size()];
+
+      auto path = compute_geodesic_path(
+          mesh, state.points[start], state.points[end]);
+      auto segments = mesh_segments(
+          mesh.triangles, path.strip, path.lerps, path.start, path.end);
+
+      for (auto& segment : segments) {
+        auto pos = eval_position(mesh, {segment.face, segment.start});
+        positions.push_back(pos);
+      }
     }
   }
 

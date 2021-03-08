@@ -1052,9 +1052,7 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
         if (value == -1) continue;
 
         // Aggiungiamo un nuovo bordo
-        // TODO(marzia): border_segments sparirà
-        auto border_segments = vector<int>();
-        auto border_points   = vector<int>();
+        auto border_points = vector<int>();
 
         auto current = key;
 
@@ -1079,13 +1077,10 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
               border_points.push_back(current);
           }
 
-          border_segments.push_back(current);
-
           // Se un bordo è stato chiuso correttamente lo inseriamo tra i bordi
           // della shape
           if (next == key) {
             shape.border_points.push_back(border_points);
-            shape.border_segments.push_back(border_segments);
             break;
           } else
             current = next;
