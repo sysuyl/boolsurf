@@ -6,8 +6,8 @@
 # Implementation
 - [x] Visualizzare booleane.
 - [ ] Tirare su tests.
-- [ ] Rappresentare il risultato implicitamente come sequenze di punti: inserire intersezioni nei poligoni e taggare i lati per visualizzare bene le booleane.
-- [ ] Integrare bezier.
+- [x] Rappresentare il risultato implicitamente come sequenze di punti: inserire intersezioni nei poligoni e taggare i lati per visualizzare bene le booleane.
+- [x] Integrare bezier.
 
 # Performance
 - [ ] Farsi a mano triangle-split con singolo segmento (senza chiamare CDT).

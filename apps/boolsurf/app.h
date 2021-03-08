@@ -87,28 +87,9 @@ struct app_state {
 };
 
 void update_polygon(app_state* app, int polygon_id) {
+  update_polygon(app->state, app->mesh, polygon_id);
+
   auto& mesh_polygon = app->state.polygons[polygon_id];
-
-  // TODO (marzia) Remove segments from here
-  mesh_polygon.segments.clear();
-  mesh_polygon.edges.clear();
-
-  // Draw polygon.
-  for (int i = 0; i < mesh_polygon.points.size(); i++) {
-    auto start = mesh_polygon.points[i];
-    auto end   = mesh_polygon.points[(i + 1) % mesh_polygon.points.size()];
-    auto path  = compute_geodesic_path(
-        app->mesh, app->state.points[start], app->state.points[end]);
-    auto segments = mesh_segments(
-        app->mesh.triangles, path.strip, path.lerps, path.start, path.end);
-    if (segments.empty()) continue;
-
-    mesh_polygon.segments.insert(
-        mesh_polygon.segments.end(), segments.begin(), segments.end());
-
-    mesh_polygon.edges.push_back(segments);
-    mesh_polygon.length += segments.size();
-  }
   set_polygon_shape(app->glscene, app->mesh, mesh_polygon, polygon_id);
 }
 
