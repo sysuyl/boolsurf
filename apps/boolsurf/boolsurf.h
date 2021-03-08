@@ -90,6 +90,9 @@ struct bool_operation {
 
 void init_mesh(bool_mesh& mesh);
 void reset_mesh(bool_mesh& mesh);
+
+void update_polygon(bool_state& state, const bool_mesh& mesh, int polygon_id);
+
 void compute_cells(bool_mesh& mesh, bool_state& state);
 void compute_shapes(bool_state& state);
 void compute_shape_borders(const bool_mesh& mesh, bool_state& state);

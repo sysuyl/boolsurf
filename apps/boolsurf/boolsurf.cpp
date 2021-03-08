@@ -114,6 +114,30 @@ vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
   return result;
 }
 
+void update_polygon(bool_state& state, const bool_mesh& mesh, int polygon_id) {
+  auto& mesh_polygon = state.polygons[polygon_id];
+
+  // TODO (marzia) Remove segments from here
+  mesh_polygon.segments.clear();
+  mesh_polygon.edges.clear();
+
+  for (int i = 0; i < mesh_polygon.points.size(); i++) {
+    auto start = mesh_polygon.points[i];
+    auto end   = mesh_polygon.points[(i + 1) % mesh_polygon.points.size()];
+    auto path  = compute_geodesic_path(
+        mesh, state.points[start], state.points[end]);
+    auto segments = mesh_segments(
+        mesh.triangles, path.strip, path.lerps, path.start, path.end);
+    if (segments.empty()) continue;
+
+    mesh_polygon.segments.insert(
+        mesh_polygon.segments.end(), segments.begin(), segments.end());
+
+    mesh_polygon.edges.push_back(segments);
+    mesh_polygon.length += segments.size();
+  }
+}
+
 struct hashgrid_polyline {
   int           polygon  = -1;
   vector<vec2f> points   = {};

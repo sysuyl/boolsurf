@@ -8,47 +8,49 @@
 #include "boolsurf_io.h"
 using namespace yocto;
 
-vector<mesh_point> sample_points(const bool_mesh& mesh, const shape_bvh& bvh,
-    const vec3f& camera_from, const bbox3f& bbox, const vec3f& camera_to,
-    float camera_lens, float camera_aspect, uint64_t trial, int num_points = 4,
-    int ray_trials = 10000) {
-  // init data
-  auto points  = vector<mesh_point>{};
-  auto rng_ray = make_rng(9867198237913, trial * 2 + 1);
-  // try to pick in the camera
-  auto  ray_trial = 0;
-  float aspect    = size(bbox).x / size(bbox).y;
-  auto  uvs       = vector<vec2f>{};
-  while (points.size() < num_points) {
-    if (ray_trial++ >= ray_trials) break;
-    auto uv = rand2f(rng_ray);
-    if (points.size()) {
-      uv = 2 * uv - vec2f{1, 1};
-      uv *= min(aspect, 1 / aspect);
-      uv += 2 * uvs[0] - vec2f{1, 1};
-      uv = uv * 0.5 + vec2f{0.5, 0.5};
-    }
+mesh_point intersect_mesh(const bool_mesh& mesh, const shape_bvh& bvh,
+    const scene_camera& camera, const vec2f& uv) {
+  auto ray = camera_ray(
+      camera.frame, camera.lens, camera.aspect, camera.film, uv);
+  auto isec = intersect_triangles_bvh(bvh, mesh.triangles, mesh.positions, ray);
 
-    auto ray  = camera_ray(lookat_frame(camera_from, camera_to, {0, 1, 0}),
-        camera_lens, camera_aspect, 0.036f, uv);
-    auto isec = intersect_triangles_bvh(
-        bvh, mesh.triangles, mesh.positions, ray);
-    if (!isec.hit) continue;
-    if (isec.element < 0 || isec.element > mesh.triangles.size()) continue;
-    if (!(isec.uv.x >= 0 && isec.uv.x <= 1)) continue;
-    if (!(isec.uv.y >= 0 && isec.uv.y <= 1)) continue;
-    points.push_back({isec.element, isec.uv});
-    uvs.push_back(uv);
+  return {isec.element, isec.uv};
+}
+
+void make_state(
+    bool_state& state, const bool_mesh& mesh, const shape_bvh& bvh, const scene_camera& camera) {
+  auto polygons = vector<vector<vec2f>>{
+      {{344.261, 488.09}, {435.116, 100.957}, {603.936, 129.097},
+          {638.062, 169.8}, {647.917, 208.993}, {646.561, 252.953},
+          {629.785, 276.726}, {610.792, 303.154}, {583.55, 316.923},
+          {609.525, 332.67}, {628.794, 365.505}, {631.995, 400.703},
+          {626.094, 452.98}, {601.427, 487.932}, {537.858, 511.936},
+          {450.002, 514.445}},
+      {{344.261, 488.09}, {435.116, 100.957}, {603.936, 129.097},
+          {638.062, 169.8}, {647.917, 208.993}, {646.561, 252.953},
+          {629.785, 276.726}, {610.792, 303.154}, {583.55, 316.923},
+          {609.525, 332.67}, {628.794, 365.505}, {631.995, 400.703},
+          {626.094, 452.98}, {601.427, 487.932}, {537.858, 511.936},
+          {450.002, 514.445}}};
+
+  for (auto& polygon : polygons) {
+    auto polygon_id = (int)state.polygons.size() - 1;
+
+    for (auto uv : polygon) {
+      // Add point index to last polygon.
+      state.polygons[polygon_id].points.push_back((int)state.points.size());
+
+//      uv.x /= input.window_size.x;
+//      uv.y /= input.window_size.y;
+      auto point = intersect_mesh(mesh, bvh, camera, uv);
+      if (point.face == -1) continue;
+
+      // Add point to state.
+      state.points.push_back(point);
+    }
+    update_polygon(state, mesh, polygon_id);
   }
-  // pick based on area
-  auto rng_area = make_rng(9867198237913);
-  auto cdf      = sample_triangles_cdf(mesh.triangles, mesh.positions);
-  while (points.size() < num_points) {
-    auto [triangle, uv] = sample_triangles(
-        cdf, rand1f(rng_area), rand2f(rng_area));
-    points.push_back({mesh_point{triangle, uv}});
-  }
-  return points;
+  state.polygons.push_back({});
 }
 
 int main(int num_args, const char* args[]) {
@@ -111,7 +113,7 @@ int main(int num_args, const char* args[]) {
     }
 
     material.color     = get_color(shape_id);
-      material.type = material_type::plastic;
+    material.type      = material_type::plastic;
     material.roughness = 0.2;
     instance.shape     = (int)scene.shapes.size();
     auto& shape        = scene.shapes.emplace_back();
