@@ -101,6 +101,8 @@ void update_polygon(app_state* app, int polygon_id) {
         app->mesh, app->state.points[start], app->state.points[end]);
     auto segments = mesh_segments(
         app->mesh.triangles, path.strip, path.lerps, path.start, path.end);
+    if (segments.empty()) continue;
+
     mesh_polygon.segments.insert(
         mesh_polygon.segments.end(), segments.begin(), segments.end());
 
@@ -347,11 +349,9 @@ shape_intersection intersect_shape(
 }
 
 tuple<shape_intersection, shape_intersection> intersect_shapes(
-    const app_state* app, const gui_input& input) {
-  auto mouse_uv = vec2f{input.mouse_pos.x / float(input.window_size.x),
-      input.mouse_pos.y / float(input.window_size.y)};
-  auto ray      = camera_ray(app->glcamera->frame, app->glcamera->lens,
-      app->glcamera->aspect, app->glcamera->film, mouse_uv);
+    const app_state* app, const vec2f& uv) {
+  auto ray = camera_ray(app->glcamera->frame, app->glcamera->lens,
+      app->glcamera->aspect, app->glcamera->film, uv);
 
   // TODO(giacomo): we always use the same original mesh for intersection to
   // support triangulation viewer, but we don't want to do that in the future.
@@ -363,6 +363,13 @@ tuple<shape_intersection, shape_intersection> intersect_shapes(
       app->bvh, app->mesh.triangles, app->mesh.positions, ray);
 
   return {isec, isec_original};
+}
+
+tuple<shape_intersection, shape_intersection> intersect_shapes(
+    const app_state* app, const gui_input& input) {
+  auto uv = vec2f{input.mouse_pos.x / float(input.window_size.x),
+      input.mouse_pos.y / float(input.window_size.y)};
+  return intersect_shapes(app, uv);
 }
 
 shade_instance* add_patch_shape(
