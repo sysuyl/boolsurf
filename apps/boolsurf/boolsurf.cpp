@@ -330,6 +330,39 @@ inline vector<vector<vec2i>> compute_graph_cycles(
   return cycles;
 }
 
+inline vector<vector<int>> compute_components(
+    const bool_state& state, const mesh_shape& shape) {
+  auto cells   = vector<int>(shape.cells.begin(), shape.cells.end());
+  auto visited = hash_map<int, bool>();
+  for (auto cell : cells) visited[cell] = false;
+
+  auto components = vector<vector<int>>();
+
+  for (auto cell : cells) {
+    if (visited[cell]) continue;
+
+    auto& component = components.emplace_back();
+
+    auto stack = vector<int>();
+    stack.push_back(cell);
+
+    while (!stack.empty()) {
+      auto cell_idx = stack.back();
+      stack.pop_back();
+
+      visited[cell_idx] = true;
+      component.push_back(cell_idx);
+
+      auto& cell = state.cells[cell_idx];
+      for (auto& [neighbor, _] : cell.adjacency) {
+        if (find_idx(cells, neighbor) == -1) continue;
+        if (!visited[neighbor]) stack.push_back(neighbor);
+      }
+    }
+  }
+  return components;
+}
+
 static void compute_cell_labels(vector<mesh_cell>& cells,
     const vector<int>& start, const vector<int>& skip_polygons) {
   auto visited = vector<bool>(cells.size(), false);
@@ -956,94 +989,99 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
     auto generator_polygons = hash_set<int>();
     compute_generator_polygons(state, s, generator_polygons);
 
-    // Step 1: Calcoliamo gli edges che stanno sul bordo
-    auto edges = hash_set<vec2i>();
+    auto components = compute_components(state, shape);
+    for (auto& component : components) {
+      // Step 1: Calcoliamo gli edges che stanno sul bordo
+      auto edges = hash_set<vec2i>();
 
-    for (auto c : shape.cells) {
-      auto& cell = state.cells[c];
+      for (auto c : component) {
+        auto& cell = state.cells[c];
 
-      // Per ogni cella che compone la shape calcolo il bordo a partire dalle
-      // facce che ne fanno parte
-      for (auto face : cell.faces) {
-        // Se è una faccia interna allora non costituirà il bordo
-        if (mesh.border_tags[face] == zero3i) continue;
+        // Per ogni cella che compone la shape calcolo il bordo a partire dalle
+        // facce che ne fanno parte
+        for (auto face : cell.faces) {
+          // Se è una faccia interna allora non costituirà il bordo
+          if (mesh.border_tags[face] == zero3i) continue;
 
-        // Per ogni lato del triangolo considero solamente quelli che sono di
-        // bordo (tag != 0)
-        auto& tri = mesh.triangles[face];
-        for (auto k = 0; k < 3; k++) {
-          auto tag = mesh.border_tags[face][k];
-          if (tag == 0) continue;
-          auto edge     = get_edge(tri, k);
-          auto rev_edge = vec2i{edge.y, edge.x};
+          // Per ogni lato del triangolo considero solamente quelli che sono di
+          // bordo (tag != 0)
+          auto& tri = mesh.triangles[face];
+          for (auto k = 0; k < 3; k++) {
+            auto tag = mesh.border_tags[face][k];
+            if (tag == 0) continue;
+            auto edge     = get_edge(tri, k);
+            auto rev_edge = vec2i{edge.y, edge.x};
 
-          // Se 'edge' è già stato incontrato allora esso è un bordo tra due
-          // celle che fanno parte dela stessa shape, quindi lo elimino dal set.
-          auto it = edges.find(rev_edge);
-          if (it == edges.end())
-            edges.insert(edge);
-          else
-            edges.erase(it);
+            // Se 'edge' è già stato incontrato allora esso è un bordo tra due
+            // celle che fanno parte dela stessa shape, quindi lo elimino dal
+            // set.
+            auto it = edges.find(rev_edge);
+            if (it == edges.end())
+              edges.insert(edge);
+            else
+              edges.erase(it);
+          }
         }
       }
-    }
 
-    // Step 2: Riordiniamo i bordi
-    // Per ogni vertice salviamo il proprio successivo
-    auto next_vert = hash_map<int, int>();
-    for (auto& edge : edges) next_vert[edge.x] = edge.y;
+      // Step 2: Riordiniamo i bordi
+      // Per ogni vertice salviamo il proprio successivo
+      auto next_vert = hash_map<int, int>();
+      for (auto& edge : edges) next_vert[edge.x] = edge.y;
 
-    for (auto& [key, value] : next_vert) {
-      // Se il valore è -1 abbiamo già processato il punto
-      if (value == -1) continue;
+      for (auto& [key, value] : next_vert) {
+        // Se il valore è -1 abbiamo già processato il punto
+        if (value == -1) continue;
 
-      // Aggiungiamo un nuovo bordo
-      // TODO(marzia): border_segments sparirà
-      auto border_segments = vector<int>();
-      auto border_points   = vector<int>();
+        // Aggiungiamo un nuovo bordo
+        // TODO(marzia): border_segments sparirà
+        auto border_segments = vector<int>();
+        auto border_points   = vector<int>();
 
-      auto complete = false;
-      auto current  = key;
+        auto complete = false;
+        auto current  = key;
 
-      while (true) {
-        auto next = next_vert.at(current);
-        if (next == -1) break;
+        while (true) {
+          auto next = next_vert.at(current);
+          if (next == -1) break;
 
-        next_vert.at(current) = -1;
+          next_vert.at(current) = -1;
 
-        // Se il vertice corrente è un punto di controllo lo aggiungo al bordo
-        if (state.border_vertices.find(current) !=
-            state.border_vertices.end()) {
-          // Se è un punto di intersezione controlliamo che i poligoni che lo
-          // hanno generato siano entrambi compresi nei poligoni che hanno
-          // generato anche la shape.
-          if (contains(state.isecs_generators, current)) {
-            auto& isec_generators = state.isecs_generators.at(current);
+          // Se il vertice corrente è un punto di controllo lo aggiungo al bordo
+          if (state.border_vertices.find(current) !=
+              state.border_vertices.end()) {
+            // Se è un punto di intersezione controlliamo che i poligoni che lo
+            // hanno generato siano entrambi compresi nei poligoni che hanno
+            // generato anche la shape.
+            if (contains(state.isecs_generators, current)) {
+              auto& isec_generators = state.isecs_generators.at(current);
 
-            if (contains(generator_polygons, isec_generators.x) &&
-                contains(generator_polygons, isec_generators.y))
+              if (contains(generator_polygons, isec_generators.x) &&
+                  contains(generator_polygons, isec_generators.y))
+                border_points.push_back(current);
+            } else
               border_points.push_back(current);
+          }
+
+          border_segments.push_back(current);
+
+          // Chiudiamo il bordo
+          if (next == key) {
+            complete = true;
+            break;
           } else
-            border_points.push_back(current);
+            current = next;
         }
 
-        border_segments.push_back(current);
-
-        // Chiudiamo il bordo
-        if (next == key) {
-          complete = true;
-          break;
-        } else
-          current = next;
-      }
-
-      // Se un bordo è stato chiuso correttamente lo inseriamo tra i bordi della
-      // shape
-      if (complete) {
-        shape.border_points.push_back(border_points);
-        shape.border_segments.push_back(border_segments);
+        // Se un bordo è stato chiuso correttamente lo inseriamo tra i bordi
+        // della shape
+        if (complete) {
+          shape.border_points.push_back(border_points);
+          shape.border_segments.push_back(border_segments);
+        }
       }
     }
+    printf("Borders: %d\n", shape.border_points.size());
   }
 }
 
