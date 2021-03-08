@@ -150,7 +150,9 @@ inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
 
 static vector<vector<int>> add_vertices(
     bool_state& state, bool_mesh& mesh, const vector<mesh_polygon>& polygons) {
-  auto vertices = vector<vector<int>>(polygons.size());
+  auto vertices   = vector<vector<int>>(polygons.size());
+  auto duplicates = hash_map<int, int>();
+
   for (int i = 0; i < polygons.size(); i++) {
     vertices[i].reserve(polygons[i].length);
     auto& edges = polygons[i].edges;
@@ -158,12 +160,22 @@ static vector<vector<int>> add_vertices(
     for (auto e = 0; e < edges.size(); e++) {
       auto& segments = edges[e];
       for (auto s = 0; s < segments.size(); s++) {
-        auto vertex = add_vertex(mesh, {segments[s].face, segments[s].end});
-        vertices[i].push_back(vertex);
-
         if (s == segments.size() - 1) {
-          state.border_vertices[vertex] =
-              polygons[i].points[(e + 1) % edges.size()];
+          auto control_point = polygons[i].points[(e + 1) % edges.size()];
+          if (contains(duplicates, control_point)) {
+            auto vertex = duplicates[control_point];
+            state.border_vertices[duplicates[control_point]] = control_point;
+            vertices[i].push_back(vertex);
+
+          } else {
+            auto vertex = add_vertex(mesh, {segments[s].face, segments[s].end});
+            state.border_vertices[vertex] = control_point;
+            vertices[i].push_back(vertex);
+            duplicates[control_point] = vertex;
+          }
+        } else {
+          auto vertex = add_vertex(mesh, {segments[s].face, segments[s].end});
+          vertices[i].push_back(vertex);
         }
       }
     }
