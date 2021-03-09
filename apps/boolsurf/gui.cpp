@@ -352,24 +352,6 @@ void key_input(app_state* app, const gui_input& input) {
 
         compute_shapes(app->state);
 
-        // for (auto s = 0; s < app->state.shapes.size(); s++) {
-        //   if (s == 0) continue;
-        //   // set_border_shape(
-        //   //     app->glscene, app->mesh, app->state.shapes[s], s + 1);
-        //   auto& shape = app->state.shapes[s];
-        //   for (auto& border : shape.border_segments) {
-        //     for (auto p = 0; p < border.size(); p++) {
-        //       auto start = app->mesh.positions[border[p]];
-        //       auto end   = app->mesh.positions[border[(p + 1) %
-        //       border.size()]];
-
-        //       draw_segment(app->glscene, app->mesh, app->cell_materials[s +
-        //       1],
-        //           start, end, 0.0015f);
-        //     }
-        //   }
-        // }
-
         app->cell_shapes.resize(app->state.cells.size());
         for (int i = 0; i < app->state.cells.size(); i++) {
           app->cell_shapes[i] = add_patch_shape(app, {}, vec3f{});

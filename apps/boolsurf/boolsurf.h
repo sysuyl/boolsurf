@@ -53,9 +53,8 @@ struct mesh_shape {
   vec3f         color = {0, 0, 0};
   hash_set<int> cells = {};
 
-  vector<vector<int>> border_points   = {};
-  vector<vector<int>> border_segments = {};
-  shade_instance*     borders_shape   = nullptr;
+  vector<vector<int>> border_points = {};
+  shade_instance*     borders_shape = nullptr;
 };
 
 struct bool_state {

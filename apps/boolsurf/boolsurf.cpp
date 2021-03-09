@@ -193,7 +193,9 @@ inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
 
 static vector<vector<int>> add_vertices(
     bool_state& state, bool_mesh& mesh, const vector<mesh_polygon>& polygons) {
-  auto vertices = vector<vector<int>>(polygons.size());
+  auto vertices   = vector<vector<int>>(polygons.size());
+  auto duplicates = hash_map<int, int>();
+
   for (int i = 0; i < polygons.size(); i++) {
     vertices[i].reserve(polygons[i].length);
     auto& edges = polygons[i].edges;
@@ -201,12 +203,22 @@ static vector<vector<int>> add_vertices(
     for (auto e = 0; e < edges.size(); e++) {
       auto& segments = edges[e];
       for (auto s = 0; s < segments.size(); s++) {
-        auto vertex = add_vertex(mesh, {segments[s].face, segments[s].end});
-        vertices[i].push_back(vertex);
-
         if (s == segments.size() - 1) {
-          state.border_vertices[vertex] =
-              polygons[i].points[(e + 1) % edges.size()];
+          auto control_point = polygons[i].points[(e + 1) % edges.size()];
+          if (contains(duplicates, control_point)) {
+            auto vertex = duplicates[control_point];
+            state.border_vertices[duplicates[control_point]] = control_point;
+            vertices[i].push_back(vertex);
+
+          } else {
+            auto vertex = add_vertex(mesh, {segments[s].face, segments[s].end});
+            state.border_vertices[vertex] = control_point;
+            vertices[i].push_back(vertex);
+            duplicates[control_point] = vertex;
+          }
+        } else {
+          auto vertex = add_vertex(mesh, {segments[s].face, segments[s].end});
+          vertices[i].push_back(vertex);
         }
       }
     }
@@ -393,13 +405,15 @@ inline vector<vector<int>> compute_components(
       auto cell_idx = stack.back();
       stack.pop_back();
 
+      if (visited[cell_idx]) continue;
       visited[cell_idx] = true;
       component.push_back(cell_idx);
 
       auto& cell = state.cells[cell_idx];
       for (auto& [neighbor, _] : cell.adjacency) {
         if (find_idx(cells, neighbor) == -1) continue;
-        if (!visited[neighbor]) stack.push_back(neighbor);
+        if (visited[neighbor]) continue;
+        stack.push_back(neighbor);
       }
     }
   }
@@ -407,7 +421,8 @@ inline vector<vector<int>> compute_components(
 }
 
 static void compute_cell_labels(vector<mesh_cell>& cells,
-    const vector<int>& start, const vector<int>& skip_polygons) {
+    const vector<int>& start, const vector<int>& ambient_cells,
+    const vector<int>& skip_polygons) {
   auto visited = vector<bool>(cells.size(), false);
   auto stack   = start;
 
@@ -424,6 +439,7 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
     auto& cell = cells[cell_id];
     for (auto& [neighbor, polygon] : cell.adjacency) {
       if (find_idx(skip_polygons, polygon) != -1) continue;
+      if (find_idx(ambient_cells, neighbor) != -1) continue;
       if (visited[neighbor]) {
         auto tmp = cell.labels;
         tmp[yocto::abs(polygon)] += polygon > 0 ? 1 : -1;
@@ -530,7 +546,7 @@ static void compute_intersections(bool_state& state,
 
 // Constrained Delaunay Triangulation
 static vector<vec3i> constrained_triangulation(
-    vector<vec2f> nodes, const vector<vec2i>& edges) {
+    vector<vec2f> nodes, const vector<vec2i>& edges, int face) {
   // Questo purtroppo serve.
   for (auto& n : nodes) n *= 1e9;
 
@@ -558,7 +574,11 @@ static vector<vec3i> constrained_triangulation(
     auto& c           = nodes[verts.z];
     auto  orientation = cross(b - a, c - b);
     if (fabs(orientation) < 0.00001) {
-      printf("Collinear (ma serve?)\n");
+      printf("In face: %d - Collinear (ma serve?)\n", face);
+      printf("A: %f %f\n", a.x, a.y);
+      printf("B: %f %f\n", b.x, b.y);
+      printf("C: %f %f\n\n", c.x, c.y);
+
       continue;
     }
     triangles.push_back(verts);
@@ -784,7 +804,7 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
     // Se nel triangolo non ho più di tre nodi allora non serve la
     // triangolazione
     if (nodes.size() == 3) continue;
-    auto triangles = constrained_triangulation(nodes, edges);
+    auto triangles = constrained_triangulation(nodes, edges, face);
 
 #ifdef MY_DEBUG
     debug_nodes[face]     = nodes;
@@ -949,7 +969,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
 
   for (auto ambient_cell : ambient_cells) {
     auto cells = state.cells;
-    compute_cell_labels(cells, {ambient_cell}, skip_polygons);
+    compute_cell_labels(cells, {ambient_cell}, ambient_cells, skip_polygons);
 
     auto found = false;
     for (int i = 0; i < cells.size(); i++) {
@@ -1073,12 +1093,9 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
         if (value == -1) continue;
 
         // Aggiungiamo un nuovo bordo
-        // TODO(marzia): border_segments sparirà
-        auto border_segments = vector<int>();
-        auto border_points   = vector<int>();
+        auto border_points = vector<int>();
 
-        auto complete = false;
-        auto current  = key;
+        auto current = key;
 
         while (true) {
           auto next = next_vert.at(current);
@@ -1087,11 +1104,10 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
           next_vert.at(current) = -1;
 
           // Se il vertice corrente è un punto di controllo lo aggiungo al bordo
-          if (state.border_vertices.find(current) !=
-              state.border_vertices.end()) {
-            // Se è un punto di intersezione controlliamo che i poligoni che lo
-            // hanno generato siano entrambi compresi nei poligoni che hanno
-            // generato anche la shape.
+          if (contains(state.border_vertices, current)) {
+            // Se è un punto di intersezione controlliamo che i poligoni che
+            // lo hanno generato siano entrambi compresi nei poligoni che
+            // hanno generato anche la shape.
             if (contains(state.isecs_generators, current)) {
               auto& isec_generators = state.isecs_generators.at(current);
 
@@ -1102,21 +1118,13 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
               border_points.push_back(current);
           }
 
-          border_segments.push_back(current);
-
-          // Chiudiamo il bordo
+          // Se un bordo è stato chiuso correttamente lo inseriamo tra i bordi
+          // della shape
           if (next == key) {
-            complete = true;
+            shape.border_points.push_back(border_points);
             break;
           } else
             current = next;
-        }
-
-        // Se un bordo è stato chiuso correttamente lo inseriamo tra i bordi
-        // della shape
-        if (complete) {
-          shape.border_points.push_back(border_points);
-          shape.border_segments.push_back(border_segments);
         }
       }
     }
