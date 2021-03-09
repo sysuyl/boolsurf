@@ -544,6 +544,48 @@ static void compute_intersections(bool_state& state,
   }
 }
 
+static vector<vec3i> single_split_triangulation(vector<vec2f> nodes, int face) {
+  auto abc   = vec3i{0, 1, 2};
+  auto start = 3;
+  auto end   = 4;
+
+  auto& start_node = nodes[start];
+  auto& end_node   = nodes[end];
+
+  auto [start_edge_idx, l1] = get_mesh_edge(start_node);
+  auto [end_edge_idx, l2]   = get_mesh_edge(end_node);
+
+  auto start_edge = get_edge(abc, start_edge_idx);
+  auto end_edge   = get_edge(abc, end_edge_idx);
+
+  printf("Face -> %d - From: (%d %d) to: (%d %d)\n", face, start_edge.x,
+      start_edge.y, end_edge.x, end_edge.y);
+
+  auto triangles = vector<vec3i>();
+  triangles.reserve(3);
+  if (start_edge.y == end_edge.x) {
+    auto x = start_edge.x;
+    auto y = start_edge.y;
+    auto z = end_edge.y;
+
+    triangles.push_back({x, start, z});
+    triangles.push_back({start, end, z});
+    triangles.push_back({start, y, end});
+  } else if (start_edge.x == end_edge.y) {
+    auto x = start_edge.x;
+    auto y = start_edge.y;
+    auto z = end_edge.y;
+
+    triangles.push_back({x, start, end});
+    triangles.push_back({start, z, end});
+    triangles.push_back({start, y, z});
+  } else {
+    assert(0);
+  }
+
+  return triangles;
+}
+
 // Constrained Delaunay Triangulation
 static vector<vec3i> constrained_triangulation(
     vector<vec2f> nodes, const vector<vec2i>& edges, int face) {
@@ -804,7 +846,13 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
     // Se nel triangolo non ho più di tre nodi allora non serve la
     // triangolazione
     if (nodes.size() == 3) continue;
-    auto triangles = constrained_triangulation(nodes, edges, face);
+
+    auto triangles = vector<vec3i>();
+    if (nodes.size() == 5) {
+      triangles = single_split_triangulation(nodes, face);
+    } else {
+      triangles = constrained_triangulation(nodes, edges, face);
+    }
 
 #ifdef MY_DEBUG
     debug_nodes[face]     = nodes;
