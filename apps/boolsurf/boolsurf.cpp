@@ -378,7 +378,8 @@ inline vector<vector<int>> compute_components(
 }
 
 static void compute_cell_labels(vector<mesh_cell>& cells,
-    const vector<int>& start, const vector<int>& skip_polygons) {
+    const vector<int>& start, const vector<int>& ambient_cells,
+    const vector<int>& skip_polygons) {
   auto visited = vector<bool>(cells.size(), false);
   auto stack   = start;
 
@@ -395,6 +396,7 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
     auto& cell = cells[cell_id];
     for (auto& [neighbor, polygon] : cell.adjacency) {
       if (find_idx(skip_polygons, polygon) != -1) continue;
+      if (find_idx(ambient_cells, neighbor) != -1) continue;
       if (visited[neighbor]) {
         auto tmp = cell.labels;
         tmp[yocto::abs(polygon)] += polygon > 0 ? 1 : -1;
@@ -928,7 +930,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
 
   for (auto ambient_cell : ambient_cells) {
     auto cells = state.cells;
-    compute_cell_labels(cells, {ambient_cell}, skip_polygons);
+    compute_cell_labels(cells, {ambient_cell}, ambient_cells, skip_polygons);
 
     auto found = false;
     for (int i = 0; i < cells.size(); i++) {
