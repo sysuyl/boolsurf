@@ -574,7 +574,7 @@ static vector<vec3i> single_split_triangulation(vector<vec2f> nodes, int face) {
   } else if (start_edge.x == end_edge.y) {
     auto x = start_edge.x;
     auto y = start_edge.y;
-    auto z = end_edge.y;
+    auto z = end_edge.x;
 
     triangles.push_back({x, start, end});
     triangles.push_back({start, z, end});
