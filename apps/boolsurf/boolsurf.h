@@ -39,6 +39,17 @@ struct mesh_polygon {
   shade_instance* outer_shape    = nullptr;
 };
 
+// Informazioni per la triangolazione di una faccia della mesh
+// Contiene: UV coords dei nodi locali di un triangolo.
+// Indici globali della mesh corrispondenti ai nodi locali
+// Edges con indici locali per vincolare la triangolazione
+
+struct triangulation_info {
+  vector<vec2f> nodes   = {{0, 0}, {1, 0}, {0, 1}};
+  vector<int>   indices = {};
+  vector<vec2i> edges   = {};
+};
+
 struct mesh_cell {
   vector<int>     faces     = {};
   hash_set<vec2i> adjacency = {};  // {cell_id, crossed_polygon_id}
