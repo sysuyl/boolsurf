@@ -98,20 +98,7 @@ inline vec2i make_edge_key(const vec2i& edge) {
   return edge;
 };
 
-// (marzia) Not Used
-inline std::tuple<vec2i, float> get_mesh_edge(
-    const vec3i& triangle, const vec2f& uv) {
-  if (uv.y == 0)
-    return {vec2i{triangle.x, triangle.y}, uv.x};  // point on edge(xy)
-  else if (uv.x == 0)
-    return {vec2i{triangle.z, triangle.x}, 1.0f - uv.y};  // point on edge (xz)
-  else if (fabs(uv.x + uv.y - 1.0f) < 0.0001)
-    return {vec2i{triangle.y, triangle.z}, uv.y};  // point on edge (yz)
-  else
-    return {zero2i, -1};
-}
-
-inline pair<int, float> get_mesh_edge(const vec2f& uv) {
+inline pair<int, float> get_edge_lerp_from_uv(const vec2f& uv) {
   if (uv.y == 0)
     return {0, uv.x};  // point on edge(xy)
   else if (uv.x == 0)
@@ -122,7 +109,7 @@ inline pair<int, float> get_mesh_edge(const vec2f& uv) {
     return {-1, -1};
 }
 
-inline vec2i get_edge(const vec3i& triangle, int k) {
+inline vec2i get_mesh_edge_from_index(const vec3i& triangle, int k) {
   if (k == 0)
     return {triangle.x, triangle.y};
   else if (k == 1)
@@ -134,6 +121,32 @@ inline vec2i get_edge(const vec3i& triangle, int k) {
     return {-1, -1};
   }
 }
+
+inline vec2i get_triangle_edge_from_index(int k) {
+  if (k == 0)
+    return {0, 1};
+  else if (k == 1)
+    return {1, 2};
+  else if (k == 2)
+    return {2, 0};
+  else {
+    assert(0);
+    return {-1, -1};
+  }
+}
+
+inline vec2i get_edge_from_uv(const vec2f uv) {
+  if (uv.y == 0)
+    return {0, 1};
+  else if (fabs(uv.x + uv.y - 1.0f) < 0.0001)
+    return {1, 2};
+  else if (uv.x == 0)
+    return {2, 0};
+  else {
+    assert(0);
+    return {-1, -1};
+  }
+};
 
 inline vec3f get_color(int i) {
   static auto colors = vector<vec3f>{

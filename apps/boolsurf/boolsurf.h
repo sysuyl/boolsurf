@@ -43,11 +43,15 @@ struct mesh_polygon {
 // Contiene: UV coords dei nodi locali di un triangolo.
 // Indici globali della mesh corrispondenti ai nodi locali
 // Edges con indici locali per vincolare la triangolazione
-
+// Mappa che va da lato del triangolo k = 1, 2, 3 e a lista di nodi e lerp
+// corrispondenti su quel lato (serve per creare ulteriori vincoli)
 struct triangulation_info {
-  vector<vec2f> nodes   = {{0, 0}, {1, 0}, {0, 1}};
-  vector<int>   indices = {};
-  vector<vec2i> edges   = {};
+  int face = -1;
+
+  vector<vec2f>                      nodes   = {{0, 0}, {1, 0}, {0, 1}};
+  vector<int>                        indices = {};
+  vector<vec2i>                      edges   = {};
+  array<vector<pair<int, float>>, 3> edgemap = {};
 };
 
 struct mesh_cell {

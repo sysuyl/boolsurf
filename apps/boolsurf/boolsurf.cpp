@@ -544,10 +544,9 @@ static void compute_intersections(bool_state& state,
   }
 }
 
-void compute_triangulation_constraints(const bool_mesh& mesh, int face,
+void compute_triangulation_constraints(const bool_mesh& mesh,
     const vector<hashgrid_polyline>& polylines, triangulation_info& info,
-    array<vector<pair<int, float>>, 3>& edgemap,
-    hash_map<int, vector<int>>&         triangulated_faces) {
+    hash_map<int, vector<int>>& triangulated_faces) {
   // Scorriamo su tutti i nodi che compongono le polilinee
   for (auto& polyline : polylines) {
     for (auto i = 0; i < polyline.points.size(); i++) {
@@ -572,21 +571,21 @@ void compute_triangulation_constraints(const bool_mesh& mesh, int face,
 
         // Se i nodi sono su un lato k != -1 di un triangolo allora li
         // salviamo nella edgemap
-        auto [k, l] = get_mesh_edge(uv_start);
+        auto [k, l] = get_edge_lerp_from_uv(uv_start);
         if (k != -1) {
-          edgemap[k].push_back({local_vertex_start, l});
+          info.edgemap[k].push_back({local_vertex_start, l});
         }
 
-        tie(k, l) = get_mesh_edge(uv);
+        tie(k, l) = get_edge_lerp_from_uv(uv);
         if (k != -1) {
-          edgemap[k].push_back({local_vertex, l});
+          info.edgemap[k].push_back({local_vertex, l});
         }
 
         // Se l'arco che ho trovato è un arco originale della mesh allora
         // salviamo la faccia corrispondente nel mapping da facce originale
         // a facce triangolate
         if (vertex_start < mesh.num_positions && vertex < mesh.num_positions) {
-          triangulated_faces[face] = {face};
+          triangulated_faces[info.face] = {info.face};
         }
 
         // Aggiungiamo l'edge ai vincoli
@@ -598,16 +597,9 @@ void compute_triangulation_constraints(const bool_mesh& mesh, int face,
 
 void update_edge_constraints(
     array<vector<pair<int, float>>, 3>& edgemap, vector<vec2i>& edges) {
-  auto get_triangle_edge = [](int k) -> vec2i {
-    if (k == 0) return {0, 1};
-    if (k == 1) return {1, 2};
-    if (k == 2) return {2, 0};
-    return {-1, -1};
-  };
-
   // Aggiungiamo gli edge di vincolo sia per i lati del triangolo
   for (int k = 0; k < 3; k++) {
-    auto  tri_edge = get_triangle_edge(k);
+    auto  tri_edge = get_triangle_edge_from_index(k);
     auto& points   = edgemap[k];
 
     // Se sul lato non ci sono altri punti allora aggiungiamo il lato stesso
@@ -642,17 +634,10 @@ void update_edge_constraints(
 
 // Triangulation with single segment
 static vector<vec3i> single_split_triangulation(vector<vec2f> nodes, int face) {
-  auto get_edge = [](vec2f uv) -> vec2i {
-    if (uv.y == 0) return {0, 1};
-    if (fabs(uv.x + uv.y - 1.0f) < 0.0001) return {1, 2};
-    if (uv.x == 0) return {2, 0};
-    return {-1, -1};
-  };
-
   auto start      = 3;
   auto end        = 4;
-  auto start_edge = get_edge(nodes[start]);
-  auto end_edge   = get_edge(nodes[end]);
+  auto start_edge = get_edge_from_uv(nodes[start]);
+  auto end_edge   = get_edge_from_uv(nodes[end]);
 
   auto triangles = vector<vec3i>();
   triangles.reserve(3);
@@ -742,13 +727,13 @@ static void update_face_adjacencies(
         if (adj[k] != -2) continue;
 
         // Prendo l'edge di bordo corrispondente ad un -2
-        auto edge = get_edge(triangles_vec3i[i], k);
+        auto edge = get_mesh_edge_from_index(triangles_vec3i[i], k);
 
         // Se è un arco della mesh originale lo processo subito
         if (edge.x < mesh.num_positions && edge.y < mesh.num_positions) {
           // Cerco il triangolo adiacente al triangolo originale su quel lato
           for (int kk = 0; kk < 3; kk++) {
-            auto edge0 = get_edge(mesh.triangles[face], kk);
+            auto edge0 = get_mesh_edge_from_index(mesh.triangles[face], kk);
             if (make_edge_key(edge) == make_edge_key(edge0)) {
               // Aggiorno direttamente l'adiacenza nel nuovo triangolo e del
               // vicino
@@ -776,7 +761,7 @@ static void update_face_adjacencies(
           auto neighbor                     = it->second;
           mesh.adjacencies[triangles[i]][k] = neighbor;
           for (int kk = 0; kk < 3; ++kk) {
-            auto edge2 = get_edge(mesh.triangles[neighbor], kk);
+            auto edge2 = get_mesh_edge_from_index(mesh.triangles[neighbor], kk);
             edge2      = make_edge_key(edge2);
             if (edge2 == edge_key) {
               mesh.adjacencies[neighbor][kk] = triangles[i];
@@ -833,14 +818,13 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
     auto [a, b, c] = mesh.triangles[face];
 
     auto info    = triangulation_info{};
+    info.face    = face;
     info.indices = vector<int>{a, b, c};
 
-    // Mappa che va da lato del triangolo k = 1, 2, 3 e a lista di nodi e lerp
-    // corrispondenti su quel lato (serve per creare ulteriori vincoli)
     auto edgemap = array<vector<pair<int, float>>, 3>{};
 
     compute_triangulation_constraints(
-        mesh, face, polylines, info, edgemap, triangulated_faces);
+        mesh, polylines, info, triangulated_faces);
 
     // Se nel triangolo non ho più di tre nodi allora non serve la
     // triangolazione
@@ -850,7 +834,7 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
     if (info.edges.size() == 1) {
       triangles = single_split_triangulation(info.nodes, face);
     } else {
-      update_edge_constraints(edgemap, info.edges);
+      update_edge_constraints(info.edgemap, info.edges);
       triangles = constrained_triangulation(info.nodes, info.edges, face);
     }
 
@@ -868,8 +852,9 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
           x = -2;
         else
           x += mesh.triangles.size();
-            }
+      }
     }
+
     mesh.adjacencies += adjacency;
 
     // Aggiungiamo i nuovi triangoli alla mesh e aggiorniamo la face_edgemap
@@ -913,7 +898,7 @@ static vector<vec3i> face_tags(const bool_mesh& mesh,
           for (auto f : t_faces) {
             auto& tr = mesh.triangles[f];
             for (auto k = 0; k < 3; k++) {
-              auto e = make_edge_key(get_edge(tr, k));
+              auto e = make_edge_key(get_mesh_edge_from_index(tr, k));
               if (edge_key == e) {
                 auto neigh = mesh.adjacencies[f][k];
                 faces      = {f, neigh};
@@ -1115,7 +1100,7 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
           for (auto k = 0; k < 3; k++) {
             auto tag = mesh.border_tags[face][k];
             if (tag == 0) continue;
-            auto edge     = get_edge(tri, k);
+            auto edge     = get_mesh_edge_from_index(tri, k);
             auto rev_edge = vec2i{edge.y, edge.x};
 
             // Se 'edge' è già stato incontrato allora esso è un bordo tra due
