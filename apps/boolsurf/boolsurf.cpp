@@ -121,106 +121,47 @@ struct hashgrid_polyline {
 };
 using mesh_hashgrid = hash_map<int, vector<hashgrid_polyline>>;
 
-// (marzia) Old implementation using segments instead of edges
-// remove when tested
 static mesh_hashgrid compute_hashgrid(
     const vector<mesh_polygon>& polygons, const vector<vector<int>>& vertices) {
   auto hashgrid = hash_map<int, vector<hashgrid_polyline>>{};
 
   for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
-    auto& polygon   = polygons[polygon_id];
-    int   last_face = -1;
-
+    auto& polygon = polygons[polygon_id];
     if (polygon.length == 0) continue;
-    int first_face = polygon.segments[0].face;
-    int s_first    = -1;
 
-    for (auto s = 0; s < polygon.segments.size(); s++) {
-      auto& segment = polygon.segments[s];
+    int  first_face = polygon.edges[0][0].face;
+    int  last_face  = -1;
+    auto indices    = vec2i{-1, -1};
 
-      if (segment.face == first_face && s_first == -1) continue;
-      if (s_first == -1) s_first = s;
-
-      auto& entry = hashgrid[segment.face];
-      if (segment.face != last_face) {
-        auto& polyline   = entry.emplace_back();
-        polyline.polygon = polygon_id;
-
-        auto ss = s - 1;
-        assert(ss >= 0);
-        polyline.vertices.push_back(vertices[polygon_id][ss]);
-        polyline.points.push_back(segment.start);
-
-        polyline.vertices.push_back(vertices[polygon_id][s]);
-        polyline.points.push_back(segment.end);
-      } else {
-        auto& polyline = entry.back();
-        assert(segment.end != polyline.points.back());
-        polyline.points.push_back(segment.end);
-        polyline.vertices.push_back(vertices[polygon_id][s]);
-      }
-      auto& polyline = entry.back();
-      if (polyline.points.size() >= 2) {
-        assert(polyline.points.back() != polyline.points.end()[-2]);
-      }
-      last_face = segment.face;
-    }
-
-    // Ripetiamo perche' la prima polyline non la calcoliamo al primo giro.
-    assert(last_face != -1);
-    for (auto s = 0; s < s_first; s++) {
-      auto& segment  = polygon.segments[s];
-      auto& entry    = hashgrid[segment.face];
-      auto& polyline = entry.back();
-      assert(segment.face == last_face);
-      polyline.points.push_back(segment.end);
-      polyline.vertices.push_back(vertices[polygon_id][s]);
-    }
-  }
-  return hashgrid;
-}
-
-static mesh_hashgrid compute_hashgrid_edges(
-    const vector<mesh_polygon>& polygons, const vector<vector<int>>& vertices) {
-  auto hashgrid = hash_map<int, vector<hashgrid_polyline>>{};
-
-  for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
-    auto& polygon   = polygons[polygon_id];
-    int   last_face = -1;
-
-    if (polygon.length == 0) continue;
-    int   first_face = polygon.edges[0][0].face;
-    vec2i first_ids  = {-1, -1};
-
-    auto vertex_idx = 0;
+    auto idx = 0;
     for (auto e = 0; e < polygon.edges.size(); e++) {
       auto& edge = polygon.edges[e];
 
       for (auto s = 0; s < edge.size(); s++) {
         auto& segment = edge[s];
 
-        auto idx_end   = vertex_idx;
-        auto idx_start = (vertex_idx - 1);
-        vertex_idx += 1;
+        auto end   = idx;
+        auto start = (idx - 1);
+        idx += 1;
 
-        if (segment.face == first_face && first_ids == vec2i{-1, -1}) continue;
-        if (first_ids == vec2i{-1, -1}) first_ids = {e, s};
+        if (segment.face == first_face && indices == vec2i{-1, -1}) continue;
+        if (indices == vec2i{-1, -1}) indices = {e, s};
 
         auto& entry = hashgrid[segment.face];
         if (segment.face != last_face) {
           auto& polyline   = entry.emplace_back();
           polyline.polygon = polygon_id;
 
-          polyline.vertices.push_back(vertices[polygon_id][idx_start]);
+          polyline.vertices.push_back(vertices[polygon_id][start]);
           polyline.points.push_back(segment.start);
 
-          polyline.vertices.push_back(vertices[polygon_id][idx_end]);
+          polyline.vertices.push_back(vertices[polygon_id][end]);
           polyline.points.push_back(segment.end);
         } else {
           auto& polyline = entry.back();
           assert(segment.end != polyline.points.back());
           polyline.points.push_back(segment.end);
-          polyline.vertices.push_back(vertices[polygon_id][idx_end]);
+          polyline.vertices.push_back(vertices[polygon_id][end]);
         }
 
         auto& polyline = entry.back();
@@ -232,18 +173,17 @@ static mesh_hashgrid compute_hashgrid_edges(
     }
 
     // Ripetiamo perche' la prima polyline non la calcoliamo al primo giro.
-    assert(last_face != -1);
-    vertex_idx = 0;
-    for (auto e = 0; e <= first_ids.x; e++) {
-      auto end_idx = (e < first_ids.x) ? polygon.edges[e].size() : first_ids.y;
+    idx = 0;
+    for (auto e = 0; e <= indices.x; e++) {
+      auto end_idx = (e < indices.x) ? polygon.edges[e].size() : indices.y;
       for (auto s = 0; s < end_idx; s++) {
         auto& segment  = polygon.edges[e][s];
         auto& entry    = hashgrid[segment.face];
         auto& polyline = entry.back();
         assert(segment.face == last_face);
         polyline.points.push_back(segment.end);
-        polyline.vertices.push_back(vertices[polygon_id][vertex_idx]);
-        vertex_idx += 1;
+        polyline.vertices.push_back(vertices[polygon_id][idx]);
+        idx += 1;
       }
     }
   }
@@ -269,33 +209,32 @@ static vector<vector<int>> add_vertices(
   auto duplicates = hash_map<int, int>();
 
   for (int i = 0; i < polygons.size(); i++) {
-    vertices[i].reserve(polygons[i].length);
     auto& edges = polygons[i].edges;
+    vertices[i].reserve(polygons[i].length);
 
     for (auto e = 0; e < edges.size(); e++) {
       auto& segments = edges[e];
-      for (auto s = 0; s < segments.size(); s++) {
-        if (s == segments.size() - 1) {
-          auto control_point = polygons[i].points[(e + 1) % edges.size()];
-          if (contains(duplicates, control_point)) {
-            auto vertex = duplicates[control_point];
-            state.border_vertices[duplicates[control_point]] = control_point;
-            vertices[i].push_back(vertex);
 
-          } else {
-            auto vertex = add_vertex(mesh, {segments[s].face, segments[s].end});
-            state.border_vertices[vertex] = control_point;
-            vertices[i].push_back(vertex);
-            duplicates[control_point] = vertex;
-          }
-        } else {
-          auto vertex = add_vertex(mesh, {segments[s].face, segments[s].end});
-          vertices[i].push_back(vertex);
-        }
+      // Adding all vertices but last one
+      for (auto s = 0; s < segments.size() - 1; s++) {
+        auto vertex = add_vertex(mesh, {segments[s].face, segments[s].end});
+        vertices[i].push_back(vertex);
       }
+
+      // Last vertex of an edge is a control point
+      auto control_point = polygons[i].points[(e + 1) % edges.size()];
+      auto vertex        = -1;
+      if (contains(duplicates, control_point)) {
+        vertex = duplicates[control_point];
+      } else {
+        vertex = add_vertex(mesh, {segments.back().face, segments.back().end});
+        duplicates[control_point] = vertex;
+      }
+
+      state.border_vertices[vertex] = control_point;
+      vertices[i].push_back(vertex);
     }
   }
-
   return vertices;
 }
 
@@ -407,15 +346,15 @@ static void compute_cycles(const vector<mesh_cell>& cells, int node,
   // terminiamo
   if (visited[node] == 2) return;
 
-  // Se il nodo in considerazione non è stato completamente visitato e lo stiamo
-  // rivisitando ora allora abbiamo trovato un ciclo
+  // Se il nodo in considerazione non è stato completamente visitato e lo
+  // stiamo rivisitando ora allora abbiamo trovato un ciclo
   if (visited[node] == 1) {
     auto  cycle   = vector<vec2i>();
     auto& current = parent;
     cycle.push_back(current);
 
-    // Risalgo l'albero della visita fino a che non trovo lo stesso nodo e salvo
-    // il ciclo individuato
+    // Risalgo l'albero della visita fino a che non trovo lo stesso nodo e
+    // salvo il ciclo individuato
     while (current.x != node) {
       auto prev = parents[current.x];
 
@@ -1023,25 +962,8 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   auto vertices             = add_vertices(state, mesh, polygons);
   state.num_original_points = (int)state.points.size();
 
-  auto hashgrid     = compute_hashgrid(polygons, vertices);
-  auto new_hashgrid = compute_hashgrid_edges(polygons, vertices);
-
-  assert(hashgrid.size() == new_hashgrid.size());
-  for (auto& [face, polyline0] : hashgrid) {
-    auto& polyline1 = new_hashgrid[face];
-
-    assert(polyline0.size() == polyline1.size());
-    for (auto p = 0; p < polyline0.size(); p++) {
-      auto& vert0 = polyline0[p].vertices;
-      auto& vert1 = polyline1[p].vertices;
-
-      for (auto v = 0; v < vert0.size(); v++) {
-        assert(vert0[v] == vert1[v]);
-      }
-    }
-  }
-
-  compute_intersections(state, new_hashgrid, mesh);
+  auto hashgrid = compute_hashgrid(polygons, vertices);
+  compute_intersections(state, hashgrid, mesh);
 
   // Mappa a ogni edge generato le due facce generate adiacenti.
   auto face_edgemap       = hash_map<vec2i, vec2i>{};
@@ -1177,14 +1099,14 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
       for (auto c : component) {
         auto& cell = state.cells[c];
 
-        // Per ogni cella che compone la shape calcolo il bordo a partire dalle
-        // facce che ne fanno parte
+        // Per ogni cella che compone la shape calcolo il bordo a partire
+        // dalle facce che ne fanno parte
         for (auto face : cell.faces) {
           // Se è una faccia interna allora non costituirà il bordo
           if (mesh.border_tags[face] == zero3i) continue;
 
-          // Per ogni lato del triangolo considero solamente quelli che sono di
-          // bordo (tag != 0)
+          // Per ogni lato del triangolo considero solamente quelli che sono
+          // di bordo (tag != 0)
           auto& tri = mesh.triangles[face];
           for (auto k = 0; k < 3; k++) {
             auto tag = mesh.border_tags[face][k];
@@ -1224,7 +1146,8 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
 
           next_vert.at(current) = -1;
 
-          // Se il vertice corrente è un punto di controllo lo aggiungo al bordo
+          // Se il vertice corrente è un punto di controllo lo aggiungo al
+          // bordo
           if (contains(state.border_vertices, current)) {
             // Se è un punto di intersezione controlliamo che i poligoni che
             // lo hanno generato siano entrambi compresi nei poligoni che
@@ -1279,8 +1202,8 @@ void compute_bool_operation(bool_state& state, const bool_operation& op) {
   a.is_root = false;
   b.is_root = false;
 
-  // Creiamo una nuova shape risultato, settando come generatori le shape 'a' e
-  // 'b' e riconvertendo il vettore di bool a interi
+  // Creiamo una nuova shape risultato, settando come generatori le shape 'a'
+  // e 'b' e riconvertendo il vettore di bool a interi
   auto& c      = state.shapes.emplace_back();
   c.generators = {op.shape_a, op.shape_b};
   for (auto i = 0; i < aa.size(); i++)
