@@ -121,6 +121,8 @@ struct hashgrid_polyline {
 };
 using mesh_hashgrid = hash_map<int, vector<hashgrid_polyline>>;
 
+// (marzia) Old implementation using segments instead of edges
+// remove when tested
 static mesh_hashgrid compute_hashgrid(
     const vector<mesh_polygon>& polygons, const vector<vector<int>>& vertices) {
   auto hashgrid = hash_map<int, vector<hashgrid_polyline>>{};
@@ -178,7 +180,7 @@ static mesh_hashgrid compute_hashgrid(
   return hashgrid;
 }
 
-static mesh_hashgrid compute_new_hashgrid(
+static mesh_hashgrid compute_hashgrid_edges(
     const vector<mesh_polygon>& polygons, const vector<vector<int>>& vertices) {
   auto hashgrid = hash_map<int, vector<hashgrid_polyline>>{};
 
@@ -198,7 +200,7 @@ static mesh_hashgrid compute_new_hashgrid(
         auto& segment = edge[s];
 
         auto idx_end   = vertex_idx;
-        auto idx_start = (vertex_idx - 1);  //% vertices[polygon_id].size();
+        auto idx_start = (vertex_idx - 1);
         vertex_idx += 1;
 
         if (segment.face == first_face && first_ids == vec2i{-1, -1}) continue;
@@ -1022,7 +1024,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   state.num_original_points = (int)state.points.size();
 
   auto hashgrid     = compute_hashgrid(polygons, vertices);
-  auto new_hashgrid = compute_new_hashgrid(polygons, vertices);
+  auto new_hashgrid = compute_hashgrid_edges(polygons, vertices);
 
   assert(hashgrid.size() == new_hashgrid.size());
   for (auto& [face, polyline0] : hashgrid) {
