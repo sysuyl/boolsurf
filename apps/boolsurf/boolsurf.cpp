@@ -10,6 +10,7 @@ static vector<vec3i> face_adjacencies_fast(const vector<vec3i>& triangles) {
     auto x = triangle[i], y = triangle[i < 2 ? i + 1 : 0];
     return x < y ? vec2i{x, y} : vec2i{y, x};
   };
+
   auto adjacencies = vector<vec3i>{triangles.size(), vec3i{-1, -1, -1}};
   auto edge_map    = hash_map<vec2i, int>();
   edge_map.reserve((size_t)(triangles.size() * 1.5));
@@ -119,6 +120,7 @@ struct hashgrid_polyline {
   vector<vec2f> points   = {};
   vector<int>   vertices = {};
 };
+
 using mesh_hashgrid = hash_map<int, vector<hashgrid_polyline>>;
 
 static mesh_hashgrid compute_hashgrid(
@@ -144,6 +146,9 @@ static mesh_hashgrid compute_hashgrid(
         auto start = (idx - 1);
         idx += 1;
 
+        // Iniziamo a riempire l'hashgrid a partire da quando troviamo una
+        // faccia diversa da quella iniziale del poligono (il primo tratto verrà
+        // aggiunto a posteriori per evitare inconsistenza)
         if (segment.face == first_face && indices == vec2i{-1, -1}) continue;
         if (indices == vec2i{-1, -1}) indices = {e, s};
 
@@ -172,7 +177,8 @@ static mesh_hashgrid compute_hashgrid(
       }
     }
 
-    // Ripetiamo perche' la prima polyline non la calcoliamo al primo giro.
+    // Ripetiamo parte del ciclo perché il primo tratto di polilinea non è stato
+    // inserito nell'hashgrid
     idx = 0;
     for (auto e = 0; e <= indices.x; e++) {
       auto end_idx = (e < indices.x) ? polygon.edges[e].size() : indices.y;
@@ -215,13 +221,15 @@ static vector<vector<int>> add_vertices(
     for (auto e = 0; e < edges.size(); e++) {
       auto& segments = edges[e];
 
-      // Adding all vertices but last one
+      // Aggiungiamo tutti i vertici tranne l'ultimo, perché dobbiamo
+      // individuare e salvare i control points separatamente
       for (auto s = 0; s < segments.size() - 1; s++) {
         auto vertex = add_vertex(mesh, {segments[s].face, segments[s].end});
         vertices[i].push_back(vertex);
       }
 
-      // Last vertex of an edge is a control point
+      // L'ultimo vertice di un edge è un control point. Se è già stato
+      // incontrato riutilizziamo l'indice già calcolato
       auto control_point = polygons[i].points[(e + 1) % edges.size()];
       auto vertex        = -1;
       if (contains(duplicates, control_point)) {
@@ -398,6 +406,7 @@ inline vector<vector<vec2i>> compute_graph_cycles(
 
 inline vector<vector<int>> compute_components(
     const bool_state& state, const mesh_shape& shape) {
+  // Calcoliamo le componenti tra le celle presenti in una shape
   auto cells   = vector<int>(shape.cells.begin(), shape.cells.end());
   auto visited = hash_map<int, bool>();
   for (auto cell : cells) visited[cell] = false;
@@ -472,7 +481,7 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
 
   for (auto& cell : cells) {
     for (auto& label : cell.labels) {
-      label = label % 2;
+      if (label > 1) label = label % 2;
     }
   }
 }
@@ -652,9 +661,11 @@ static vector<vec3i> single_split_triangulation(vector<vec2f> nodes, int face) {
 
   auto triangles = vector<vec3i>();
   triangles.reserve(3);
+
+  auto x = start_edge.x;
+  auto y = start_edge.y;
+
   if (start_edge.y == end_edge.x) {
-    auto x = start_edge.x;
-    auto y = start_edge.y;
     auto z = end_edge.y;
 
     triangles.push_back({x, start, z});
@@ -662,8 +673,6 @@ static vector<vec3i> single_split_triangulation(vector<vec2f> nodes, int face) {
     triangles.push_back({start, y, end});
 
   } else if (start_edge.x == end_edge.y) {
-    auto x = start_edge.x;
-    auto y = start_edge.y;
     auto z = end_edge.x;
 
     triangles.push_back({x, start, end});
@@ -682,6 +691,7 @@ static vector<vec3i> constrained_triangulation(
   // Questo purtroppo serve.
   for (auto& n : nodes) n *= 1e9;
 
+  // TODO (marzia): controlla se è possibile usare float
   auto cdt = CDT::Triangulation<double>(
       CDT::FindingClosestPoint::ClosestRandom);
   cdt.insertVertices(
@@ -700,7 +710,7 @@ static vector<vec3i> constrained_triangulation(
     auto verts = vec3i{
         (int)tri.vertices[0], (int)tri.vertices[1], (int)tri.vertices[2]};
 
-    // TODO: serve?
+    // TODO: serve? (marzia): Forse no!
     auto& a           = nodes[verts.x];
     auto& b           = nodes[verts.y];
     auto& c           = nodes[verts.z];
@@ -790,7 +800,6 @@ inline void update_face_edgemap(
   auto key = make_edge_key(edge);
   auto it  = face_edgemap.find(key);
   if (it == face_edgemap.end()) {
-    //    face_edgemap.insert(it, {key, {face, -1}});
     face_edgemap[key] = {face, -1};
   } else {
     it->second.y = face;
@@ -842,6 +851,9 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
     if (info.nodes.size() == 3) continue;
 
     auto triangles = vector<vec3i>();
+
+    // Se il triangolo ha al suo interno un solo segmento allora chiamiamo la
+    // funzione di triangolazione più semplice, altrimenti chiamiamo CDT
     if (info.edges.size() == 1) {
       triangles = single_split_triangulation(info.nodes, face);
     } else {
@@ -870,6 +882,7 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
 
     // Aggiungiamo i nuovi triangoli alla mesh e aggiorniamo la face_edgemap
     // corrispondente
+
     triangulated_faces[face].clear();
     for (auto i = 0; i < triangles.size(); i++) {
       auto& [x, y, z] = triangles[i];
@@ -983,7 +996,6 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   state.cells = make_mesh_cells(mesh, mesh.border_tags);
 
   //  save_tree_png(app, "0");
-
   auto cycles = compute_graph_cycles(state.cells);
 
   auto skip_polygons = vector<int>();
