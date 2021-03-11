@@ -178,6 +178,76 @@ static mesh_hashgrid compute_hashgrid(
   return hashgrid;
 }
 
+static mesh_hashgrid compute_new_hashgrid(
+    const vector<mesh_polygon>& polygons, const vector<vector<int>>& vertices) {
+  auto hashgrid = hash_map<int, vector<hashgrid_polyline>>{};
+
+  for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
+    auto& polygon   = polygons[polygon_id];
+    int   last_face = -1;
+
+    if (polygon.length == 0) continue;
+    int   first_face = polygon.edges[0][0].face;
+    vec2i first_ids  = {-1, -1};
+
+    auto vertex_idx = 0;
+    for (auto e = 0; e < polygon.edges.size(); e++) {
+      auto& edge = polygon.edges[e];
+
+      for (auto s = 0; s < edge.size(); s++) {
+        auto& segment = edge[s];
+
+        auto idx_end   = vertex_idx;
+        auto idx_start = (vertex_idx - 1);  //% vertices[polygon_id].size();
+        vertex_idx += 1;
+
+        if (segment.face == first_face && first_ids == vec2i{-1, -1}) continue;
+        if (first_ids == vec2i{-1, -1}) first_ids = {e, s};
+
+        auto& entry = hashgrid[segment.face];
+        if (segment.face != last_face) {
+          auto& polyline   = entry.emplace_back();
+          polyline.polygon = polygon_id;
+
+          polyline.vertices.push_back(vertices[polygon_id][idx_start]);
+          polyline.points.push_back(segment.start);
+
+          polyline.vertices.push_back(vertices[polygon_id][idx_end]);
+          polyline.points.push_back(segment.end);
+        } else {
+          auto& polyline = entry.back();
+          assert(segment.end != polyline.points.back());
+          polyline.points.push_back(segment.end);
+          polyline.vertices.push_back(vertices[polygon_id][idx_end]);
+        }
+
+        auto& polyline = entry.back();
+        if (polyline.points.size() >= 2) {
+          assert(polyline.points.back() != polyline.points.end()[-2]);
+        }
+        last_face = segment.face;
+      }
+    }
+
+    // Ripetiamo perche' la prima polyline non la calcoliamo al primo giro.
+    assert(last_face != -1);
+    vertex_idx = 0;
+    for (auto e = 0; e <= first_ids.x; e++) {
+      auto end_idx = (e < first_ids.x) ? polygon.edges[e].size() : first_ids.y;
+      for (auto s = 0; s < end_idx; s++) {
+        auto& segment  = polygon.edges[e][s];
+        auto& entry    = hashgrid[segment.face];
+        auto& polyline = entry.back();
+        assert(segment.face == last_face);
+        polyline.points.push_back(segment.end);
+        polyline.vertices.push_back(vertices[polygon_id][vertex_idx]);
+        vertex_idx += 1;
+      }
+    }
+  }
+  return hashgrid;
+}
+
 inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
   float eps = 0.00001;
   auto  uv  = point.uv;
@@ -951,8 +1021,25 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   auto vertices             = add_vertices(state, mesh, polygons);
   state.num_original_points = (int)state.points.size();
 
-  auto hashgrid = compute_hashgrid(polygons, vertices);
-  compute_intersections(state, hashgrid, mesh);
+  auto hashgrid     = compute_hashgrid(polygons, vertices);
+  auto new_hashgrid = compute_new_hashgrid(polygons, vertices);
+
+  assert(hashgrid.size() == new_hashgrid.size());
+  for (auto& [face, polyline0] : hashgrid) {
+    auto& polyline1 = new_hashgrid[face];
+
+    assert(polyline0.size() == polyline1.size());
+    for (auto p = 0; p < polyline0.size(); p++) {
+      auto& vert0 = polyline0[p].vertices;
+      auto& vert1 = polyline1[p].vertices;
+
+      for (auto v = 0; v < vert0.size(); v++) {
+        assert(vert0[v] == vert1[v]);
+      }
+    }
+  }
+
+  compute_intersections(state, new_hashgrid, mesh);
 
   // Mappa a ogni edge generato le due facce generate adiacenti.
   auto face_edgemap       = hash_map<vec2i, vec2i>{};
