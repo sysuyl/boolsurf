@@ -322,8 +322,8 @@ void key_input(app_state* app, const gui_input& input) {
         auto points = compute_bezier_path(mesh.dual_solver, mesh.triangles,
             mesh.positions, mesh.adjacencies, control_points);
 
-        polygon.points   = {};
-        polygon.segments = {};
+        polygon.points = {};
+        polygon.edges  = {};
         for (auto& p : points) {
           polygon.points += (int)app->state.points.size();
           app->state.points += p;
@@ -347,7 +347,7 @@ void key_input(app_state* app, const gui_input& input) {
         compute_cells(app->mesh, app->state);
 
 #ifdef MY_DEBUG
-        //save_tree_png(app->state, app->test_filename);
+        // save_tree_png(app->state, app->test_filename);
 #endif
 
         compute_shapes(app->state);
@@ -416,7 +416,6 @@ void key_input(app_state* app, const gui_input& input) {
                 app->mesh, state.points[start], state.points[end]);
             auto segments = mesh_segments(app->mesh.triangles, path.strip,
                 path.lerps, path.start, path.end);
-            mesh_polygon.segments += segments;
 
             mesh_polygon.edges.push_back(segments);
             mesh_polygon.length += segments.size();

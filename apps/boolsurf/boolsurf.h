@@ -25,10 +25,9 @@ struct shade_instance;
 }
 
 struct mesh_polygon {
-  vector<int>                  points   = {};
-  vector<vector<mesh_segment>> edges    = {};
-  vector<mesh_segment>         segments = {};
-  int                          length   = 0;
+  vector<int>                  points = {};
+  vector<vector<mesh_segment>> edges  = {};
+  int                          length = 0;
 
   vector<int> inner_faces = {};
   vector<int> outer_faces = {};

@@ -157,7 +157,6 @@ bool_state state_from_test(const bool_mesh& mesh, const bool_test& test) {
           mesh, state.points[start], state.points[end]);
       auto segments = mesh_segments(
           mesh.triangles, path.strip, path.lerps, path.start, path.end);
-      mesh_polygon.segments += segments;
 
       mesh_polygon.edges.push_back(segments);
       mesh_polygon.length += segments.size();
