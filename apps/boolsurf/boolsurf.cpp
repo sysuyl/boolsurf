@@ -115,6 +115,25 @@ vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
   return result;
 }
 
+void recompute_polygon_segments(
+    const bool_mesh& mesh, const bool_state& state, mesh_polygon& polygon) {
+  polygon.edges.clear();
+  polygon.length = 0;
+
+  for (int i = 0; i < polygon.points.size(); i++) {
+    auto start = polygon.points[i];
+    auto end   = polygon.points[(i + 1) % polygon.points.size()];
+
+    auto path = compute_geodesic_path(
+        mesh, state.points[start], state.points[end]);
+    auto segments = mesh_segments(
+        mesh.triangles, path.strip, path.lerps, path.start, path.end);
+
+    polygon.edges.push_back(segments);
+    polygon.length += segments.size();
+  }
+}
+
 struct hashgrid_polyline {
   int           polygon  = -1;
   vector<vec2f> points   = {};

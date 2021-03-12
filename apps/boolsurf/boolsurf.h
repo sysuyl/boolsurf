@@ -115,6 +115,9 @@ vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
 geodesic_path compute_geodesic_path(
     const bool_mesh& mesh, const mesh_point& start, const mesh_point& end);
 
+void recompute_polygon_segments(
+    const bool_mesh& mesh, const bool_state& state, mesh_polygon& polygon);
+
 inline geodesic_path straightest_path(const bool_mesh& mesh,
     const mesh_point& start, const vec2f& direction, float length) {
   return straightest_path(mesh.triangles, mesh.positions, mesh.adjacencies,

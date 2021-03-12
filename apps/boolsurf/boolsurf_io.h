@@ -146,22 +146,10 @@ bool_state state_from_test(const bool_mesh& mesh, const bool_test& test) {
     // Add new polygon to state.
     auto& mesh_polygon  = state.polygons.emplace_back();
     mesh_polygon.points = polygon;
+
+    recompute_polygon_segments(mesh, state, mesh_polygon);
   }
 
-  // TODO(giacomo): Make this a function.
-  for (auto& mesh_polygon : state.polygons) {
-    for (int i = 0; i < mesh_polygon.points.size(); i++) {
-      auto start = mesh_polygon.points[i];
-      auto end   = mesh_polygon.points[(i + 1) % mesh_polygon.points.size()];
-      auto path  = compute_geodesic_path(
-          mesh, state.points[start], state.points[end]);
-      auto segments = mesh_segments(
-          mesh.triangles, path.strip, path.lerps, path.start, path.end);
-
-      mesh_polygon.edges.push_back(segments);
-      mesh_polygon.length += segments.size();
-    }
-  }
   return state;
 }
 

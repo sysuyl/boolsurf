@@ -380,7 +380,6 @@ void key_input(app_state* app, const gui_input& input) {
         }
 
         update_cell_colors(app);
-
         compute_shape_borders(app->mesh, app->state);
 
         auto state   = bool_state{};
@@ -402,19 +401,8 @@ void key_input(app_state* app, const gui_input& input) {
 
         app->mesh = app->mesh_original;
 
-        for (auto& mesh_polygon : state.polygons) {
-          for (int i = 0; i < mesh_polygon.points.size(); i++) {
-            auto start = mesh_polygon.points[i];
-            auto end =
-                mesh_polygon.points[(i + 1) % mesh_polygon.points.size()];
-            auto path = compute_geodesic_path(
-                app->mesh, state.points[start], state.points[end]);
-            auto segments = mesh_segments(app->mesh.triangles, path.strip,
-                path.lerps, path.start, path.end);
-
-            mesh_polygon.edges.push_back(segments);
-            mesh_polygon.length += segments.size();
-          }
+        for (auto& polygon : state.polygons) {
+          recompute_polygon_segments(app->mesh, app->state, polygon);
         }
 
         for (auto& polygon : app->state.polygons) {
