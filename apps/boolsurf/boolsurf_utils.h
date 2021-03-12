@@ -100,11 +100,11 @@ inline vec2i make_edge_key(const vec2i& edge) {
 
 inline pair<int, float> get_edge_lerp_from_uv(const vec2f& uv) {
   if (uv.y == 0)
-    return {0, uv.x};  // point on edge(xy)
+    return {0, uv.x};  // point on edge (x, y)
   else if (uv.x == 0)
-    return {2, 1.0f - uv.y};  // point on edge (xz)
+    return {2, 1.0f - uv.y};  // point on edge (z, x)
   else if (fabs(uv.x + uv.y - 1.0f) < 0.0001)
-    return {1, uv.y};  // point on edge (yz)
+    return {1, uv.y};  // point on edge (y, z)
   else
     return {-1, -1};
 }

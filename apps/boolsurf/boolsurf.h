@@ -47,7 +47,7 @@ struct mesh_polygon {
 struct triangulation_info {
   int face = -1;
 
-  vector<vec2f>                      nodes   = {{0, 0}, {1, 0}, {0, 1}};
+  vector<vec2f>                      nodes   = {};
   vector<int>                        indices = {};
   vector<vec2i>                      edges   = {};
   array<vector<pair<int, float>>, 3> edgemap = {};

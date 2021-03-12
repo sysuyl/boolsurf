@@ -839,6 +839,7 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
 
     auto info    = triangulation_info{};
     info.face    = face;
+    info.nodes   = vector<vec2f>{{0, 0}, {1, 0}, {0, 1}};
     info.indices = vector<int>{a, b, c};
 
     auto edgemap = array<vector<pair<int, float>>, 3>{};

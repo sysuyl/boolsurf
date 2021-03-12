@@ -17,8 +17,8 @@
 
 
 # Giacomo
-- Fix windows build (freetype)
-- Fix windows rendering
+- [ ] Fix windows build (freetype)
+- [ ] Fix windows rendering
 
 # Marzia
 - [x] Rimuovede segments da polygon (lasciare solo edges ovunque)

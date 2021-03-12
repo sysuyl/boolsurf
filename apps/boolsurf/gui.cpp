@@ -97,10 +97,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
   if (begin_header(widgets, "view")) {
     auto  glmaterial = app->mesh_material;
     auto& params     = app->drawgl_prms;
-    // draw_checkbox(widgets, "faceted", params.faceted);
-    // continue_line(widgets);
     draw_checkbox(widgets, "lines", app->glscene->instances[1]->hidden, true);
-    // continue_line(widgets);
     draw_checkbox(widgets, "points", app->glscene->instances[2]->hidden, true);
     draw_coloredit(widgets, "color", glmaterial->color);
     draw_slider(widgets, "resolution", params.resolution, 0, 4096);
@@ -109,13 +106,10 @@ void draw_widgets(app_state* app, const gui_input& input) {
     draw_checkbox(widgets, "wireframe", params.wireframe);
     continue_line(widgets);
     draw_checkbox(widgets, "double sided", params.double_sided);
-    // draw_slider(widgets, "exposure", params.exposure, -10, 10);
-    // draw_slider(widgets, "gamma", params.gamma, 0.1f, 4);
-    // draw_slider(widgets, "near", params.near, 0.01f, 1.0f);
-    // draw_slider(widgets, "far", params.far, 1000.0f, 10000.0f);
     end_header(widgets);
   }
-  if (begin_header(widgets, "Mesh")) {
+
+  if (begin_header(widgets, "mesh info")) {
     draw_label(widgets, "filename", app->model_filename);
     draw_label(
         widgets, "triangles", std::to_string(app->mesh.triangles.size()));
@@ -124,7 +118,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
 
-  if (begin_header(widgets, "face infos")) {
+  if (app->last_clicked_point.face >= 0 &&
+      begin_header(widgets, "face info", true)) {
     auto face = app->last_clicked_point.face;
     draw_label(widgets, "face", std::to_string(face));
 
