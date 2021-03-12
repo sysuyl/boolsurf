@@ -125,17 +125,22 @@ using mesh_hashgrid = hash_map<int, vector<hashgrid_polyline>>;
 
 static mesh_hashgrid compute_hashgrid(
     const vector<mesh_polygon>& polygons, const vector<vector<int>>& vertices) {
+  // La hashgrid creata conterrà delle polilinee (invece dei segmenti semplici)
+  // Ogni polilinea è definita da una sequenza uv - vertici della mesh
+  // corrispondenti e dal poligono di cui fa parte.
   auto hashgrid = hash_map<int, vector<hashgrid_polyline>>{};
 
   for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
     auto& polygon = polygons[polygon_id];
     if (polygon.length == 0) continue;
 
+    // La polilinea della prima faccia del poligono viene processata alla fine
+    // (perché si trova tra il primo e l'ultimo edge)
     int  first_face = polygon.edges[0][0].face;
-    int  last_face  = -1;
     auto indices    = vec2i{-1, -1};
 
-    auto idx = 0;
+    int  last_face = -1;
+    auto idx       = 0;
     for (auto e = 0; e < polygon.edges.size(); e++) {
       auto& edge = polygon.edges[e];
 
@@ -153,6 +158,10 @@ static mesh_hashgrid compute_hashgrid(
         if (indices == vec2i{-1, -1}) indices = {e, s};
 
         auto& entry = hashgrid[segment.face];
+
+        // Se la faccia del segmento che stiamo processando è diversa
+        // dall'ultima salvata allora creiamo una nuova polilinea, altrimenti
+        // accodiamo le nuove informazioni.
         if (segment.face != last_face) {
           auto& polyline   = entry.emplace_back();
           polyline.polygon = polygon_id;
@@ -173,12 +182,13 @@ static mesh_hashgrid compute_hashgrid(
         if (polyline.points.size() >= 2) {
           assert(polyline.points.back() != polyline.points.end()[-2]);
         }
+
         last_face = segment.face;
       }
     }
 
-    // Ripetiamo parte del ciclo perché il primo tratto di polilinea non è stato
-    // inserito nell'hashgrid
+    // Ripetiamo parte del ciclo (fino a indices) perché il primo tratto di
+    // polilinea non è stato inserito nell'hashgrid
     idx = 0;
     for (auto e = 0; e <= indices.x; e++) {
       auto end_idx = (e < indices.x) ? polygon.edges[e].size() : indices.y;
@@ -332,6 +342,8 @@ inline vector<mesh_cell> make_mesh_cells(
 
 static vector<int> find_ambient_cells(
     const vector<mesh_cell>& cells, const vector<int>& skip_polygons) {
+  // Nel grafo di adiacenza tra le celle, le celle ambiente sono tutte quelle
+  // che non hanno archi entranti con segno di poligono positivo.
   auto adjacency = vector<int>(cells.size(), 0);
   for (auto& cell : cells) {
     for (auto& [adj, p] : cell.adjacency) {
@@ -351,7 +363,7 @@ static void compute_cycles(const vector<mesh_cell>& cells, int node,
     vec2i parent, vector<int>& visited, vector<vec2i>& parents,
     vector<vector<vec2i>>& cycles) {
   // Se il nodo il considerazione è già stato completamente visitato allora
-  // terminiamo
+  // terminiamo la visita
   if (visited[node] == 2) return;
 
   // Se il nodo in considerazione non è stato completamente visitato e lo
@@ -407,6 +419,7 @@ inline vector<vector<vec2i>> compute_graph_cycles(
 inline vector<vector<int>> compute_components(
     const bool_state& state, const mesh_shape& shape) {
   // Calcoliamo le componenti tra le celle presenti in una shape
+  // (per calcolarne i bordi in maniera più semplice)
   auto cells   = vector<int>(shape.cells.begin(), shape.cells.end());
   auto visited = hash_map<int, bool>();
   for (auto cell : cells) visited[cell] = false;
@@ -443,6 +456,9 @@ inline vector<vector<int>> compute_components(
 static void compute_cell_labels(vector<mesh_cell>& cells,
     const vector<int>& start, const vector<int>& ambient_cells,
     const vector<int>& skip_polygons) {
+  // Calcoliamo le label delle celle visitando il grafo di adiacenza a partire
+  // da una cella ambiente e incrementanto/decrementanto l'indice corrispondente
+  // al poligono
   auto visited = vector<bool>(cells.size(), false);
   auto stack   = start;
 
@@ -460,6 +476,9 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
     for (auto& [neighbor, polygon] : cell.adjacency) {
       if (find_idx(skip_polygons, polygon) != -1) continue;
       if (find_idx(ambient_cells, neighbor) != -1) continue;
+
+      // Se il nodo è già stato visitato e la nuova etichetta è diversa da
+      // quella già calcolata allora prendo il massimo valore in ogni componente
       if (visited[neighbor]) {
         auto tmp = cell.labels;
         tmp[yocto::abs(polygon)] += polygon > 0 ? 1 : -1;
@@ -472,6 +491,7 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
         }
         continue;
       }
+
       cells[neighbor].labels = cell.labels;
       cells[neighbor].labels[yocto::abs(polygon)] += polygon > 0 ? 1 : -1;
       stack.push_back(neighbor);
@@ -479,6 +499,7 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
     }
   }
 
+  // Se l'etichetta è maggiore di 1 la riporto in modulo 2
   for (auto& cell : cells) {
     for (auto& label : cell.labels) {
       if (label > 1) label = label % 2;
@@ -488,6 +509,9 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
 
 static void compute_intersections(bool_state& state,
     hash_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
+  // Calcoliamo sia le intersezioni che le self-intersections, aggiungendo i
+  // vertici nuovi alla mesh.
+
   for (auto& [face, polylines] : hashgrid) {
     // Check for polyline self interesctions
     for (auto p0 = 0; p0 < polylines.size(); p0++) {
@@ -573,8 +597,12 @@ void compute_triangulation_constraints(const bool_mesh& mesh,
       auto uv     = polyline.points[i];
       auto vertex = polyline.vertices[i];
 
-      // Aggiungiamo un nuovo vertice se non è già presente nella lista dei
-      // nodi
+      // TODO (marzia): questo si può semplificare o usando i metodi di CDT
+      // oppure considerando che gli unici vertici che si ripetono sono le
+      // intersezioni.
+
+      // Aggiungiamo un nuovo vertice se non è già presente nella
+      // lista dei nodi
       auto local_vertex = find_idx(info.indices, vertex);
       if (local_vertex == -1) {
         info.indices.push_back(vertex);
@@ -603,7 +631,7 @@ void compute_triangulation_constraints(const bool_mesh& mesh,
 
         // Se l'arco che ho trovato è un arco originale della mesh allora
         // salviamo la faccia corrispondente nel mapping da facce originale
-        // a facce triangolate
+        // a facce triangolate.
         if (vertex_start < mesh.num_positions && vertex < mesh.num_positions) {
           triangulated_faces[info.face] = {info.face};
         }
@@ -617,7 +645,7 @@ void compute_triangulation_constraints(const bool_mesh& mesh,
 
 void update_edge_constraints(
     array<vector<pair<int, float>>, 3>& edgemap, vector<vec2i>& edges) {
-  // Aggiungiamo gli edge di vincolo sia per i lati del triangolo
+  // Aggiungiamo gli edge di vincolo per i lati del triangolo
   for (int k = 0; k < 3; k++) {
     auto  tri_edge = get_triangle_edge_from_index(k);
     auto& points   = edgemap[k];
@@ -652,8 +680,9 @@ void update_edge_constraints(
   }
 }
 
-// Triangulation with single segment
-static vector<vec3i> single_split_triangulation(vector<vec2f> nodes, int face) {
+static vector<vec3i> single_split_triangulation(vector<vec2f> nodes) {
+  // Calcoliamo la triangolazione con un singolo segmento all'interno del
+  // triangolo.
   auto start      = 3;
   auto end        = 4;
   auto start_edge = get_edge_from_uv(nodes[start]);
@@ -687,7 +716,7 @@ static vector<vec3i> single_split_triangulation(vector<vec2f> nodes, int face) {
 
 // Constrained Delaunay Triangulation
 static vector<vec3i> constrained_triangulation(
-    vector<vec2f> nodes, const vector<vec2i>& edges, int face) {
+    vector<vec2f> nodes, const vector<vec2i>& edges) {
   // Questo purtroppo serve.
   for (auto& n : nodes) n *= 1e9;
 
@@ -716,10 +745,10 @@ static vector<vec3i> constrained_triangulation(
     auto& c           = nodes[verts.z];
     auto  orientation = cross(b - a, c - b);
     if (fabs(orientation) < 0.00001) {
-      printf("Face: %d - Collinear (ma serve?)\n", face);
-
+      printf("Collinear (ma serve?)\n");
       continue;
     }
+
     triangles.push_back(verts);
   }
   return triangles;
@@ -856,10 +885,10 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
     // Se il triangolo ha al suo interno un solo segmento allora chiamiamo la
     // funzione di triangolazione più semplice, altrimenti chiamiamo CDT
     if (info.edges.size() == 1) {
-      triangles = single_split_triangulation(info.nodes, face);
+      triangles = single_split_triangulation(info.nodes);
     } else {
       update_edge_constraints(info.edgemap, info.edges);
-      triangles = constrained_triangulation(info.nodes, info.edges, face);
+      triangles = constrained_triangulation(info.nodes, info.edges);
     }
 
 #ifdef MY_DEBUG
@@ -883,7 +912,6 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
 
     // Aggiungiamo i nuovi triangoli alla mesh e aggiorniamo la face_edgemap
     // corrispondente
-
     triangulated_faces[face].clear();
     for (auto i = 0; i < triangles.size(); i++) {
       auto& [x, y, z] = triangles[i];
@@ -973,9 +1001,12 @@ static vector<vec3i> face_tags(const bool_mesh& mesh,
 void compute_cells(bool_mesh& mesh, bool_state& state) {
   auto& polygons = state.polygons;
 
+  // Calcoliamo i vertici nuovi della mesh
   auto vertices             = add_vertices(state, mesh, polygons);
   state.num_original_points = (int)state.points.size();
 
+  // Calcoliamo hashgrid e intersezioni tra poligoni,
+  // aggiungendo ulteriori vertici nuovi alla mesh
   auto hashgrid = compute_hashgrid(polygons, vertices);
   compute_intersections(state, hashgrid, mesh);
 
@@ -997,6 +1028,9 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   state.cells = make_mesh_cells(mesh, mesh.border_tags);
 
   //  save_tree_png(app, "0");
+
+  // Calcoliamo possibili cicli all'interno del grafo delle adiacenze della
+  // mesh. In modo da eliminare gli archi corrispondenti.
   auto cycles = compute_graph_cycles(state.cells);
 
   auto skip_polygons = vector<int>();
@@ -1006,23 +1040,24 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     }
   }
 
-  // Calcoliamo il labelling definitivo per effettuare le booleane
-  auto label_size = polygons.size();
-  if (polygons.back().points.empty()) label_size -= 1;
-
-  for (auto& cell : state.cells) {
-    cell.labels = vector<int>(label_size, 0);
-  }
-
-  for (auto& cycle : cycles) {
-    for (auto& c : cycle) {
-      state.cells[c.x].labels[c.y] = 1;
-    }
-  }
-
   // Trova le celle ambiente nel grafo dell'adiacenza delle celle
   auto ambient_cells = find_ambient_cells(state.cells, skip_polygons);
 
+  // Calcoliamo il labelling definitivo per effettuare le booleane tra poligoni
+  auto label_size = polygons.size();
+  // if (polygons.back().points.empty()) label_size -= 1;
+
+  // Inizializziamo le label delle celle a 0
+  for (auto& cell : state.cells) cell.labels = vector<int>(label_size, 0);
+
+  // Se erano presenti cicli li risolviamo settando la label in base alle
+  // informazioni estratte prima
+  for (auto& cycle : cycles)
+    for (auto& c : cycle) state.cells[c.x].labels[c.y] = 1;
+
+  // Calcoliamo le etichette a partire da ogni cella ambiente. Se troviamo una
+  // configurazione che non ha mai etichette negative allora la salviamo nello
+  // stato e non proviamo le altre celle ambiente.
   for (auto ambient_cell : ambient_cells) {
     auto cells = state.cells;
     compute_cell_labels(cells, {ambient_cell}, ambient_cells, skip_polygons);
@@ -1030,7 +1065,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     auto found = false;
     for (int i = 0; i < cells.size(); i++) {
       auto& cell = cells[i];
-      auto  it   = find_xxx(
+      auto  it   = find_where(
           cell.labels, [](const int& label) { return label < 0; });
       if (it != -1) {
         found = true;
@@ -1050,6 +1085,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
 }
 
 void compute_shapes(bool_state& state) {
+  // Calcoliamo le informazioni sulla shape, come le celle che ne fanno parte
   auto& shapes = state.shapes;
   shapes.resize(state.polygons.size());
 
@@ -1059,7 +1095,8 @@ void compute_shapes(bool_state& state) {
     if (shapes[p].color == zero3f) shapes[p].color = get_color(p);
   }
 
-  // Distribute cells to shapes
+  // Distribute cells to shapes.
+  // La prima shape è relativa alla cella ambiente, che è rotto per definizione
   shapes[0].cells   = {state.ambient_cell};
   shapes[0].is_root = false;
 
@@ -1091,7 +1128,6 @@ void compute_generator_polygons(
 
 void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
   // Calcoliamo tutti i bordi di una shape
-
   for (auto s = 0; s < state.shapes.size(); s++) {
     auto& shape = state.shapes[s];
 
@@ -1185,7 +1221,6 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
         }
       }
     }
-    printf("Borders: %d\n", shape.border_points.size());
   }
 }
 

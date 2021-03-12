@@ -15,10 +15,10 @@
 - [ ] Riordinare triangoli per flood fill.
 - [ ] Provare border_tags rappresentato in maniera sparsa invece che densa, ossia con `hash_map<int, vec3i>` invece che `vector<vec3i>`
 
-
 # Giacomo
 - [ ] Fix windows build (freetype)
 - [ ] Fix windows rendering
 
 # Marzia
 - [x] Rimuovede segments da polygon (lasciare solo edges ovunque)
+- [ ] Fix compilazione in release windows (?)

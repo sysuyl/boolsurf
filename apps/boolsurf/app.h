@@ -40,7 +40,8 @@ struct app_state {
   shape_bvh bvh           = {};
   shape_bvh bvh_original  = {};
 
-  bool_state              state       = {};
+  bool_state state = {};
+
   vector<shade_instance*> cell_shapes = {};
 
   vector<bool_state> history        = {};
@@ -103,6 +104,7 @@ void update_polygon(app_state* app, int polygon_id) {
     mesh_polygon.edges.push_back(segments);
     mesh_polygon.length += segments.size();
   }
+  
   set_polygon_shape(app->glscene, app->mesh, mesh_polygon, polygon_id);
 }
 

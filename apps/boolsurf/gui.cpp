@@ -536,7 +536,7 @@ void update_app(const gui_input& input, void* data) {
 
 int main(int argc, const char* argv[]) {
   auto app         = new app_state{};
-  auto filename    = "tests/_data/shapes/bunny.obj"s;
+  auto filename    = "data/models/bunny.ply"s;
   auto camera_name = ""s;
   auto input       = ""s;
   auto window      = new gui_window{};

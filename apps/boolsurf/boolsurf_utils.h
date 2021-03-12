@@ -50,7 +50,7 @@ inline int find_idx(const vector<T>& vec, const T& x) {
 
 // TODO(gicomo): rename
 template <class T, typename F>
-inline int find_xxx(const vector<T>& vec, F&& f) {
+inline int find_where(const vector<T>& vec, F&& f) {
   for (auto i = 0; i < vec.size(); i++)
     if (f(vec[i])) return i;
   return -1;
@@ -98,55 +98,40 @@ inline vec2i make_edge_key(const vec2i& edge) {
   return edge;
 };
 
-inline pair<int, float> get_edge_lerp_from_uv(const vec2f& uv) {
-  if (uv.y == 0)
-    return {0, uv.x};  // point on edge (x, y)
-  else if (uv.x == 0)
-    return {2, 1.0f - uv.y};  // point on edge (z, x)
-  else if (fabs(uv.x + uv.y - 1.0f) < 0.0001)
-    return {1, uv.y};  // point on edge (y, z)
-  else
-    return {-1, -1};
-}
-
 inline vec2i get_mesh_edge_from_index(const vec3i& triangle, int k) {
-  if (k == 0)
-    return {triangle.x, triangle.y};
-  else if (k == 1)
-    return {triangle.y, triangle.z};
-  else if (k == 2)
-    return {triangle.z, triangle.x};
-  else {
-    assert(0);
-    return {-1, -1};
-  }
+  if (k == 0) return {triangle.x, triangle.y};
+  if (k == 1) return {triangle.y, triangle.z};
+  if (k == 2) return {triangle.z, triangle.x};
+
+  assert(0);
+  return {-1, -1};
 }
 
 inline vec2i get_triangle_edge_from_index(int k) {
-  if (k == 0)
-    return {0, 1};
-  else if (k == 1)
-    return {1, 2};
-  else if (k == 2)
-    return {2, 0};
-  else {
-    assert(0);
-    return {-1, -1};
-  }
+  if (k == 0) return {0, 1};
+  if (k == 1) return {1, 2};
+  if (k == 2) return {2, 0};
+
+  assert(0);
+  return {-1, -1};
 }
 
-inline vec2i get_edge_from_uv(const vec2f uv) {
-  if (uv.y == 0)
-    return {0, 1};
-  else if (fabs(uv.x + uv.y - 1.0f) < 0.0001)
-    return {1, 2};
-  else if (uv.x == 0)
-    return {2, 0};
-  else {
-    assert(0);
-    return {-1, -1};
-  }
+inline vec2i get_edge_from_uv(const vec2f& uv) {
+  if (uv.y == 0) return {0, 1};
+  if (fabs(uv.x + uv.y - 1.0f) < 0.0001) return {1, 2};
+  if (uv.x == 0) return {2, 0};
+
+  assert(0);
+  return {-1, -1};
 };
+
+inline pair<int, float> get_edge_lerp_from_uv(const vec2f& uv) {
+  if (uv.y == 0) return {0, uv.x};
+  if (uv.x == 0) return {2, 1.0f - uv.y};
+  if (fabs(uv.x + uv.y - 1.0f) < 0.0001) return {1, uv.y};
+
+  return {-1, -1};
+}
 
 inline vec3f get_color(int i) {
   static auto colors = vector<vec3f>{
