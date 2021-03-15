@@ -50,15 +50,16 @@ void debug_cells(app_state* app) {
   app->current_patch = (app->current_patch + 1) % app->cell_patches.size();
 }
 
-void debug_borders(app_state* app) {
-  printf("Debugging cell: %d\n", app->current_border);
-  for (auto i = 0; i < app->state.polygons.size(); i++) {
-    app->state.polygons[i].inner_shape->hidden = (i != app->current_border);
-    app->state.polygons[i].outer_shape->hidden = (i != app->current_border);
-  }
+// void debug_borders(app_state* app) {
+//   printf("Debugging cell: %d\n", app->current_border);
+//   for (auto i = 0; i < app->state.polygons.size(); i++) {
+//     app->state.polygons[i].inner_shape->hidden = (i != app->current_border);
+//     app->state.polygons[i].outer_shape->hidden = (i != app->current_border);
+//   }
 
-  app->current_border = (app->current_border + 1) % app->state.polygons.size();
-}
+//   app->current_border = (app->current_border + 1) %
+//   app->state.polygons.size();
+// }
 #endif
 
 // draw with shading
@@ -355,10 +356,8 @@ void key_input(app_state* app, const gui_input& input) {
         update_cell_shapes(app);
         update_cell_colors(app);
 
-        for (auto& polygon : app->state.polygons) {
-          if (polygon.polyline_shape) {
-            polygon.polyline_shape->hidden = true;
-          }
+        for (auto p = 0; p < app->state.polygons.size(); p++) {
+          app->polygon_shapes[p]->hidden = true;
         }
 
         // update bvh
@@ -401,19 +400,19 @@ void key_input(app_state* app, const gui_input& input) {
 
         app->mesh = app->mesh_original;
 
-        for (auto& polygon : state.polygons) {
-          recompute_polygon_segments(app->mesh, app->state, polygon);
-        }
+        // for (auto& polygon : state.polygons) {
+        //   recompute_polygon_segments(app->mesh, app->state, polygon);
+        // }
 
-        for (auto& polygon : app->state.polygons) {
-          clear_shape(polygon.polyline_shape->shape);
-        }
+        // for (auto& polygon : app->state.polygons) {
+        //   clear_shape(polygon.polyline_shape->shape);
+        // }
 
-        app->state = state;
-        for (int i = 0; i < app->state.polygons.size(); i++) {
-          auto& polygon = app->state.polygons[i];
-          set_polygon_shape(app->glscene, app->mesh, polygon, i);
-        }
+        // app->state = state;
+        // for (int i = 0; i < app->state.polygons.size(); i++) {
+        //   auto& polygon = app->state.polygons[i];
+        //   set_polygon_shape(app->glscene, app->mesh, polygon, i);
+        // }
         return;
       } break;
 
@@ -502,7 +501,10 @@ void key_input(app_state* app, const gui_input& input) {
       case (int)gui_key::enter: {
         if (app->state.polygons.back().points.size() > 2) {
           commit_state(app);
-          app->state.polygons.push_back({});
+          auto& polygon       = app->state.polygons.emplace_back();
+          auto  polygon_shape = add_polygon_shape(
+              app, polygon, (int)app->state.polygons.size() - 1);
+          app->polygon_shapes.push_back(polygon_shape);
         }
       } break;
     }
@@ -570,6 +572,14 @@ int main(int argc, const char* argv[]) {
   }
 
   app->state.polygons.push_back({});
+
+  // Init polygon shapes
+  for (auto p = 0; p < app->state.polygons.size(); p++) {
+    auto& polygon       = app->state.polygons[p];
+    auto  polygon_shape = add_polygon_shape(app, polygon, p);
+    app->polygon_shapes.push_back(polygon_shape);
+  }
+
   run_ui(window, update_app);
 
   // clear

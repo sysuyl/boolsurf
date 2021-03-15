@@ -15,38 +15,39 @@ inline void set_patch_shape(
   shape->shape->elements = ogl_element_type::triangles;
 }
 
-inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
-    mesh_polygon& polygon, int index) {
-  if (!polygon.polyline_shape) {
-    polygon.polyline_shape             = add_instance(scene);
-    polygon.polyline_shape->material   = add_material(scene);
-    polygon.polyline_shape->depth_test = ogl_depth_test::always;
-  }
-
-  if (!polygon.polyline_shape->shape) {
-    polygon.polyline_shape->shape = add_shape(scene);
-  }
-
-  polygon.polyline_shape->material->color = get_color(index);
-
-  if (polygon.length == 0) return;
-
+inline void set_polygon_shape(
+    shade_shape* shape, const bool_mesh& mesh, const mesh_polygon& polygon) {
   auto positions = vector<vec3f>();
   positions.reserve(polygon.length + 1);
 
-  for (auto& edge : polygon.edges) {
-    for (auto& segment : edge) {
+  for (auto& edge : polygon.edges)
+    for (auto& segment : edge)
       positions.push_back(eval_position(mesh, {segment.face, segment.start}));
-    }
-  }
 
   auto& segment = polygon.edges.back().back();
   positions.push_back(eval_position(mesh, {segment.face, segment.end}));
 
-  set_positions(polygon.polyline_shape->shape, positions);
-  polygon.polyline_shape->shape->shape->elements = ogl_element_type::line_strip;
-  set_instances(polygon.polyline_shape->shape, {}, {});
+  set_positions(shape, positions);
+  set_instances(shape, {}, {});
+  shape->shape->elements = ogl_element_type::line_strip;
 }
+
+// inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
+//     mesh_polygon& polygon, int index) {
+//   if (!polygon.polyline_shape) {
+//     polygon.polyline_shape             = add_instance(scene);
+//     polygon.polyline_shape->material   = add_material(scene);
+//     polygon.polyline_shape->depth_test = ogl_depth_test::always;
+//   }
+
+//   if (!polygon.polyline_shape->shape) {
+//     polygon.polyline_shape->shape = add_shape(scene);
+//   }
+
+//   polygon.polyline_shape->material->color = get_color(index);
+
+//   if (polygon.length == 0) return;
+// }
 
 inline void set_border_shape(shade_scene* scene, const bool_state& state,
     const bool_mesh& mesh, mesh_shape& shape, int index) {

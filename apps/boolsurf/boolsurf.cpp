@@ -616,9 +616,7 @@ void compute_triangulation_constraints(const bool_mesh& mesh,
       auto uv     = polyline.points[i];
       auto vertex = polyline.vertices[i];
 
-      // TODO (marzia): questo si può semplificare o usando i metodi di CDT
-      // oppure considerando che gli unici vertici che si ripetono sono le
-      // intersezioni.
+      // TODO (marzia): questo forse si può semplificare usando i metodi di CDT
 
       // Aggiungiamo un nuovo vertice se non è già presente nella
       // lista dei nodi
@@ -739,13 +737,11 @@ static vector<vec3i> constrained_triangulation(
   // Questo purtroppo serve.
   for (auto& n : nodes) n *= 1e9;
 
-  // TODO (marzia): controlla se è possibile usare float
-  auto cdt = CDT::Triangulation<double>(
-      CDT::FindingClosestPoint::ClosestRandom);
+  // (marzia): qui usiamo float, ma si possono usare anche i double
+  auto cdt = CDT::Triangulation<float>(CDT::FindingClosestPoint::ClosestRandom);
   cdt.insertVertices(
-      nodes.begin(), nodes.end(),
-      [](const vec2f& point) -> double { return point.x; },
-      [](const vec2f& point) -> double { return point.y; });
+      nodes.begin(), nodes.end(), [](const vec2f& point) { return point.x; },
+      [](const vec2f& point) { return point.y; });
   cdt.insertEdges(
       edges.begin(), edges.end(), [](const vec2i& edge) { return edge.x; },
       [](const vec2i& edge) { return edge.y; });

@@ -49,6 +49,7 @@ inline int find_idx(const vector<T>& vec, const T& x) {
 }
 
 // TODO(gicomo): rename
+// (marzia): check name
 template <class T, typename F>
 inline int find_where(const vector<T>& vec, F&& f) {
   for (auto i = 0; i < vec.size(); i++)

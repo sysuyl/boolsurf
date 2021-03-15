@@ -42,7 +42,8 @@ struct app_state {
 
   bool_state state = {};
 
-  vector<shade_instance*> cell_shapes = {};
+  vector<shade_instance*> cell_shapes    = {};
+  vector<shade_instance*> polygon_shapes = {};
 
   vector<bool_state> history        = {};
   int                history_index  = 0;
@@ -88,11 +89,13 @@ struct app_state {
 };
 
 void update_polygon(app_state* app, int polygon_id) {
-  auto& mesh_polygon = app->state.polygons[polygon_id];
+  auto& mesh_polygon  = app->state.polygons[polygon_id];
+  auto& polygon_shape = app->polygon_shapes[polygon_id];
 
   // Draw polygon.
   recompute_polygon_segments(app->mesh, app->state, mesh_polygon);
-  set_polygon_shape(app->glscene, app->mesh, mesh_polygon, polygon_id);
+  if (mesh_polygon.length > 0)
+    set_polygon_shape(polygon_shape->shape, app->mesh, mesh_polygon);
 }
 
 void update_polygons(app_state* app) {
@@ -372,6 +375,21 @@ shade_instance* add_patch_shape(
   return add_instance(app->glscene, identity3x4f, patch_shape, material);
 }
 
+shade_instance* add_polygon_shape(
+    app_state* app, const mesh_polygon& polygon, int index) {
+  auto polygon_shape = add_shape(app->glscene, {}, {}, {}, {}, {}, {}, {}, {});
+
+  auto polygon_material   = add_material(app->glscene);
+  polygon_material->color = get_color(index);
+
+  if (polygon.length > 0) set_polygon_shape(polygon_shape, app->mesh, polygon);
+  auto polygon_instance = add_instance(
+      app->glscene, identity3x4f, polygon_shape, polygon_material);
+  polygon_instance->depth_test = ogl_depth_test::always;
+
+  return polygon_instance;
+}
+
 inline void update_cell_shapes(app_state* app) {
   for (int i = 0; i < app->state.cells.size(); i++) {
     auto& cell = app->state.cells[i];
@@ -501,6 +519,7 @@ void init_from_test(app_state* app) {
   app->state = state_from_test(app->mesh, app->test);
   for (int i = 0; i < app->state.polygons.size(); i++) {
     auto& polygon = app->state.polygons[i];
-    set_polygon_shape(app->glscene, app->mesh, polygon, i);
+    add_polygon_shape(app, polygon, i);
+    // set_polygon_shape(app->glscene, app->mesh, polygon, i);
   }
 }

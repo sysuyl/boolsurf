@@ -33,9 +33,9 @@ struct mesh_polygon {
   vector<int> outer_faces = {};
 
   // TODO(giacomo): Put them in app.
-  shade_instance* polyline_shape = nullptr;
-  shade_instance* inner_shape    = nullptr;
-  shade_instance* outer_shape    = nullptr;
+  // shade_instance* polyline_shape = nullptr;
+  // shade_instance* inner_shape    = nullptr;
+  // shade_instance* outer_shape    = nullptr;
 };
 
 // Informazioni per la triangolazione di una faccia della mesh
