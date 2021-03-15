@@ -702,30 +702,29 @@ static vector<vec3i> single_split_triangulation(
     const vector<vec2f> nodes, const vec2i& edge) {
   // Calcoliamo la triangolazione con un singolo segmento all'interno del
   // triangolo.
-
   auto start_edge = get_edge_from_uv(nodes[edge.x]);
   auto end_edge   = get_edge_from_uv(nodes[edge.y]);
 
   auto triangles = vector<vec3i>();
-  if (nodes.size() < 5) {
+
+  if (edge.x < 3) {
+    // Se il segmento ha come inizio un punto in un lato e come fine il vertice
+    // del triangolo opposto
     triangles.reserve(2);
-
-    if (edge.x < 3) {
-      triangles.push_back({edge.x, end_edge.x, edge.y});
-      triangles.push_back({edge.x, edge.y, end_edge.y});
-    } else if (edge.y < 3) {
-      triangles.push_back({edge.y, start_edge.x, edge.x});
-      triangles.push_back({edge.y, edge.x, start_edge.y});
-    } else {
-      assert(0);
-    }
-
+    triangles.push_back({edge.x, end_edge.x, edge.y});
+    triangles.push_back({edge.x, edge.y, end_edge.y});
+  } else if (edge.y < 3) {
+    // Se il segmento ha come inizio un vertice di un triangolo e come fine un
+    // punto punto nel lato opposto
+    triangles.reserve(2);
+    triangles.push_back({edge.y, start_edge.x, edge.x});
+    triangles.push_back({edge.y, edge.x, start_edge.y});
   } else {
-    triangles.reserve(3);
-
+    // Se il segmento ha inizio e fine su due lati del triangolo
     auto x = start_edge.x;
     auto y = start_edge.y;
 
+    triangles.reserve(3);
     if (start_edge.y == end_edge.x) {
       auto z = end_edge.y;
 
