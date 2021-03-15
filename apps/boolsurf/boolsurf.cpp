@@ -244,6 +244,7 @@ static vector<vector<int>> add_vertices(
   auto duplicates = hash_map<int, int>();
 
   for (int i = 0; i < polygons.size(); i++) {
+    if (polygons[i].length == 0) continue;
     auto& edges = polygons[i].edges;
     vertices[i].reserve(polygons[i].length);
 
