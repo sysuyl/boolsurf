@@ -697,35 +697,50 @@ void update_edge_constraints(
   }
 }
 
-static vector<vec3i> single_split_triangulation(vector<vec2f> nodes) {
+static vector<vec3i> single_split_triangulation(
+    const vector<vec2f> nodes, const vec2i& edge) {
   // Calcoliamo la triangolazione con un singolo segmento all'interno del
   // triangolo.
-  auto start      = 3;
-  auto end        = 4;
-  auto start_edge = get_edge_from_uv(nodes[start]);
-  auto end_edge   = get_edge_from_uv(nodes[end]);
+
+  auto start_edge = get_edge_from_uv(nodes[edge.x]);
+  auto end_edge   = get_edge_from_uv(nodes[edge.y]);
 
   auto triangles = vector<vec3i>();
-  triangles.reserve(3);
+  if (nodes.size() < 5) {
+    triangles.reserve(2);
 
-  auto x = start_edge.x;
-  auto y = start_edge.y;
+    if (edge.x < 3) {
+      triangles.push_back({edge.x, end_edge.x, edge.y});
+      triangles.push_back({edge.x, edge.y, end_edge.y});
+    } else if (edge.y < 3) {
+      triangles.push_back({edge.y, start_edge.x, edge.x});
+      triangles.push_back({edge.y, edge.x, start_edge.y});
+    } else {
+      assert(0);
+    }
 
-  if (start_edge.y == end_edge.x) {
-    auto z = end_edge.y;
-
-    triangles.push_back({x, start, z});
-    triangles.push_back({start, end, z});
-    triangles.push_back({start, y, end});
-
-  } else if (start_edge.x == end_edge.y) {
-    auto z = end_edge.x;
-
-    triangles.push_back({x, start, end});
-    triangles.push_back({start, z, end});
-    triangles.push_back({start, y, z});
   } else {
-    assert(0);
+    triangles.reserve(3);
+
+    auto x = start_edge.x;
+    auto y = start_edge.y;
+
+    if (start_edge.y == end_edge.x) {
+      auto z = end_edge.y;
+
+      triangles.push_back({x, edge.x, z});
+      triangles.push_back({edge.x, edge.y, z});
+      triangles.push_back({edge.x, y, edge.y});
+
+    } else if (start_edge.x == end_edge.y) {
+      auto z = end_edge.x;
+
+      triangles.push_back({x, edge.x, edge.y});
+      triangles.push_back({edge.x, z, edge.y});
+      triangles.push_back({edge.x, y, z});
+    } else {
+      assert(0);
+    }
   }
 
   return triangles;
@@ -900,7 +915,7 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
     // Se il triangolo ha al suo interno un solo segmento allora chiamiamo la
     // funzione di triangolazione più semplice, altrimenti chiamiamo CDT
     if (info.edges.size() == 1) {
-      triangles = single_split_triangulation(info.nodes);
+      triangles = single_split_triangulation(info.nodes, info.edges[0]);
     } else {
       update_edge_constraints(info.edgemap, info.edges);
       triangles = constrained_triangulation(info.nodes, info.edges);
@@ -1058,7 +1073,8 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   // Trova le celle ambiente nel grafo dell'adiacenza delle celle
   auto ambient_cells = find_ambient_cells(state.cells, skip_polygons);
 
-  // Calcoliamo il labelling definitivo per effettuare le booleane tra poligoni
+  // Calcoliamo il labelling definitivo per effettuare le booleane tra
+  // poligoni
   auto label_size = polygons.size();
   // if (polygons.back().points.empty()) label_size -= 1;
 
@@ -1111,7 +1127,8 @@ void compute_shapes(bool_state& state) {
   }
 
   // Distribute cells to shapes.
-  // La prima shape è relativa alla cella ambiente, che è rotto per definizione
+  // La prima shape è relativa alla cella ambiente, che è rotto per
+  // definizione
   shapes[0].cells   = {state.ambient_cell};
   shapes[0].is_root = false;
 

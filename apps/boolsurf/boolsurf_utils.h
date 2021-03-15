@@ -119,7 +119,8 @@ inline vec2i get_triangle_edge_from_index(int k) {
 
 inline vec2i get_edge_from_uv(const vec2f& uv) {
   if (uv.y == 0) return {0, 1};
-  if (fabs(uv.x + uv.y - 1.0f) < 0.0001) return {1, 2};
+  if (fabs(uv.x + uv.y - 1.0f) < 0.00001)
+    return {1, 2};  // (marzia): cambiata epsilon, occhio!
   if (uv.x == 0) return {2, 0};
 
   assert(0);
@@ -129,7 +130,7 @@ inline vec2i get_edge_from_uv(const vec2f& uv) {
 inline pair<int, float> get_edge_lerp_from_uv(const vec2f& uv) {
   if (uv.y == 0) return {0, uv.x};
   if (uv.x == 0) return {2, 1.0f - uv.y};
-  if (fabs(uv.x + uv.y - 1.0f) < 0.0001) return {1, uv.y};
+  if (fabs(uv.x + uv.y - 1.0f) < 0.00001) return {1, uv.y};
 
   return {-1, -1};
 }
