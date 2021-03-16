@@ -67,15 +67,46 @@ bool_state make_test_state(const bool_mesh& mesh, const shape_bvh& bvh,
       if (point.face == -1) continue;
 
       // Add point to state.
-        state.polygons[polygon_id].points.push_back((int)state.points.size());
+      state.polygons[polygon_id].points.push_back((int)state.points.size());
       state.points.push_back(point);
     }
-      if(state.polygons[polygon_id].points.empty()) {
-          continue;
-      }
+    if (state.polygons[polygon_id].points.empty()) {
+      continue;
+    }
     update_polygon(state, mesh, polygon_id);
   }
   return state;
+}
+
+scene_camera make_camera(const bool_mesh& mesh) {
+  auto bbox_size = size(mesh.bbox);
+  auto z         = zero3f;
+  if (bbox_size.x < bbox_size.y && bbox_size.x < bbox_size.z) {
+    z = {1, 0, 0};
+  }
+  if (bbox_size.y < bbox_size.x && bbox_size.y < bbox_size.z) {
+    z = {0, 1, 0};
+  }
+  if (bbox_size.z < bbox_size.x && bbox_size.z < bbox_size.y) {
+    z = {0, 0, 1};
+  }
+
+  auto x = zero3f;
+  if (bbox_size.x > bbox_size.y && bbox_size.x > bbox_size.z) {
+    x = {1, 0, 0};
+  }
+  if (bbox_size.y > bbox_size.x && bbox_size.y > bbox_size.z) {
+    x = {0, 1, 0};
+  }
+  if (bbox_size.z > bbox_size.x && bbox_size.z > bbox_size.y) {
+    x = {0, 0, 1};
+  }
+
+  auto up = -cross(x, z);
+  // if (up == z) up = {1, 0, 0};
+  auto camera  = scene_camera{};
+  camera.frame = lookat_frame(3 * z, zero3f, up);
+  return camera;
 }
 
 int main(int num_args, const char* args[]) {
@@ -109,10 +140,11 @@ int main(int num_args, const char* args[]) {
   printf("triangles: %d\n", (int)mesh.triangles.size());
   printf("positions: %d\n\n", (int)mesh.positions.size());
 
-  auto bvh = make_triangles_bvh(mesh.triangles, mesh.positions, {});
+  auto bvh    = make_triangles_bvh(mesh.triangles, mesh.positions, {});
+  auto camera = make_camera(mesh);
 
   // auto state = state_from_test(mesh, test);
-  auto state = make_test_state(mesh, bvh, test.camera, 0.005);
+  auto state = make_test_state(mesh, bvh, camera, 0.005);
 
   {
     auto timer = print_timed("[compute_cells]");
@@ -125,7 +157,7 @@ int main(int num_args, const char* args[]) {
   }
 
   auto scene = scene_scene{};
-  scene.cameras.push_back(test.camera);
+  scene.cameras.push_back(camera);
 
   for (int i = 0; i < state.cells.size(); i++) {
     auto& cell = state.cells[i];
