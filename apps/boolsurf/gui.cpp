@@ -207,9 +207,9 @@ void draw_widgets(app_state* app, const gui_input& input) {
   app->operation.type = (bool_operation::Type)op;
   if (draw_button(widgets, "Apply")) {
     commit_state(app);
-    // compute_bool_operation(app->state, app->operation);
+    compute_bool_operation(app->state, app->operation);
     app->test.operations += app->operation;
-    // update_cell_colors(app);
+    update_cell_colors(app);
     app->operation = {};
   }
   if (draw_button(widgets, "Clear operations")) {
@@ -374,9 +374,9 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key('O'): {
-        for (auto& op : app->test.operations) {
-          compute_bool_operation(app->state, op);
-        }
+        // for (auto& op : app->test.operations) {
+        //   compute_bool_operation(app->state, op);
+        // }
 
         update_cell_colors(app);
         compute_shape_borders(app->mesh, app->state);
