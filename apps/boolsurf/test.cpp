@@ -73,7 +73,7 @@ bool_state make_test_state(const bool_mesh& mesh, const shape_bvh& bvh,
     if (state.polygons[polygon_id].points.empty()) {
       continue;
     }
-    update_polygon(state, mesh, polygon_id);
+    recompute_polygon_segments(mesh, state, state.polygons[polygon_id]);
   }
   return state;
 }
@@ -140,11 +140,14 @@ int main(int num_args, const char* args[]) {
   printf("triangles: %d\n", (int)mesh.triangles.size());
   printf("positions: %d\n\n", (int)mesh.positions.size());
 
-  auto bvh    = make_triangles_bvh(mesh.triangles, mesh.positions, {});
+  auto bvh = make_triangles_bvh(mesh.triangles, mesh.positions, {});
+#if 0
   auto camera = make_camera(mesh);
-
-  // auto state = state_from_test(mesh, test);
-  auto state = make_test_state(mesh, bvh, camera, 0.005);
+  // auto state = make_test_state(mesh, bvh, camera, 0.005);
+#else
+  auto state  = state_from_test(mesh, test);
+  auto camera = test.camera;
+#endif
 
   {
     auto timer = print_timed("[compute_cells]");
