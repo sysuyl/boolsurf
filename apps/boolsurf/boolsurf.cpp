@@ -1114,47 +1114,51 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   // configurazione che non ha mai etichette negative allora la salviamo nello
   // stato e non proviamo le altre celle ambiente.
   auto& cells = state.cells;
-  compute_cell_labels(cells, {ambient_cells[1]}, ambient_cells, skip_polygons);
+  compute_cell_labels(cells, {ambient_cells[0]}, ambient_cells, skip_polygons);
 
   // Fixing with whole graph propagation 1
-  auto offset = vector<int>(label_size);
+  auto offset = vector<int>(label_size, 0);
 
   for (int i = 0; i < cells.size(); i++) {
     auto& cell = cells[i];
-    auto  it   = find_where(
-        cell.labels, [](const int& label) { return label < 0; });
-
-    if (it != -1) {
-      // Fixing with whole graph propagation 2
-      for (auto o = 0; o < offset.size(); o++)
-        offset[o] = min(cell.labels[o], offset[o]);
-
-      // Fixing with subgraph propagation
-      // auto offset = vector<int>(label_size);
-      // for (auto o = 0; o < offset.size(); o++)
-      //   offset[o] = min(cell.labels[o], offset[o]);
-
-      // auto need_fix = hash_set<int>();
-      // need_fix.insert(i);
-      // for (auto& [neighbor, polygon] : cell.adjacency) {
-      //   // Se sto entrando
-      //   if (polygon > 0) {
-      //     propagate_offset(cells, neighbor, i, need_fix);
-      //   }
-      // }
-
-      // for (auto& fix : need_fix) {
-      //   for (auto l = 0; l < cells[fix].labels.size(); l++) {
-      //     cells[fix].labels[l] += -offset[l];
-      //   }
-      // }
+    for (int k = 0; k < label_size; k++) {
+      offset[k] = min(cell.labels[k], offset[k]);
     }
+
+    // auto  it   = find_where(
+    // cell.labels, [](const int& label) { return label < 0; });
+
+    // if (it != -1) {
+    // Fixing with whole graph propagation 2
+    // for (auto o = 0; o < offset.size(); o++)
+    // offset[o] = min(cell.labels[o], offset[o]);
+
+    // Fixing with subgraph propagation
+    // auto offset = vector<int>(label_size);
+    // for (auto o = 0; o < offset.size(); o++)
+    //   offset[o] = min(cell.labels[o], offset[o]);
+
+    // auto need_fix = hash_set<int>();
+    // need_fix.insert(i);
+    // for (auto& [neighbor, polygon] : cell.adjacency) {
+    //   // Se sto entrando
+    //   if (polygon > 0) {
+    //     propagate_offset(cells, neighbor, i, need_fix);
+    //   }
+    // }
+
+    // for (auto& fix : need_fix) {
+    //   for (auto l = 0; l < cells[fix].labels.size(); l++) {
+    //     cells[fix].labels[l] += -offset[l];
+    //   }
+    // }
+    // }
   }
 
   // Fixing with whole graph propagation 3
   for (auto i = 0; i < cells.size(); i++) {
-    for (auto o = 0; o < offset.size(); o++) {
-      cells[i].labels[o] += -offset[o];
+    for (auto k = 0; k < offset.size(); k++) {
+      cells[i].labels[k] += -offset[k];
     }
   }
   // assert(state.ambient_cell != -1);
