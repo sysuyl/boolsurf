@@ -495,7 +495,7 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
     auto& cell = cells[cell_id];
     for (auto& [neighbor, polygon] : cell.adjacency) {
       if (find_idx(skip_polygons, polygon) != -1) continue;
-      if (find_idx(ambient_cells, neighbor) != -1) continue;
+      // if (find_idx(ambient_cells, neighbor) != -1) continue;
 
       // Se il nodo è già stato visitato e la nuova etichetta è diversa da
       // quella già calcolata allora prendo il massimo valore in ogni componente
@@ -525,6 +525,30 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
       if (label > 1) label = label % 2;
     }
   }
+}
+
+vector<bool> propagate_offset(const vector<mesh_cell>& cells, int start,
+    int parent, hash_set<int>& need_fix) {
+  auto stack = vector<int>();
+  stack.push_back(start);
+
+  auto visited = vector<bool>(cells.size());
+
+  while (!stack.empty()) {
+    auto cell_id = stack.back();
+    stack.pop_back();
+
+    if (visited[cell_id]) continue;
+    visited[cell_id] = true;
+    need_fix.insert(cell_id);
+
+    auto& cell = cells[cell_id];
+    for (auto& [neighbor, polygon] : cell.adjacency) {
+      if (neighbor != parent) stack.push_back(neighbor);
+    }
+  }
+
+  return visited;
 }
 
 static void compute_intersections(bool_state& state,
@@ -699,7 +723,7 @@ void update_edge_constraints(
 }
 
 static vector<vec3i> single_split_triangulation(
-    const vector<vec2f> nodes, const vec2i& edge) {
+    const vector<vec2f>& nodes, const vec2i& edge) {
   // Calcoliamo la triangolazione con un singolo segmento all'interno del
   // triangolo.
   auto start_edge = get_edge_from_uv(nodes[edge.x]);
@@ -1089,28 +1113,50 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   // Calcoliamo le etichette a partire da ogni cella ambiente. Se troviamo una
   // configurazione che non ha mai etichette negative allora la salviamo nello
   // stato e non proviamo le altre celle ambiente.
-  for (auto ambient_cell : ambient_cells) {
-    auto cells = state.cells;
-    compute_cell_labels(cells, {ambient_cell}, ambient_cells, skip_polygons);
+  auto& cells = state.cells;
+  compute_cell_labels(cells, {ambient_cells[1]}, ambient_cells, skip_polygons);
 
-    auto found = false;
-    for (int i = 0; i < cells.size(); i++) {
-      auto& cell = cells[i];
-      auto  it   = find_where(
-          cell.labels, [](const int& label) { return label < 0; });
-      if (it != -1) {
-        found = true;
-        break;
-      }
-    }
+  // Fixing with whole graph propagation 1
+  auto offset = vector<int>(label_size);
 
-    if (!found) {
-      state.cells        = cells;
-      state.ambient_cell = ambient_cell;
-      break;
+  for (int i = 0; i < cells.size(); i++) {
+    auto& cell = cells[i];
+    auto  it   = find_where(
+        cell.labels, [](const int& label) { return label < 0; });
+
+    if (it != -1) {
+      // Fixing with whole graph propagation 2
+      for (auto o = 0; o < offset.size(); o++)
+        offset[o] = min(cell.labels[o], offset[o]);
+
+      // Fixing with subgraph propagation
+      // auto offset = vector<int>(label_size);
+      // for (auto o = 0; o < offset.size(); o++)
+      //   offset[o] = min(cell.labels[o], offset[o]);
+
+      // auto need_fix = hash_set<int>();
+      // need_fix.insert(i);
+      // for (auto& [neighbor, polygon] : cell.adjacency) {
+      //   // Se sto entrando
+      //   if (polygon > 0) {
+      //     propagate_offset(cells, neighbor, i, need_fix);
+      //   }
+      // }
+
+      // for (auto& fix : need_fix) {
+      //   for (auto l = 0; l < cells[fix].labels.size(); l++) {
+      //     cells[fix].labels[l] += -offset[l];
+      //   }
+      // }
     }
   }
 
+  // Fixing with whole graph propagation 3
+  for (auto i = 0; i < cells.size(); i++) {
+    for (auto o = 0; o < offset.size(); o++) {
+      cells[i].labels[o] += -offset[o];
+    }
+  }
   // assert(state.ambient_cell != -1);
   //  save_tree_png(app, "1");
 }
