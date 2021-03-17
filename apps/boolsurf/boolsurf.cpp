@@ -52,6 +52,10 @@ void init_mesh(bool_mesh& mesh) {
   for (auto& pos : mesh.positions) bbox = merge(bbox, pos);
   for (auto& pos : mesh.positions) pos = (pos - center(bbox)) / max(size(bbox));
 
+  mesh.bbox     = bbox;
+  mesh.bbox.min = (mesh.bbox.min - center(bbox)) / max(size(bbox));
+  mesh.bbox.max = (mesh.bbox.max - center(bbox)) / max(size(bbox));
+
   mesh.dual_solver = make_dual_geodesic_solver(
       mesh.triangles, mesh.positions, mesh.adjacencies);
 }

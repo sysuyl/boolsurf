@@ -89,13 +89,10 @@ struct app_state {
 };
 
 void update_polygon(app_state* app, int polygon_id) {
-  auto& mesh_polygon  = app->state.polygons[polygon_id];
-  auto& polygon_shape = app->polygon_shapes[polygon_id];
+  update_polygon(app->state, app->mesh, polygon_id);
 
-  // Draw polygon.
-  recompute_polygon_segments(app->mesh, app->state, mesh_polygon);
-  if (mesh_polygon.length > 0)
-    set_polygon_shape(polygon_shape->shape, app->mesh, mesh_polygon);
+  auto& mesh_polygon = app->state.polygons[polygon_id];
+  set_polygon_shape(app->glscene, app->mesh, mesh_polygon, polygon_id);
 }
 
 void update_polygons(app_state* app) {

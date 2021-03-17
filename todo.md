@@ -20,5 +20,5 @@
 - [ ] Fix windows rendering
 
 # Marzia
-- [x] Rimuovede segments da polygon (lasciare solo edges ovunque)
+- [x] Rimuovere segments da polygon (lasciare solo edges ovunque)
 - [ ] Fix compilazione in release windows (?)

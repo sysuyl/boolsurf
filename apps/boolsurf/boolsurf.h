@@ -10,6 +10,7 @@ struct bool_mesh : shape_data {
   dual_geodesic_solver dual_solver = {};
   vector<vec3i>        border_tags = {};
 
+    bbox3f bbox = {};
   int num_triangles = 0;
   int num_positions = 0;
 };
@@ -103,6 +104,9 @@ struct bool_operation {
 
 void init_mesh(bool_mesh& mesh);
 void reset_mesh(bool_mesh& mesh);
+
+void update_polygon(bool_state& state, const bool_mesh& mesh, int polygon_id);
+
 void compute_cells(bool_mesh& mesh, bool_state& state);
 void compute_shapes(bool_state& state);
 void compute_shape_borders(const bool_mesh& mesh, bool_state& state);
