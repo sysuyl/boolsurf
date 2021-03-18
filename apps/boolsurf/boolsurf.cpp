@@ -849,7 +849,7 @@ static void update_face_adjacencies(
               // Aggiorno direttamente l'adiacenza nel nuovo triangolo e del
               // vicino
               auto neighbor = mesh.adjacencies[face][kk];
-              if (neighbor == -1) assert(0);
+              if (neighbor == -1) continue;
 
               mesh.adjacencies[triangles[i]][k] = neighbor;
 
@@ -907,7 +907,7 @@ inline bool check_tags(
     if (tr == vec3i{0, 0, 0}) continue;
     for (int k = 0; k < 3; k++) {
       auto neighbor = mesh.adjacencies[face][k];
-      if (neighbor == -1) continue;
+      if (neighbor < 0) continue;
       auto n0 = mesh.adjacencies[face];
       auto n1 = mesh.adjacencies[neighbor];
       auto kk = find_in_vec(mesh.adjacencies[neighbor], face);
