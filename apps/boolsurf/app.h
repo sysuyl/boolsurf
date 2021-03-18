@@ -520,6 +520,5 @@ void init_from_test(app_state* app) {
   for (int i = 0; i < app->state.polygons.size(); i++) {
     auto& polygon = app->state.polygons[i];
     add_polygon_shape(app, polygon, i);
-    // set_polygon_shape(app->glscene, app->mesh, polygon, i);
   }
 }
