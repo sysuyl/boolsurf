@@ -473,19 +473,34 @@ inline vector<vector<int>> compute_components(
   return components;
 }
 
+// (marzia) Not used but I'm keeping it
+static void compute_cell_labels2(
+    vector<mesh_cell>& cells, const vector<int>& skip_polygons) {
+  for (auto c = 0; c < cells.size(); c++) {
+    for (auto& [neighbor, polygon] : cells[c].adjacency) {
+      if (find_idx(skip_polygons, yocto::abs(polygon)) != -1) continue;
+      cells[neighbor].labels = cells[c].labels;
+      cells[neighbor].labels[yocto::abs(polygon)] += polygon > 0 ? 1 : -1;
+    }
+  }
+
+  // Se l'etichetta è maggiore di 1 la riporto in modulo 2
+  for (auto& cell : cells) {
+    for (auto& label : cell.labels) {
+      if (label > 1) label = label % 2;
+    }
+  }
+}
+
 static void compute_cell_labels(vector<mesh_cell>& cells,
-    const vector<int>& start, const vector<int>& ambient_cells,
-    const vector<int>& skip_polygons) {
+    const vector<int>& start, const vector<int>& skip_polygons) {
   // Calcoliamo le label delle celle visitando il grafo di adiacenza a partire
   // da una cella ambiente e incrementanto/decrementanto l'indice corrispondente
   // al poligono
   auto visited = vector<bool>(cells.size(), false);
-  auto stack   = start;
+  for (auto& s : start) visited[s] = true;
 
-  for (auto& c : start) {
-    visited[c] = true;
-  }
-
+  auto stack = start;
   while (!stack.empty()) {
     auto cell_id = stack.back();
     stack.pop_back();
@@ -494,8 +509,8 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
 
     auto& cell = cells[cell_id];
     for (auto& [neighbor, polygon] : cell.adjacency) {
-      if (find_idx(skip_polygons, polygon) != -1) continue;
-      // if (find_idx(ambient_cells, neighbor) != -1) continue;
+      auto polygon_id = yocto::abs(polygon);
+      if (find_idx(skip_polygons, polygon_id) != -1) continue;
 
       // Se il nodo è già stato visitato e la nuova etichetta è diversa da
       // quella già calcolata allora prendo il massimo valore in ogni componente
@@ -527,6 +542,7 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
   }
 }
 
+// (marzia) Not used but I'm keeping it
 vector<bool> propagate_offset(const vector<mesh_cell>& cells, int start,
     int parent, hash_set<int>& need_fix) {
   auto stack = vector<int>();
@@ -549,6 +565,55 @@ vector<bool> propagate_offset(const vector<mesh_cell>& cells, int start,
   }
 
   return visited;
+}
+
+void update_label_propagation(vector<mesh_cell>& cells, int label_size) {
+  // Fixing with whole graph propagation 1
+  auto offset = vector<int>(label_size, 0);
+
+  for (int i = 0; i < cells.size(); i++) {
+    auto& cell = cells[i];
+
+    for (int k = 0; k < label_size; k++) {
+      offset[k] = min(cell.labels[k], offset[k]);
+    }
+
+    // auto  it   = find_where(
+    // cell.labels, [](const int& label) { return label < 0; });
+
+    // if (it != -1) {
+    // Fixing with whole graph propagation 2
+    // for (auto o = 0; o < offset.size(); o++)
+    // offset[o] = min(cell.labels[o], offset[o]);
+
+    // Fixing with subgraph propagation
+    // auto offset = vector<int>(label_size);
+    // for (auto o = 0; o < offset.size(); o++)
+    //   offset[o] = min(cell.labels[o], offset[o]);
+
+    // auto need_fix = hash_set<int>();
+    // need_fix.insert(i);
+    // for (auto& [neighbor, polygon] : cell.adjacency) {
+    //   // Se sto entrando
+    //   if (polygon > 0) {
+    //     propagate_offset(cells, neighbor, i, need_fix);
+    //   }
+    // }
+
+    // for (auto& fix : need_fix) {
+    //   for (auto l = 0; l < cells[fix].labels.size(); l++) {
+    //     cells[fix].labels[l] += -offset[l];
+    //   }
+    // }
+    // }
+  }
+
+  // Fixing with whole graph propagation 3
+  for (auto i = 0; i < cells.size(); i++) {
+    for (auto k = 0; k < offset.size(); k++) {
+      cells[i].labels[k] += -offset[k];
+    }
+  }
 }
 
 static void compute_intersections(bool_state& state,
@@ -1087,9 +1152,12 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   // mesh. In modo da eliminare gli archi corrispondenti.
   auto cycles = compute_graph_cycles(state.cells);
 
+  // (marzia) Sicuuro si può fare meglio
   auto skip_polygons = vector<int>();
+  auto cycle_nodes   = vector<int>();
   for (auto& cycle : cycles) {
     for (auto& [node, polygon] : cycle) {
+      cycle_nodes.push_back(node);
       skip_polygons.push_back(polygon);
     }
   }
@@ -1100,7 +1168,6 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   // Calcoliamo il labelling definitivo per effettuare le booleane tra
   // poligoni
   auto label_size = polygons.size();
-  // if (polygons.back().points.empty()) label_size -= 1;
 
   // Inizializziamo le label delle celle a 0
   for (auto& cell : state.cells) cell.labels = vector<int>(label_size, 0);
@@ -1110,57 +1177,20 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   for (auto& cycle : cycles)
     for (auto& c : cycle) state.cells[c.x].labels[c.y] = 1;
 
-  // Calcoliamo le etichette a partire da ogni cella ambiente. Se troviamo una
-  // configurazione che non ha mai etichette negative allora la salviamo nello
-  // stato e non proviamo le altre celle ambiente.
   auto& cells = state.cells;
-  compute_cell_labels(cells, {ambient_cells[0]}, ambient_cells, skip_polygons);
 
-  // Fixing with whole graph propagation 1
-  auto offset = vector<int>(label_size, 0);
-
-  for (int i = 0; i < cells.size(); i++) {
-    auto& cell = cells[i];
-    for (int k = 0; k < label_size; k++) {
-      offset[k] = min(cell.labels[k], offset[k]);
-    }
-
-    // auto  it   = find_where(
-    // cell.labels, [](const int& label) { return label < 0; });
-
-    // if (it != -1) {
-    // Fixing with whole graph propagation 2
-    // for (auto o = 0; o < offset.size(); o++)
-    // offset[o] = min(cell.labels[o], offset[o]);
-
-    // Fixing with subgraph propagation
-    // auto offset = vector<int>(label_size);
-    // for (auto o = 0; o < offset.size(); o++)
-    //   offset[o] = min(cell.labels[o], offset[o]);
-
-    // auto need_fix = hash_set<int>();
-    // need_fix.insert(i);
-    // for (auto& [neighbor, polygon] : cell.adjacency) {
-    //   // Se sto entrando
-    //   if (polygon > 0) {
-    //     propagate_offset(cells, neighbor, i, need_fix);
-    //   }
-    // }
-
-    // for (auto& fix : need_fix) {
-    //   for (auto l = 0; l < cells[fix].labels.size(); l++) {
-    //     cells[fix].labels[l] += -offset[l];
-    //   }
-    // }
-    // }
+  // Se erano presenti cicli all'interno del grafo allora facciamo partire il
+  // labelling da quelle celle, in modo da propagare le informazioni già
+  // acquisite. In caso contrario la visita parte normalmente da una qualsiasi
+  // delle celle ambiente calcolate
+  if (cycle_nodes.size() > 0) {
+    compute_cell_labels(cells, cycle_nodes, skip_polygons);
+  } else {
+    compute_cell_labels(cells, {ambient_cells[0]}, skip_polygons);
   }
 
-  // Fixing with whole graph propagation 3
-  for (auto i = 0; i < cells.size(); i++) {
-    for (auto k = 0; k < offset.size(); k++) {
-      cells[i].labels[k] += -offset[k];
-    }
-  }
+  update_label_propagation(cells, label_size);
+
   // assert(state.ambient_cell != -1);
   //  save_tree_png(app, "1");
 }
