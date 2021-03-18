@@ -516,7 +516,7 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
       // quella già calcolata allora prendo il massimo valore in ogni componente
       if (visited[neighbor]) {
         auto tmp = cell.labels;
-        tmp[yocto::abs(polygon)] += polygon > 0 ? 1 : -1;
+        tmp[polygon_id] += polygon > 0 ? 1 : -1;
         if (tmp != cells[neighbor].labels) {
           for (int i = 0; i < cell.labels.size(); i++) {
             cells[neighbor].labels[i] = yocto::max(
@@ -528,7 +528,7 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
       }
 
       cells[neighbor].labels = cell.labels;
-      cells[neighbor].labels[yocto::abs(polygon)] += polygon > 0 ? 1 : -1;
+      cells[neighbor].labels[polygon_id] += polygon > 0 ? 1 : -1;
       stack.push_back(neighbor);
       visited[neighbor] = true;
     }
@@ -542,31 +542,6 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
   }
 }
 
-// (marzia) Not used but I'm keeping it
-vector<bool> propagate_offset(const vector<mesh_cell>& cells, int start,
-    int parent, hash_set<int>& need_fix) {
-  auto stack = vector<int>();
-  stack.push_back(start);
-
-  auto visited = vector<bool>(cells.size());
-
-  while (!stack.empty()) {
-    auto cell_id = stack.back();
-    stack.pop_back();
-
-    if (visited[cell_id]) continue;
-    visited[cell_id] = true;
-    need_fix.insert(cell_id);
-
-    auto& cell = cells[cell_id];
-    for (auto& [neighbor, polygon] : cell.adjacency) {
-      if (neighbor != parent) stack.push_back(neighbor);
-    }
-  }
-
-  return visited;
-}
-
 void update_label_propagation(vector<mesh_cell>& cells, int label_size) {
   // Fixing with whole graph propagation 1
   auto offset = vector<int>(label_size, 0);
@@ -577,35 +552,6 @@ void update_label_propagation(vector<mesh_cell>& cells, int label_size) {
     for (int k = 0; k < label_size; k++) {
       offset[k] = min(cell.labels[k], offset[k]);
     }
-
-    // auto  it   = find_where(
-    // cell.labels, [](const int& label) { return label < 0; });
-
-    // if (it != -1) {
-    // Fixing with whole graph propagation 2
-    // for (auto o = 0; o < offset.size(); o++)
-    // offset[o] = min(cell.labels[o], offset[o]);
-
-    // Fixing with subgraph propagation
-    // auto offset = vector<int>(label_size);
-    // for (auto o = 0; o < offset.size(); o++)
-    //   offset[o] = min(cell.labels[o], offset[o]);
-
-    // auto need_fix = hash_set<int>();
-    // need_fix.insert(i);
-    // for (auto& [neighbor, polygon] : cell.adjacency) {
-    //   // Se sto entrando
-    //   if (polygon > 0) {
-    //     propagate_offset(cells, neighbor, i, need_fix);
-    //   }
-    // }
-
-    // for (auto& fix : need_fix) {
-    //   for (auto l = 0; l < cells[fix].labels.size(); l++) {
-    //     cells[fix].labels[l] += -offset[l];
-    //   }
-    // }
-    // }
   }
 
   // Fixing with whole graph propagation 3
@@ -795,17 +741,14 @@ static vector<vec3i> single_split_triangulation(
   auto end_edge   = get_edge_from_uv(nodes[edge.y]);
 
   auto triangles = vector<vec3i>();
-
   if (edge.x < 3) {
     // Se il segmento ha come inizio un punto in un lato e come fine il vertice
     // del triangolo opposto
-    triangles.reserve(2);
     triangles.push_back({edge.x, end_edge.x, edge.y});
     triangles.push_back({edge.x, edge.y, end_edge.y});
   } else if (edge.y < 3) {
     // Se il segmento ha come inizio un vertice di un triangolo e come fine un
     // punto punto nel lato opposto
-    triangles.reserve(2);
     triangles.push_back({edge.y, start_edge.x, edge.x});
     triangles.push_back({edge.y, edge.x, start_edge.y});
   } else {
@@ -813,7 +756,6 @@ static vector<vec3i> single_split_triangulation(
     auto x = start_edge.x;
     auto y = start_edge.y;
 
-    triangles.reserve(3);
     if (start_edge.y == end_edge.x) {
       auto z = end_edge.y;
 
@@ -837,7 +779,7 @@ static vector<vec3i> single_split_triangulation(
 
 // Constrained Delaunay Triangulation
 static vector<vec3i> constrained_triangulation(
-    vector<vec2f> nodes, const vector<vec2i>& edges) {
+    vector<vec2f>& nodes, const vector<vec2i>& edges) {
   // Questo purtroppo serve.
   for (auto& n : nodes) n *= 1e9;
 
@@ -989,8 +931,6 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
     info.face    = face;
     info.nodes   = vector<vec2f>{{0, 0}, {1, 0}, {0, 1}};
     info.indices = vector<int>{a, b, c};
-
-    auto edgemap = array<vector<pair<int, float>>, 3>{};
 
     compute_triangulation_constraints(
         mesh, polylines, info, triangulated_faces);
@@ -1152,7 +1092,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   // mesh. In modo da eliminare gli archi corrispondenti.
   auto cycles = compute_graph_cycles(state.cells);
 
-  // (marzia) Sicuuro si può fare meglio
+  // (marzia) Sicuro si può fare meglio
   auto skip_polygons = vector<int>();
   auto cycle_nodes   = vector<int>();
   for (auto& cycle : cycles) {
@@ -1167,17 +1107,16 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
 
   // Calcoliamo il labelling definitivo per effettuare le booleane tra
   // poligoni
-  auto label_size = polygons.size();
+  auto& cells      = state.cells;
+  auto  label_size = polygons.size();
 
   // Inizializziamo le label delle celle a 0
-  for (auto& cell : state.cells) cell.labels = vector<int>(label_size, 0);
+  for (auto& cell : cells) cell.labels = vector<int>(label_size, 0);
 
   // Se erano presenti cicli li risolviamo settando la label in base alle
   // informazioni estratte prima
   for (auto& cycle : cycles)
-    for (auto& c : cycle) state.cells[c.x].labels[c.y] = 1;
-
-  auto& cells = state.cells;
+    for (auto& c : cycle) cells[c.x].labels[c.y] = 1;
 
   // Se erano presenti cicli all'interno del grafo allora facciamo partire il
   // labelling da quelle celle, in modo da propagare le informazioni già
