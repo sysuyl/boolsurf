@@ -848,7 +848,9 @@ static void update_face_adjacencies(
             if (make_edge_key(edge) == make_edge_key(edge0)) {
               // Aggiorno direttamente l'adiacenza nel nuovo triangolo e del
               // vicino
-              auto neighbor                     = mesh.adjacencies[face][kk];
+              auto neighbor = mesh.adjacencies[face][kk];
+              if (neighbor == -1) assert(0);
+
               mesh.adjacencies[triangles[i]][k] = neighbor;
 
               auto it = find_in_vec(mesh.adjacencies[neighbor], face);
