@@ -163,8 +163,12 @@ inline string tree_to_string(const vector<mesh_cell>& cells) {
     auto& cell  = cells[i];
     auto  color = rgb_to_hsv(get_cell_color(cell.labels, i));
     char  str[1024];
-    sprintf(str, "%d [label=\"%d\" style=filled fillcolor=\"%f %f %f\"]\n", i,
-        i, color.x, color.y, color.z);
+    auto  label = string{};
+    for (auto& l : cell.labels) {
+      label += to_string(l) + " ";
+    }
+    sprintf(str, "%d [label=\"%d\n%s\" style=filled fillcolor=\"%f %f %f\"]\n",i,
+        i, label.c_str(), color.x, color.y, color.z);
     result += std::string(str);
 
     for (auto [neighbor, polygon] : cell.adjacency) {

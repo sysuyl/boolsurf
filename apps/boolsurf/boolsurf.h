@@ -10,9 +10,10 @@ struct bool_mesh : shape_data {
   dual_geodesic_solver dual_solver = {};
   vector<vec3i>        border_tags = {};
 
-    bbox3f bbox = {};
-  int num_triangles = 0;
-  int num_positions = 0;
+  bbox3f                     bbox               = {};
+  int                        num_triangles      = 0;
+  int                        num_positions      = 0;
+  hash_map<int, vector<int>> triangulated_faces = {};
 };
 
 struct mesh_segment {

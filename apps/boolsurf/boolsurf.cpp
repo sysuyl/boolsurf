@@ -62,8 +62,33 @@ void init_mesh(bool_mesh& mesh) {
 
 void reset_mesh(bool_mesh& mesh) {
   mesh.triangles.resize(mesh.num_triangles);
-  mesh.adjacencies.resize(mesh.num_triangles);  // TODO(giacomo): Not correct!
   mesh.positions.resize(mesh.num_positions);
+  mesh.adjacencies.resize(mesh.num_triangles);
+  mesh.dual_solver.graph.resize(mesh.num_triangles);
+
+  auto get_triangle_center = [&](int face) {
+    return (1.0f / 3) * (mesh.positions[mesh.triangles[face].x] +
+                            mesh.positions[mesh.triangles[face].y] +
+                            mesh.positions[mesh.triangles[face].z]);
+  };
+
+  for (auto& [face, _] : mesh.triangulated_faces) {
+    for (int k = 0; k < 3; k++) {
+      auto neighbor = mesh.adjacencies[face][k];
+      if (neighbor == -1) continue;
+      auto kk = find_adjacent_triangle(
+          mesh.triangles[neighbor], mesh.triangles[face]);
+      mesh.adjacencies[neighbor][kk] = face;
+
+      mesh.dual_solver.graph[neighbor][kk].node   = face;
+      mesh.dual_solver.graph[neighbor][kk].length = length(
+          get_triangle_center(neighbor) - get_triangle_center(face));
+    }
+  }
+
+  // TODO(giacomo): This is still expensive.
+  // mesh.dual_solver = make_dual_geodesic_solver(
+  // mesh.triangles, mesh.positions, mesh.adjacencies);
 }
 
 geodesic_path compute_geodesic_path(
@@ -1076,8 +1101,9 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   compute_intersections(state, hashgrid, mesh);
 
   // Mappa a ogni edge generato le due facce generate adiacenti.
-  auto face_edgemap       = hash_map<vec2i, vec2i>{};
-  auto triangulated_faces = hash_map<int, vector<int>>{};
+  auto  face_edgemap       = hash_map<vec2i, vec2i>{};
+  auto& triangulated_faces = mesh.triangulated_faces;
+  triangulated_faces       = hash_map<int, vector<int>>{};
 
   // Triangolazione e aggiornamento dell'adiacenza
   triangulate(mesh, face_edgemap, triangulated_faces, hashgrid);
