@@ -1134,9 +1134,6 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     }
   }
 
-  // Trova le celle ambiente nel grafo dell'adiacenza delle celle
-  auto ambient_cells = find_ambient_cells(state.cells, skip_polygons);
-
   // Calcoliamo il labelling definitivo per effettuare le booleane tra
   // poligoni
   auto& cells      = state.cells;
@@ -1157,11 +1154,18 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   if (cycle_nodes.size() > 0) {
     compute_cell_labels(cells, cycle_nodes, skip_polygons);
   } else {
+    // Trova le celle ambiente nel grafo dell'adiacenza delle celle
+    auto ambient_cells = find_ambient_cells(state.cells, skip_polygons);
     compute_cell_labels(cells, {ambient_cells[0]}, skip_polygons);
   }
 
   update_label_propagation(cells, label_size);
 
+  for (auto& cell : state.cells) {
+    for (auto& label : cell.labels) {
+      if (label > 1) label = label % 2;
+    }
+  }
   // assert(state.ambient_cell != -1);
   //  save_tree_png(app, "1");
 }
