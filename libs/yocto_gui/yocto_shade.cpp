@@ -267,7 +267,7 @@ bool is_initialized(const shade_texture* texture) {
 void clear_texture(shade_texture* texture) { clear_texture(texture->texture); }
 
 // set texture
-void set_texture(shade_texture* texture, const image_data& img, bool as_srgb,
+void set_texture(shade_texture* texture, const color_image& img, bool as_srgb,
     bool linear, bool mipmap) {
   set_texture(texture->texture, img, as_srgb, linear, mipmap);
 }
@@ -722,7 +722,7 @@ static void precompute_cubemap(ogl_cubemap* cubemap, const Sampler* environment,
 
     for (auto i = 0; i < 6; ++i) {
       // perspective_mat(fov, aspect, near, far)
-      auto camera_proj = perspective_mat(radians(90), 1, 1, 100);
+      auto camera_proj = perspective_mat(radians(90.0f), 1, 1, 100);
       auto camera_view = frame_to_mat(inverse(cameras[i]));
 
       set_framebuffer_texture(framebuffer, cubemap, i, mipmap_level);

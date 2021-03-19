@@ -227,7 +227,7 @@ bool is_initialized(const shade_texture* texture);
 void clear_texture(shade_texture* texture);
 
 // set texture
-void set_texture(shade_texture* texture, const image_data& img,
+void set_texture(shade_texture* texture, const color_image& img,
     bool as_srgb = true, bool linear = true, bool mipmap = true);
 //void set_texture(shade_texture* texture, const image<vec4f>& img,
 //    bool as_float = false, bool linear = true, bool mipmap = true);

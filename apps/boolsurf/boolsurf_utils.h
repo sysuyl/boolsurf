@@ -167,7 +167,7 @@ inline vec3f get_cell_color(const vector<int>& labels, int cell_id) {
   }
   if (count > 0) {
     color /= count;
-    color += vec3f{1, 1, 1} * 0.1f * yocto::sin(cell_id);
+    color += vec3f{1, 1, 1} * 0.1f * yocto::sin(float(cell_id));
   } else {
     color = {0.9, 0.9, 0.9};
   }

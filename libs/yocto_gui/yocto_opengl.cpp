@@ -270,9 +270,9 @@ void clear_texture(ogl_texture* texture) {
   assert_ogl_error();
 }
 
-void set_texture(ogl_texture* texture, const image_data& img, bool as_srgb,
+void set_texture(ogl_texture* texture, const color_image& img, bool as_srgb,
     bool linear, bool mipmap) {
-    set_texture(texture, {img.width, img.height}, 4, (const byte*)img.pixelsb.data(), as_srgb,
+    set_texture(texture, {img.width, img.height}, 4, (const byte*)img.pixels.data(), as_srgb,
       linear, mipmap);
 }
 //void set_texture(ogl_texture* texture, const image<vec4f>& img, bool as_float,
@@ -303,13 +303,13 @@ void set_texture(ogl_texture* texture, const image_data& img, bool as_srgb,
 //      linear, mipmap);
 //}
 
-image_data get_texture(const ogl_texture* texture) {
-  auto result = image_data{};
-    result.pixelsb.resize(texture->size.x * texture->size.y);
+color_image get_texture(const ogl_texture* texture) {
+  auto result = color_image{};
+    result.pixels.resize(texture->size.x * texture->size.y);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, texture->texture_id);
 
-  glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, result.pixelsb.data());
+  glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, result.pixels.data());
   return result;
 }
 
@@ -451,11 +451,11 @@ void clear_cubemap(ogl_cubemap* cubemap) {
   assert_ogl_error();
 }
 
-void set_cubemap(ogl_cubemap* cubemap, const array<image_data, 6>& img,
+void set_cubemap(ogl_cubemap* cubemap, const array<color_image, 6>& img,
     int num_channels, bool as_srgb, bool linear, bool mipmap) {
-  auto data = array<byte*, 6>{(byte*)img[0].pixelsb.data(), (byte*)img[1].pixelsb.data(),
-      (byte*)img[2].pixelsb.data(), (byte*)img[3].pixelsb.data(), (byte*)img[4].pixelsb.data(),
-      (byte*)img[5].pixelsb.data()};
+  auto data = array<byte*, 6>{(byte*)img[0].pixels.data(), (byte*)img[1].pixels.data(),
+      (byte*)img[2].pixels.data(), (byte*)img[3].pixels.data(), (byte*)img[4].pixels.data(),
+      (byte*)img[5].pixels.data()};
   set_cubemap(
               cubemap, img[0].width, num_channels, data, as_srgb, linear, mipmap);
 }
@@ -1283,7 +1283,7 @@ void clear_image(ogl_image* image) {
 
 // update image data
 void set_image(
-    ogl_image* oimg, const image_data& img, bool linear, bool mipmap) {
+    ogl_image* oimg, const color_image& img, bool linear, bool mipmap) {
   set_texture(oimg->texture, img, false, linear, mipmap);
 }
 //void set_image(

@@ -5,7 +5,7 @@
 using namespace yocto;
 using namespace std;
 
-struct bool_mesh : shape_data {
+struct bool_mesh : scene_shape {
   vector<vec3i>        adjacencies = {};
   dual_geodesic_solver dual_solver = {};
   vector<vec3i>        border_tags = {};

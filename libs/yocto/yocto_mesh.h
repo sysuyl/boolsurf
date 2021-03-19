@@ -181,7 +181,8 @@ struct dual_geodesic_solver {
     int   node   = -1;
     float length = flt_max;
   };
-  vector<array<edge, 3>> graph = {};
+  vector<array<edge, 3>> graph     = {};
+  vector<vec3f>          centroids = {};
 };
 
 // Construct a graph to compute geodesic distances
@@ -198,7 +199,6 @@ vector<mesh_point> compute_shortest_path(const dual_geodesic_solver& graph,
     const vector<vec3i>& triangles, const vector<vec3f>& positions,
     const vector<vec3i>& adjacencies, const vector<mesh_point>& points);
 
-// TODO(fabio): implement wrapper
 // compute the straightest path given a surface point and tangent direction
 vector<mesh_point> compute_straightest_path(const vector<vec3i>& triangles,
     const vector<vec3f>& positions, const vector<vec3i>& adjacencies,
@@ -240,8 +240,8 @@ const auto spline_algorithm_names = vector<string>{
 struct spline_params {
   spline_algorithm algorithm      = spline_algorithm::de_casteljau_uniform;
   int              subdivisions   = 4;
-  float            precision      = 0.1;
-  float            min_curve_size = 0.001;
+  float            precision      = 0.1f;
+  float            min_curve_size = 0.001f;
   int              max_depth      = 10;
 };
 
@@ -254,6 +254,26 @@ vector<mesh_point> compute_bezier_path(const dual_geodesic_solver& solver,
     const vector<vec3i>& triangles, const vector<vec3f>& positions,
     const vector<vec3i>&        adjacencies,
     const array<mesh_point, 4>& control_points, const spline_params& params);
+
+// Compute visualizations for the shortest path connecting a set of points.
+vector<vec3f> visualize_shortest_path(const dual_geodesic_solver& graph,
+    const vector<vec3i>& triangles, const vector<vec3f>& positions,
+    const vector<vec3i>& adjacencies, const mesh_point& start,
+    const mesh_point& end, bool strip);
+vector<vec3f> visualize_shortest_path(const dual_geodesic_solver& graph,
+    const vector<vec3i>& triangles, const vector<vec3f>& positions,
+    const vector<vec3i>& adjacencies, const vector<mesh_point>& points,
+    bool strip);
+vector<vec3f> visualize_shortest_path(const geodesic_solver& graph,
+    const vector<vec3i>& triangles, const vector<vec3f>& positions,
+    const vector<vec3i>& adjacencies, const vector<vector<int>>& v2t,
+    const vector<vector<float>>& angles, const mesh_point& start,
+    const mesh_point& end, bool strip);
+vector<vec3f> visualize_shortest_path(const geodesic_solver& graph,
+    const vector<vec3i>& triangles, const vector<vec3f>& positions,
+    const vector<vec3i>& adjacencies, const vector<vector<int>>& v2t,
+    const vector<vector<float>>& angles, const vector<mesh_point>& points,
+    bool strip);
 
 }  // namespace yocto
 
@@ -359,7 +379,7 @@ vector<int> get_strip(const geodesic_solver& solver,
     const vector<vec3i>& triangles, const vector<vec3f>& positions,
     const vector<vec3i>& adjacencies, const vector<vector<int>>& v2t,
     const vector<vector<float>>& angles, const mesh_point& source,
-    const mesh_point& target);
+    const mesh_point& target, vector<int>& parents);
 
 }  // namespace yocto
 
@@ -368,7 +388,8 @@ vector<int> get_strip(const geodesic_solver& solver,
 // -----------------------------------------------------------------------------
 namespace yocto {
 
-using unfold_triangle = std::array<vec2f, 3>;
+using unfold_triangle  = std::array<vec2f, 3>;
+using unfold_triangled = std::array<vec2d, 3>;
 
 // TODO(fabio): o faccio il .h, o vanno via
 // Find barycentric coordinates of a point inside a triangle (a, b, c).

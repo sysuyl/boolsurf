@@ -84,17 +84,14 @@ inline int64_t     print_elapsed(print_timer& timer);
 
 // Print progress
 inline void print_progress(const string& message, int current, int total);
+inline void print_progress_begin(const string& message, int total = 1);
+inline void print_progress_end();
+inline void print_progress_next();
 
 // Format duration string from nanoseconds
 inline string format_duration(int64_t duration);
 // Format a large integer number in human readable form
 inline string format_num(uint64_t num);
-
-// Logging using the above functions but controlled by a log level
-inline void log_info(const string& message);
-inline int  log_fatal(const string& message);
-inline void log_progress(const string& message, int current, int total);
-inline void set_log_level(bool verbose);
 
 }  // namespace yocto
 
@@ -373,16 +370,26 @@ inline void print_progress(const string& message, int current, int total) {
   fflush(stdout);
 }
 
-// Logging using the above functions but controlled by a log level
-inline bool log_verbose = false;
-inline void log_info(const string& message) {
-  if (log_verbose) print_info(message);
+inline int    print_progress_current = 0;
+inline int    print_progress_total   = 0;
+inline string print_progress_message = "";
+inline void   print_progress_begin(const string& message, int total) {
+  print_progress_current = 0;
+  print_progress_total   = total;
+  print_progress_message = message;
+  print_progress(
+      print_progress_message, print_progress_current, print_progress_total);
 }
-inline int  log_fatal(const string& message) { return print_fatal(message); }
-inline void log_progress(const string& message, int current, int total) {
-  if (log_verbose) print_progress(message, current, total);
+inline void print_progress_end() {
+  print_progress_current = print_progress_total;
+  print_progress(
+      print_progress_message, print_progress_current, print_progress_total);
 }
-inline void set_log_level(bool verbose) { log_verbose = verbose; }
+inline void print_progress_next() {
+  print_progress_current += 1;
+  print_progress(
+      print_progress_message, print_progress_current, print_progress_total);
+}
 
 }  // namespace yocto
 
@@ -610,10 +617,8 @@ inline void add_argumentv_impl(cli_command& cli, const string& name,
 inline void add_option(cli_command& cli, const string& name, int& value,
     const string& usage, const vector<int>& minmax, const string& alt,
     bool req) {
-    auto m = vector<int>{};
-    if(minmax.size()>=2) m = {minmax[0], minmax[1]};
-  return add_option_impl(cli, name, value, cli_type::integer, 1, usage,
-                      m   , {}, alt, req);
+  return add_option_impl(
+      cli, name, value, cli_type::integer, 1, usage, minmax, {}, alt, req);
 }
 inline void add_option(cli_command& cli, const string& name, float& value,
     const string& usage, const vector<float>& minmax, const string& alt,
@@ -791,7 +796,7 @@ inline string get_usage(const cli_command& root, const cli_command& cli) {
           len = 16;
         }
         line += choice + ", ";
-        len += choice.size() + 2;
+        len += (int)choice.size() + 2;
       }
       line = line.substr(0, line.size() - 2);
       line += "\n";
@@ -801,7 +806,7 @@ inline string get_usage(const cli_command& root, const cli_command& cli) {
   {
     auto line = "  --help" + string{};
     while (line.size() < 32) line += " ";
-    line += "Prints help. [false]";
+    line += "Prints help. [false]\n";
     usage_options += line;
   }
   for (auto& option : cli.arguments) {
@@ -819,7 +824,7 @@ inline string get_usage(const cli_command& root, const cli_command& cli) {
           len = 16;
         }
         line += choice + ", ";
-        len += choice.size() + 2;
+        len += (int)choice.size() + 2;
       }
       line = line.substr(0, line.size() - 2);
       line += "\n";
@@ -883,6 +888,10 @@ inline static bool parse_value(
           auto end      = (char*)nullptr;
           value.integer = (int)strtol(arg.c_str(), &end, 10);
           if (end == nullptr) return false;
+          if (option.minmax.size() >= 2) {
+            if (value.integer < option.minmax[0].integer) return false;
+            if (value.integer > option.minmax[1].integer) return false;
+          }
         } else {
           value.integer = (int64_t)(
               std::find(choices.begin(), choices.end(), arg) - choices.begin());
@@ -893,6 +902,10 @@ inline static bool parse_value(
           auto end       = (char*)nullptr;
           value.uinteger = (int)strtoul(arg.c_str(), &end, 10);
           if (end == nullptr) return false;
+          if (option.minmax.size() >= 2) {
+            if (value.uinteger < option.minmax[0].uinteger) return false;
+            if (value.uinteger > option.minmax[1].uinteger) return false;
+          }
         } else {
           value.uinteger = (uint64_t)(
               std::find(choices.begin(), choices.end(), arg) - choices.begin());
@@ -902,6 +915,10 @@ inline static bool parse_value(
         auto end     = (char*)nullptr;
         value.number = strtod(arg.c_str(), &end);
         if (end == nullptr) return false;
+        if (option.minmax.size() >= 2) {
+          if (value.number < option.minmax[0].number) return false;
+          if (value.number > option.minmax[1].number) return false;
+        }
       } break;
     }
   }

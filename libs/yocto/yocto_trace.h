@@ -73,6 +73,8 @@ namespace yocto {
 // Type of tracing algorithm
 enum struct trace_sampler_type {
   path,        // path tracing
+  pathdirect,  // path tracing with direct
+  pathmis,     // path tracing with mis
   naive,       // naive path tracing
   eyelight,    // eyelight rendering
   falsecolor,  // false color rendering
@@ -83,7 +85,8 @@ enum struct trace_sampler_type {
 enum struct trace_falsecolor_type {
   // clang-format off
   position, normal, frontfacing, gnormal, gfrontfacing, texcoord, mtype, color,
-  emission, roughness, opacity, instance, shape, material, element, highlight
+  emission, roughness, opacity, metallic, delta, instance, shape, material, 
+  element, highlight
   // clang-format on
 };
 
@@ -98,7 +101,7 @@ struct trace_params {
   trace_falsecolor_type falsecolor     = trace_falsecolor_type::color;
   int                   samples        = 512;
   int                   bounces        = 8;
-  float                 clamp          = 100;
+  float                 clamp          = 10;
   bool                  nocaustics     = false;
   bool                  envhidden      = false;
   bool                  tentfilter     = false;
@@ -110,20 +113,20 @@ struct trace_params {
   float                 exposure       = 0;
 };
 
-inline const auto trace_sampler_names = std::vector<std::string>{
-    "path", "naive", "eyelight", "falsecolor", "dalbedo", "dnormal"};
+inline const auto trace_sampler_names = std::vector<std::string>{"path",
+    "pathdirect", "pathmis", "naive", "eyelight", "falsecolor", "dalbedo",
+    "dnormal"};
 
 inline const auto trace_falsecolor_names = vector<string>{"position", "normal",
     "frontfacing", "gnormal", "gfrontfacing", "texcoord", "mtype", "color",
-    "emission", "roughness", "opacity", "instance", "shape", "material",
-    "element", "highlight"};
+    "emission", "roughness", "opacity", "metallic", "delta", "instance",
+    "shape", "material", "element", "highlight"};
 
 // Progress report callback
 using image_callback = function<void(int current, int total)>;
 
 // Progressively computes an image.
-image_data trace_image(const scene_scene& scene, const trace_params& params,
-    const image_callback& image_cb = {});
+color_image trace_image(const scene_model& scene, const trace_params& params);
 
 }  // namespace yocto
 
@@ -134,9 +137,9 @@ namespace yocto {
 
 // Scene lights used during rendering. These are created automatically.
 struct trace_light {
-  instance_handle    instance     = invalid_handle;
-  environment_handle environment  = invalid_handle;
-  vector<float>      elements_cdf = {};
+  int           instance     = invalidid;
+  int           environment  = invalidid;
+  vector<float> elements_cdf = {};
 };
 
 // Scene lights
@@ -157,30 +160,21 @@ struct trace_state {
 };
 
 // Initialize state.
-trace_state make_state(const scene_scene& scene, const trace_params& params);
+trace_state make_state(const scene_model& scene, const trace_params& params);
 
 // Initialize lights.
-trace_lights make_lights(const scene_scene& scene, const trace_params& params);
+trace_lights make_lights(const scene_model& scene, const trace_params& params);
 
 // Build the bvh acceleration structure.
-bvh_scene make_bvh(const scene_scene& scene, const trace_params& params);
+bvh_scene make_bvh(const scene_model& scene, const trace_params& params);
 
 // Progressively computes an image.
-void trace_image(image_data& image, trace_state& state,
-    const scene_scene& scene, const bvh_scene& bvh, const trace_lights& lights,
-    const trace_params& params, const image_callback& image_cb = {});
-
-// [experimental] Asynchronous state
-struct trace_worker {
-  future<void> worker = {};  // async
-  atomic<bool> stop   = {};  // async
-};
-
-// [experimental] Asynchronous interface
-void trace_start(image_data& image, trace_worker& worker, trace_state& state,
-    const scene_scene& scene, const bvh_scene& bvh, const trace_lights& lights,
-    const trace_params& params, const image_callback& image_cb = {});
-void trace_stop(trace_worker& worker);
+void trace_samples(color_image& image, trace_state& state,
+    const scene_model& scene, const bvh_scene& bvh, const trace_lights& lights,
+    const trace_params& params);
+void trace_sample(color_image& image, trace_state& state,
+    const scene_model& scene, const bvh_scene& bvh, const trace_lights& lights,
+    int i, int j, const trace_params& params);
 
 }  // namespace yocto
 

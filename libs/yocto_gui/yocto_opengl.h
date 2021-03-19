@@ -126,7 +126,7 @@ bool is_initialized(const ogl_texture* texture);
 void clear_texture(ogl_texture* texture);
 
 // set texture
-void set_texture(ogl_texture* texture, const image_data& img,
+void set_texture(ogl_texture* texture, const color_image& img,
     bool as_srgb = true, bool linear = true, bool mipmap = true);
 //void set_texture(ogl_texture* texture, const image<vec4f>& img,
 //    bool as_float = false, bool linear = true, bool mipmap = true);
@@ -139,7 +139,7 @@ void set_texture(ogl_texture* texture, const image_data& img,
 //void set_texture(ogl_texture* texture, const image<float>& img,
 //    bool as_float = false, bool linear = true, bool mipmap = true);
 
-image_data get_texture(const ogl_texture* texture);
+color_image get_texture(const ogl_texture* texture);
 
 // OpenGL cubemap
 struct ogl_cubemap {
@@ -177,7 +177,7 @@ bool is_initialized(const ogl_cubemap* cubemap);
 // clear cubemap
 void clear_cubemap(ogl_cubemap* cubemap);
 
-void set_cubemap(ogl_cubemap* cubemap, const array<image_data, 6>& img,
+void set_cubemap(ogl_cubemap* cubemap, const array<color_image, 6>& img,
     int num_channels, bool as_srgb = true, bool linear = true,
     bool mipmap = true);
 //void set_cubemap(ogl_cubemap* cubemap, const array<image<vec4f>, 6>& img,
@@ -507,7 +507,7 @@ bool is_initialized(const ogl_image* oimg);
 void clear_image(ogl_image* oimg);
 
 // update image data
-void set_image(ogl_image* oimg, const image_data& img, bool linear = false,
+void set_image(ogl_image* oimg, const color_image& img, bool linear = false,
     bool mipmap = false);
 //void set_image(ogl_image* oimg, const image<vec4b>& img, bool linear = false,
 //    bool mipmap = false);

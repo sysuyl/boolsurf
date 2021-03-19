@@ -110,108 +110,108 @@ inline float sample_microfacet_pdf(float roughness, const vec3f& normal,
     const vec3f& halfway, const vec3f& outgoing, bool ggx = true);
 
 // Evaluates a diffuse BRDF lobe.
-inline vec3f eval_diffuse(const vec3f& color, const vec3f& normal,
+inline vec3f eval_matte(const vec3f& color, const vec3f& normal,
     const vec3f& outgoing, const vec3f& incoming);
 // Sample a diffuse BRDF lobe.
-inline vec3f sample_diffuse(const vec3f& color, const vec3f& normal,
+inline vec3f sample_matte(const vec3f& color, const vec3f& normal,
     const vec3f& outgoing, const vec2f& rn);
 // Pdf for diffuse BRDF lobe sampling.
-inline float sample_diffuse_pdf(const vec3f& color, const vec3f& normal,
+inline float sample_matte_pdf(const vec3f& color, const vec3f& normal,
     const vec3f& outgoing, const vec3f& incoming);
 
 // Evaluates a specular BRDF lobe.
-inline vec3f eval_specular(const vec3f& color, float ior, float roughness,
+inline vec3f eval_glossy(const vec3f& color, float ior, float roughness,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming);
 // Sample a specular BRDF lobe.
-inline vec3f sample_specular(const vec3f& color, float ior, float roughness,
+inline vec3f sample_glossy(const vec3f& color, float ior, float roughness,
     const vec3f& normal, const vec3f& outgoing, const vec2f& rn);
 // Pdf for specular BRDF lobe sampling.
-inline float sample_specular_pdf(const vec3f& color, float ior, float roughness,
+inline float sample_glossy_pdf(const vec3f& color, float ior, float roughness,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming);
 
 // Evaluates a metal BRDF lobe.
-inline vec3f eval_metal(const vec3f& color, float roughness,
+inline vec3f eval_metallic(const vec3f& color, float roughness,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming);
 // Sample a metal BRDF lobe.
-inline vec3f sample_metal(const vec3f& color, float roughness,
+inline vec3f sample_metallic(const vec3f& color, float roughness,
     const vec3f& normal, const vec3f& outgoing, const vec2f& rn);
 // Pdf for metal BRDF lobe sampling.
-inline float sample_metal_pdf(const vec3f& color, float roughness,
+inline float sample_metallic_pdf(const vec3f& color, float roughness,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming);
 
 // Evaluate a delta metal BRDF lobe.
-inline vec3f eval_metal(const vec3f& color, const vec3f& normal,
+inline vec3f eval_metallic(const vec3f& color, const vec3f& normal,
     const vec3f& outgoing, const vec3f& incoming);
 // Sample a delta metal BRDF lobe.
-inline vec3f sample_metal(
+inline vec3f sample_metallic(
     const vec3f& color, const vec3f& normal, const vec3f& outgoing);
 // Pdf for delta metal BRDF lobe sampling.
-inline float sample_metal_pdf(const vec3f& color, const vec3f& normal,
+inline float sample_metallic_pdf(const vec3f& color, const vec3f& normal,
     const vec3f& outgoing, const vec3f& incoming);
 
 // Evaluate a delta metal BRDF lobe.
-inline vec3f eval_metal(const vec3f& eta, const vec3f& etak,
+inline vec3f eval_metallic(const vec3f& eta, const vec3f& etak,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming);
 // Sample a delta metal BRDF lobe.
-inline vec3f sample_metal(const vec3f& eta, const vec3f& etak,
+inline vec3f sample_metallic(const vec3f& eta, const vec3f& etak,
     const vec3f& normal, const vec3f& outgoing);
 // Pdf for delta metal BRDF lobe sampling.
-inline float sample_metal_pdf(const vec3f& eta, const vec3f& etak,
+inline float sample_metallic_pdf(const vec3f& eta, const vec3f& etak,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming);
 
 // Evaluates a specular BRDF lobe.
-inline vec3f eval_metallic(const vec3f& color, float ior, float roughness,
+inline vec3f eval_gltfpbr(const vec3f& color, float ior, float roughness,
     float metallic, const vec3f& normal, const vec3f& outgoing,
     const vec3f& incoming);
 // Sample a specular BRDF lobe.
-inline vec3f sample_metallic(const vec3f& color, float ior, float roughness,
+inline vec3f sample_gltfpbr(const vec3f& color, float ior, float roughness,
     float metallic, const vec3f& normal, const vec3f& outgoing, float rnl,
     const vec2f& rn);
 // Pdf for specular BRDF lobe sampling.
-inline float sample_metallic_pdf(const vec3f& color, float ior, float roughness,
+inline float sample_gltfpbr_pdf(const vec3f& color, float ior, float roughness,
     float metallic, const vec3f& normal, const vec3f& outgoing,
     const vec3f& incoming);
 
 // Evaluates a transmission BRDF lobe.
-inline vec3f eval_transmission(const vec3f& color, float ior, float roughness,
+inline vec3f eval_transparent(const vec3f& color, float ior, float roughness,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming);
 // Sample a transmission BRDF lobe.
-inline vec3f sample_transmission(float ior, float roughness,
-    const vec3f& normal, const vec3f& outgoing, float rnl, const vec2f& rn);
+inline vec3f sample_transparent(float ior, float roughness, const vec3f& normal,
+    const vec3f& outgoing, float rnl, const vec2f& rn);
 // Pdf for transmission BRDF lobe sampling.
-inline float sample_transmission_pdf(const vec3f& color, float ior,
+inline float sample_tranparent_pdf(const vec3f& color, float ior,
     float roughness, const vec3f& normal, const vec3f& outgoing,
     const vec3f& incoming);
 
 // Evaluate a delta transmission BRDF lobe.
-inline vec3f eval_transmission(const vec3f& color, float ior,
+inline vec3f eval_transparent(const vec3f& color, float ior,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming);
 // Sample a delta transmission BRDF lobe.
-inline vec3f sample_transmission(const vec3f& color, float ior,
+inline vec3f sample_transparent(const vec3f& color, float ior,
     const vec3f& normal, const vec3f& outgoing, float rnl);
 // Pdf for delta transmission BRDF lobe sampling.
-inline float sample_transmission_pdf(const vec3f& color, float ior,
+inline float sample_tranparent_pdf(const vec3f& color, float ior,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming);
 
 // Evaluates a refraction BRDF lobe.
-inline vec3f eval_refraction(const vec3f& color, float ior, float roughness,
+inline vec3f eval_refractive(const vec3f& color, float ior, float roughness,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming);
 // Sample a refraction BRDF lobe.
-inline vec3f sample_refraction(float ior, float roughness, const vec3f& normal,
+inline vec3f sample_refractive(float ior, float roughness, const vec3f& normal,
     const vec3f& outgoing, float rnl, const vec2f& rn);
 // Pdf for refraction BRDF lobe sampling.
-inline float sample_refraction_pdf(const vec3f& color, float ior,
+inline float sample_refractive_pdf(const vec3f& color, float ior,
     float roughness, const vec3f& normal, const vec3f& outgoing,
     const vec3f& incoming);
 
 // Evaluate a delta refraction BRDF lobe.
-inline vec3f eval_refraction(const vec3f& color, float ior, const vec3f& normal,
+inline vec3f eval_refractive(const vec3f& color, float ior, const vec3f& normal,
     const vec3f& outgoing, const vec3f& incoming);
 // Sample a delta refraction BRDF lobe.
-inline vec3f sample_refraction(const vec3f& color, float ior,
+inline vec3f sample_refractive(const vec3f& color, float ior,
     const vec3f& normal, const vec3f& outgoing, float rnl);
 // Pdf for delta refraction BRDF lobe sampling.
-inline float sample_refraction_pdf(const vec3f& color, float ior,
+inline float sample_refractive_pdf(const vec3f& color, float ior,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming);
 
 // Evaluate a translucent BRDF lobe.
@@ -492,21 +492,21 @@ inline float sample_microfacet_pdf(float roughness, const vec3f& normal,
 }
 
 // Evaluate a diffuse BRDF lobe.
-inline vec3f eval_diffuse(const vec3f& color, const vec3f& normal,
+inline vec3f eval_matte(const vec3f& color, const vec3f& normal,
     const vec3f& outgoing, const vec3f& incoming) {
   if (dot(normal, incoming) * dot(normal, outgoing) <= 0) return zero3f;
   return color / pif * abs(dot(normal, incoming));
 }
 
 // Sample a diffuse BRDF lobe.
-inline vec3f sample_diffuse(const vec3f& color, const vec3f& normal,
+inline vec3f sample_matte(const vec3f& color, const vec3f& normal,
     const vec3f& outgoing, const vec2f& rn) {
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
   return sample_hemisphere_cos(up_normal, rn);
 }
 
 // Pdf for diffuse BRDF lobe sampling.
-inline float sample_diffuse_pdf(const vec3f& color, const vec3f& normal,
+inline float sample_matte_pdf(const vec3f& color, const vec3f& normal,
     const vec3f& outgoing, const vec3f& incoming) {
   if (dot(normal, incoming) * dot(normal, outgoing) <= 0) return 0;
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
@@ -514,7 +514,7 @@ inline float sample_diffuse_pdf(const vec3f& color, const vec3f& normal,
 }
 
 // Evaluate a specular BRDF lobe.
-inline vec3f eval_specular(const vec3f& color, float ior, float roughness,
+inline vec3f eval_glossy(const vec3f& color, float ior, float roughness,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming) {
   if (dot(normal, incoming) * dot(normal, outgoing) <= 0) return zero3f;
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
@@ -543,7 +543,7 @@ inline vec3f sample_specular(const vec3f& color, float ior, float roughness,
 }
 
 // Pdf for specular BRDF lobe sampling.
-inline float sample_specular_pdf(const vec3f& color, float ior, float roughness,
+inline float sample_glossy_pdf(const vec3f& color, float ior, float roughness,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming) {
   if (dot(normal, incoming) * dot(normal, outgoing) <= 0) return 0;
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
@@ -555,7 +555,7 @@ inline float sample_specular_pdf(const vec3f& color, float ior, float roughness,
 }
 
 // Evaluate a metal BRDF lobe.
-inline vec3f eval_metal(const vec3f& color, float roughness,
+inline vec3f eval_metallic(const vec3f& color, float roughness,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming) {
   if (dot(normal, incoming) * dot(normal, outgoing) <= 0) return zero3f;
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
@@ -570,7 +570,7 @@ inline vec3f eval_metal(const vec3f& color, float roughness,
 }
 
 // Sample a metal BRDF lobe.
-inline vec3f sample_metal(const vec3f& color, float roughness,
+inline vec3f sample_metallic(const vec3f& color, float roughness,
     const vec3f& normal, const vec3f& outgoing, const vec2f& rn) {
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
   auto halfway   = sample_microfacet(roughness, up_normal, rn);
@@ -578,7 +578,7 @@ inline vec3f sample_metal(const vec3f& color, float roughness,
 }
 
 // Pdf for metal BRDF lobe sampling.
-inline float sample_metal_pdf(const vec3f& color, float roughness,
+inline float sample_metallic_pdf(const vec3f& color, float roughness,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming) {
   if (dot(normal, incoming) * dot(normal, outgoing) <= 0) return 0;
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
@@ -588,7 +588,7 @@ inline float sample_metal_pdf(const vec3f& color, float roughness,
 }
 
 // Evaluate a metal BRDF lobe.
-inline vec3f eval_metal(const vec3f& eta, const vec3f& etak, float roughness,
+inline vec3f eval_metallic(const vec3f& eta, const vec3f& etak, float roughness,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming) {
   if (dot(normal, incoming) * dot(normal, outgoing) <= 0) return zero3f;
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
@@ -602,15 +602,16 @@ inline vec3f eval_metal(const vec3f& eta, const vec3f& etak, float roughness,
 }
 
 // Sample a metal BRDF lobe.
-inline vec3f sample_metal(const vec3f& eta, const vec3f& etak, float roughness,
-    const vec3f& normal, const vec3f& outgoing, const vec2f& rn) {
+inline vec3f sample_metallic(const vec3f& eta, const vec3f& etak,
+    float roughness, const vec3f& normal, const vec3f& outgoing,
+    const vec2f& rn) {
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
   auto halfway   = sample_microfacet(roughness, up_normal, rn);
   return reflect(outgoing, halfway);
 }
 
 // Pdf for metal BRDF lobe sampling.
-inline float sample_metal_pdf(const vec3f& eta, const vec3f& etak,
+inline float sample_metallic_pdf(const vec3f& eta, const vec3f& etak,
     float roughness, const vec3f& normal, const vec3f& outgoing,
     const vec3f& incoming) {
   if (dot(normal, incoming) * dot(normal, outgoing) <= 0) return 0;
@@ -621,7 +622,7 @@ inline float sample_metal_pdf(const vec3f& eta, const vec3f& etak,
 }
 
 // Evaluate a delta metal BRDF lobe.
-inline vec3f eval_metal(const vec3f& color, const vec3f& normal,
+inline vec3f eval_metallic(const vec3f& color, const vec3f& normal,
     const vec3f& outgoing, const vec3f& incoming) {
   if (dot(normal, incoming) * dot(normal, outgoing) <= 0) return zero3f;
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
@@ -630,21 +631,21 @@ inline vec3f eval_metal(const vec3f& color, const vec3f& normal,
 }
 
 // Sample a delta metal BRDF lobe.
-inline vec3f sample_metal(
+inline vec3f sample_metallic(
     const vec3f& color, const vec3f& normal, const vec3f& outgoing) {
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
   return reflect(outgoing, up_normal);
 }
 
 // Pdf for delta metal BRDF lobe sampling.
-inline float sample_metal_pdf(const vec3f& color, const vec3f& normal,
+inline float sample_metallic_pdf(const vec3f& color, const vec3f& normal,
     const vec3f& outgoing, const vec3f& incoming) {
   if (dot(normal, incoming) * dot(normal, outgoing) <= 0) return 0;
   return 1;
 }
 
 // Evaluate a delta metal BRDF lobe.
-inline vec3f eval_metal(const vec3f& eta, const vec3f& etak,
+inline vec3f eval_metallic(const vec3f& eta, const vec3f& etak,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming) {
   if (dot(normal, incoming) * dot(normal, outgoing) <= 0) return zero3f;
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
@@ -652,21 +653,21 @@ inline vec3f eval_metal(const vec3f& eta, const vec3f& etak,
 }
 
 // Sample a delta metal BRDF lobe.
-inline vec3f sample_metal(const vec3f& eta, const vec3f& etak,
+inline vec3f sample_metallic(const vec3f& eta, const vec3f& etak,
     const vec3f& normal, const vec3f& outgoing) {
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
   return reflect(outgoing, up_normal);
 }
 
 // Pdf for delta metal BRDF lobe sampling.
-inline float sample_metal_pdf(const vec3f& eta, const vec3f& etak,
+inline float sample_metallic_pdf(const vec3f& eta, const vec3f& etak,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming) {
   if (dot(normal, incoming) * dot(normal, outgoing) <= 0) return 0;
   return 1;
 }
 
 // Evaluate a specular BRDF lobe.
-inline vec3f eval_metallic(const vec3f& color, float ior, float roughness,
+inline vec3f eval_gltfpbr(const vec3f& color, float ior, float roughness,
     float metallic, const vec3f& normal, const vec3f& outgoing,
     const vec3f& incoming) {
   if (dot(normal, incoming) * dot(normal, outgoing) <= 0) return zero3f;
@@ -686,7 +687,7 @@ inline vec3f eval_metallic(const vec3f& color, float ior, float roughness,
 }
 
 // Sample a specular BRDF lobe.
-inline vec3f sample_metallic(const vec3f& color, float ior, float roughness,
+inline vec3f sample_gltfpbr(const vec3f& color, float ior, float roughness,
     float metallic, const vec3f& normal, const vec3f& outgoing, float rnl,
     const vec2f& rn) {
   auto up_normal    = dot(normal, outgoing) <= 0 ? -normal : normal;
@@ -701,7 +702,7 @@ inline vec3f sample_metallic(const vec3f& color, float ior, float roughness,
 }
 
 // Pdf for specular BRDF lobe sampling.
-inline float sample_metallic_pdf(const vec3f& color, float ior, float roughness,
+inline float sample_gltfpbr_pdf(const vec3f& color, float ior, float roughness,
     float metallic, const vec3f& normal, const vec3f& outgoing,
     const vec3f& incoming) {
   if (dot(normal, incoming) * dot(normal, outgoing) <= 0) return 0;
@@ -716,7 +717,7 @@ inline float sample_metallic_pdf(const vec3f& color, float ior, float roughness,
 }
 
 // Evaluate a transmission BRDF lobe.
-inline vec3f eval_transmission(const vec3f& color, float ior, float roughness,
+inline vec3f eval_transparent(const vec3f& color, float ior, float roughness,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming) {
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
   if (dot(normal, incoming) * dot(normal, outgoing) >= 0) {
@@ -742,7 +743,7 @@ inline vec3f eval_transmission(const vec3f& color, float ior, float roughness,
 }
 
 // Sample a transmission BRDF lobe.
-inline vec3f sample_transmission(const vec3f& color, float ior, float roughness,
+inline vec3f sample_transparent(const vec3f& color, float ior, float roughness,
     const vec3f& normal, const vec3f& outgoing, float rnl, const vec2f& rn) {
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
   auto halfway   = sample_microfacet(roughness, up_normal, rn);
@@ -755,7 +756,7 @@ inline vec3f sample_transmission(const vec3f& color, float ior, float roughness,
 }
 
 // Pdf for transmission BRDF lobe sampling.
-inline float sample_transmission_pdf(const vec3f& color, float ior,
+inline float sample_tranparent_pdf(const vec3f& color, float ior,
     float roughness, const vec3f& normal, const vec3f& outgoing,
     const vec3f& incoming) {
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
@@ -774,7 +775,7 @@ inline float sample_transmission_pdf(const vec3f& color, float ior,
 }
 
 // Evaluate a delta transmission BRDF lobe.
-inline vec3f eval_transmission(const vec3f& color, float ior,
+inline vec3f eval_transparent(const vec3f& color, float ior,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming) {
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
   if (dot(normal, incoming) * dot(normal, outgoing) >= 0) {
@@ -785,7 +786,7 @@ inline vec3f eval_transmission(const vec3f& color, float ior,
 }
 
 // Sample a delta transmission BRDF lobe.
-inline vec3f sample_transmission(const vec3f& color, float ior,
+inline vec3f sample_transparent(const vec3f& color, float ior,
     const vec3f& normal, const vec3f& outgoing, float rnl) {
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
   if (rnl < fresnel_dielectric(ior, up_normal, outgoing)) {
@@ -796,7 +797,7 @@ inline vec3f sample_transmission(const vec3f& color, float ior,
 }
 
 // Pdf for delta transmission BRDF lobe sampling.
-inline float sample_transmission_pdf(const vec3f& color, float ior,
+inline float sample_tranparent_pdf(const vec3f& color, float ior,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming) {
   auto up_normal = dot(normal, outgoing) <= 0 ? -normal : normal;
   if (dot(normal, incoming) * dot(normal, outgoing) >= 0) {
@@ -807,7 +808,7 @@ inline float sample_transmission_pdf(const vec3f& color, float ior,
 }
 
 // Evaluate a refraction BRDF lobe.
-inline vec3f eval_refraction(const vec3f& color, float ior, float roughness,
+inline vec3f eval_refractive(const vec3f& color, float ior, float roughness,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming) {
   auto entering  = dot(normal, outgoing) >= 0;
   auto up_normal = entering ? normal : -normal;
@@ -823,7 +824,7 @@ inline vec3f eval_refraction(const vec3f& color, float ior, float roughness,
            abs(dot(normal, incoming));
   } else {
     auto halfway = -normalize(rel_ior * incoming + outgoing) *
-                   (entering ? 1 : -1);
+                   (entering ? 1.0f : -1.0f);
     auto F = fresnel_dielectric(rel_ior, halfway, outgoing);
     auto D = microfacet_distribution(roughness, up_normal, halfway);
     auto G = microfacet_shadowing(
@@ -839,7 +840,7 @@ inline vec3f eval_refraction(const vec3f& color, float ior, float roughness,
 }
 
 // Sample a refraction BRDF lobe.
-inline vec3f sample_refraction(const vec3f& color, float ior, float roughness,
+inline vec3f sample_refractive(const vec3f& color, float ior, float roughness,
     const vec3f& normal, const vec3f& outgoing, float rnl, const vec2f& rn) {
   auto entering  = dot(normal, outgoing) >= 0;
   auto up_normal = entering ? normal : -normal;
@@ -852,7 +853,7 @@ inline vec3f sample_refraction(const vec3f& color, float ior, float roughness,
 }
 
 // Pdf for refraction BRDF lobe sampling.
-inline float sample_refraction_pdf(const vec3f& color, float ior,
+inline float sample_refractive_pdf(const vec3f& color, float ior,
     float roughness, const vec3f& normal, const vec3f& outgoing,
     const vec3f& incoming) {
   auto entering  = dot(normal, outgoing) >= 0;
@@ -865,7 +866,7 @@ inline float sample_refraction_pdf(const vec3f& color, float ior,
            (4 * abs(dot(outgoing, halfway)));
   } else {
     auto halfway = -normalize(rel_ior * incoming + outgoing) *
-                   (entering ? 1 : -1);
+                   (entering ? 1.0f : -1.0f);
     // [Walter 2007] equation 17
     return (1 - fresnel_dielectric(rel_ior, halfway, outgoing)) *
            sample_microfacet_pdf(roughness, up_normal, halfway) *
@@ -875,7 +876,7 @@ inline float sample_refraction_pdf(const vec3f& color, float ior,
 }
 
 // Evaluate a delta refraction BRDF lobe.
-inline vec3f eval_refraction(const vec3f& color, float ior, const vec3f& normal,
+inline vec3f eval_refractive(const vec3f& color, float ior, const vec3f& normal,
     const vec3f& outgoing, const vec3f& incoming) {
   if (abs(ior - 1) < 1e-3)
     return dot(normal, incoming) * dot(normal, outgoing) <= 0 ? vec3f{1, 1, 1}
@@ -892,7 +893,7 @@ inline vec3f eval_refraction(const vec3f& color, float ior, const vec3f& normal,
 }
 
 // Sample a delta refraction BRDF lobe.
-inline vec3f sample_refraction(const vec3f& color, float ior,
+inline vec3f sample_refractive(const vec3f& color, float ior,
     const vec3f& normal, const vec3f& outgoing, float rnl) {
   if (abs(ior - 1) < 1e-3) return -outgoing;
   auto entering  = dot(normal, outgoing) >= 0;
@@ -906,10 +907,10 @@ inline vec3f sample_refraction(const vec3f& color, float ior,
 }
 
 // Pdf for delta refraction BRDF lobe sampling.
-inline float sample_refraction_pdf(const vec3f& color, float ior,
+inline float sample_refractive_pdf(const vec3f& color, float ior,
     const vec3f& normal, const vec3f& outgoing, const vec3f& incoming) {
   if (abs(ior - 1) < 1e-3)
-    return dot(normal, incoming) * dot(normal, outgoing) < 0 ? 1 : 0;
+    return dot(normal, incoming) * dot(normal, outgoing) < 0 ? 1.0f : 0.0f;
   auto entering  = dot(normal, outgoing) >= 0;
   auto up_normal = entering ? normal : -normal;
   auto rel_ior   = entering ? ior : (1 / ior);

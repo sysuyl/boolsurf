@@ -3108,7 +3108,7 @@ void make_heightfield(vector<vec4i>& quads, vector<vec3f>& positions,
     vector<vec3f>& normals, vector<vec2f>& texcoords, const vec2i& size,
     const vector<float>& height) {
   make_recty(quads, positions, normals, texcoords, size - 1,
-      vec2f{(float)size.x, (float)size.y} / max(size), {1, 1});
+      vec2f{(float)size.x, (float)size.y} / (float)max(size), {1, 1});
   for (auto j = 0; j < size.y; j++)
     for (auto i = 0; i < size.x; i++)
       positions[j * size.x + i].y = height[j * size.x + i];
@@ -3118,7 +3118,7 @@ void make_heightfield(vector<vec4i>& quads, vector<vec3f>& positions,
     vector<vec3f>& normals, vector<vec2f>& texcoords, const vec2i& size,
     const vector<vec4f>& color) {
   make_recty(quads, positions, normals, texcoords, size - 1,
-      vec2f{(float)size.x, (float)size.y} / max(size), {1, 1});
+      vec2f{(float)size.x, (float)size.y} / (float)max(size), {1, 1});
   for (auto j = 0; j < size.y; j++)
     for (auto i = 0; i < size.x; i++)
       positions[j * size.x + i].y = mean(xyz(color[j * size.x + i]));
@@ -3145,7 +3145,8 @@ void points_to_spheres(vector<vec4i>& quads, vector<vec3f>& positions,
         transformed_positions, sphere_normals, sphere_texcoords);
   }
 }
-void lines_to_cylinders(vector<vec4i>& quads, vector<vec3f>& positions,
+
+void polyline_to_cylinders(vector<vec4i>& quads, vector<vec3f>& positions,
     vector<vec3f>& normals, vector<vec2f>& texcoords,
     const vector<vec3f>& vertices, int steps, float scale) {
   auto cylinder_quads     = vector<vec4i>{};
@@ -3158,6 +3159,30 @@ void lines_to_cylinders(vector<vec4i>& quads, vector<vec3f>& positions,
     auto frame  = frame_fromz((vertices[idx] + vertices[idx + 1]) / 2,
         vertices[idx] - vertices[idx + 1]);
     auto length = distance(vertices[idx], vertices[idx + 1]);
+    auto transformed_positions = cylinder_positions;
+    auto transformed_normals   = cylinder_normals;
+    for (auto& position : transformed_positions)
+      position = transform_point(frame, position * vec3f{1, 1, length / 2});
+    for (auto& normal : transformed_normals)
+      normal = transform_direction(frame, normal);
+    merge_quads(quads, positions, normals, texcoords, cylinder_quads,
+        transformed_positions, cylinder_normals, cylinder_texcoords);
+  }
+}
+
+void lines_to_cylinders(vector<vec4i>& quads, vector<vec3f>& positions,
+    vector<vec3f>& normals, vector<vec2f>& texcoords,
+    const vector<vec3f>& vertices, int steps, float scale) {
+  auto cylinder_quads     = vector<vec4i>{};
+  auto cylinder_positions = vector<vec3f>{};
+  auto cylinder_normals   = vector<vec3f>{};
+  auto cylinder_texcoords = vector<vec2f>{};
+  make_uvcylinder(cylinder_quads, cylinder_positions, cylinder_normals,
+      cylinder_texcoords, {steps, 1, 1}, {scale, 1}, {1, 1, 1});
+  for (auto idx = 0; idx < (int)vertices.size(); idx += 2) {
+    auto frame  = frame_fromz((vertices[idx + 0] + vertices[idx + 1]) / 2,
+        vertices[idx + 0] - vertices[idx + 1]);
+    auto length = distance(vertices[idx + 0], vertices[idx + 1]);
     auto transformed_positions = cylinder_positions;
     auto transformed_normals   = cylinder_normals;
     for (auto& position : transformed_positions)
