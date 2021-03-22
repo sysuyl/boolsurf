@@ -101,8 +101,8 @@ geodesic_path compute_geodesic_path(
     return path;
   }
 
-  auto strip = strip_on_dual_graph(
-      mesh.dual_solver, mesh.triangles, mesh.positions, end.face, start.face);
+  auto strip = compute_strip(
+      mesh.dual_solver, mesh.triangles, mesh.positions, end, start);
   path = shortest_path(
       mesh.triangles, mesh.positions, mesh.adjacencies, start, end, strip);
   return path;
@@ -1009,7 +1009,7 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
       auto v1         = info.indices[y];
       auto v2         = info.indices[z];
 
-      auto triangle_idx = mesh.triangles.size();
+      auto triangle_idx = (int)mesh.triangles.size();
       mesh.triangles.push_back({v0, v1, v2});
 
       update_face_edgemap(face_edgemap, {v0, v1}, triangle_idx);

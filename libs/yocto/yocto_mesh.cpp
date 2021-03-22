@@ -1383,10 +1383,6 @@ void visit_geodesic_graph(vector<float>& field,
   }
 }
 
-static vector<int> compute_strip(const dual_geodesic_solver& solver,
-    const vector<vec3i>& triangles, const vector<vec3f>& positions,
-    const mesh_point& start, const mesh_point& end);
-
 vector<mesh_point> compute_shortest_path(const dual_geodesic_solver& graph,
     const vector<vec3i>& triangles, const vector<vec3f>& positions,
     const vector<vec3i>& adjacencies, const mesh_point& start,
@@ -3618,7 +3614,7 @@ static void search_strip(vector<float>& weight, vector<bool>& in_queue,
   }
 }
 
-static vector<int> compute_strip(const dual_geodesic_solver& solver,
+vector<int> compute_strip(const dual_geodesic_solver& solver,
     const vector<vec3i>& triangles, const vector<vec3f>& positions,
     const mesh_point& start, const mesh_point& end) {
   if (start.face == end.face) return {start.face};
