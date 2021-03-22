@@ -1,4 +1,5 @@
 add_subdirectory(yocto)
+add_subdirectory(boolsurf)
 
 if(YOCTO_OPENGL)
 add_subdirectory(yocto_gui)

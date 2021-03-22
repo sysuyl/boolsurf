@@ -1,11 +1,10 @@
+#include <boolsurf/boolsurf.h>
+#include <boolsurf/boolsurf_io.h>
 #include <yocto/yocto_cli.h>
 #include <yocto/yocto_sampling.h>
 #include <yocto/yocto_sceneio.h>
 #include <yocto/yocto_shape.h>
 #include <yocto/yocto_trace.h>
-
-#include "boolsurf.h"
-#include "boolsurf_io.h"
 using namespace yocto;
 
 mesh_point intersect_mesh(const bool_mesh& mesh, const shape_bvh& bvh,

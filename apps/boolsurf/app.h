@@ -1,6 +1,8 @@
 // TODO(giacomo): review usless includes
 #include <yocto/yocto_bvh.h>
 //#include <yocto/yocto_common.h>
+#include <boolsurf/boolsurf.h>
+#include <boolsurf/boolsurf_io.h>
 #include <yocto/yocto_geometry.h>
 #include <yocto/yocto_image.h>
 #include <yocto/yocto_math.h>
@@ -14,8 +16,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "boolsurf.h"
-#include "boolsurf_io.h"
 #include "render.h"
 
 using namespace yocto;
@@ -454,7 +454,8 @@ inline void update_cell_colors(app_state* app) {
       }
     }
     // app->cell_shapes[i]->material->color = get_color(shape_id);
-    app->cell_shapes[i]->material->color = get_cell_color(state.cells[i].labels, i);
+    app->cell_shapes[i]->material->color = get_cell_color(
+        state.cells[i].labels, i);
   }
 
   // instance->material->color     = get_cell_color(cell.labels, i);
