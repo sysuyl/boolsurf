@@ -119,7 +119,7 @@ int main(int num_args, const char* args[]) {
   add_argument(cli, "input", test_filename, "Input test filename (.json).");
   add_option(cli, "output", output_filename, "Output image filename (.png).");
   add_option(cli, "model", model_filename, "Input model filename.");
-  add_option() parse_cli(cli, num_args, args);
+  parse_cli(cli, num_args, args);
 
   auto test = bool_test{};
   if (test_filename.size() && !load_test(test, test_filename)) {
@@ -128,9 +128,9 @@ int main(int num_args, const char* args[]) {
   if (model_filename.size()) test.model = model_filename;
 
   // Init mesh.
-  auto mesh = bool_mesh{};
+  auto error = string{};
+  auto mesh  = bool_mesh{};
   {
-    auto error = string{};
     if (!load_shape(test.model, mesh, error)) {
       printf("%s\n", error.c_str());
       print_fatal("Error loading model " + test_filename);
@@ -145,8 +145,8 @@ int main(int num_args, const char* args[]) {
   auto state  = bool_state{};
   auto camera = scene_camera{};
 #if 1
-  auto camera = make_camera(mesh);
-  state       = make_test_state(mesh, bvh, camera, 0.005);
+  camera = make_camera(mesh);
+  state  = make_test_state(mesh, bvh, camera, 0.005);
 #else
   state  = state_from_test(mesh, test);
   camera = test.camera;
@@ -162,7 +162,7 @@ int main(int num_args, const char* args[]) {
     compute_bool_operation(state, operation);
   }
 
-  auto scene = scene_scene{};
+  auto scene = scene_model{};
   scene.cameras.push_back(camera);
 
   for (int i = 0; i < state.cells.size(); i++) {
@@ -180,7 +180,7 @@ int main(int num_args, const char* args[]) {
     }
 
     material.color     = get_color(shape_id);
-    material.type      = material_type::plastic;
+    material.type      = scene_material_type::glossy;
     material.roughness = 0.5;
     instance.shape     = (int)scene.shapes.size();
     auto& shape        = scene.shapes.emplace_back();

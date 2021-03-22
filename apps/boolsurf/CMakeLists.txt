@@ -1,7 +1,7 @@
 add_subdirectory(ext/CDT/CDT)
 
 add_executable(gui  gui.cpp boolsurf.h boolsurf.cpp boolsurf_io.h boolsurf_io.cpp)
-add_executable(test  test.cpp boolsurf.h boolsurf.cpp)
+add_executable(test  test.cpp boolsurf.h boolsurf.cpp boolsurf_io.h boolsurf_io.cpp)
 
 set_target_properties(gui  PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DMY_DEBUG")
