@@ -144,14 +144,18 @@ vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
   return result;
 }
 
-void recompute_polygon_segments(
-    const bool_mesh& mesh, const bool_state& state, mesh_polygon& polygon) {
-  polygon.edges.clear();
-  polygon.length = 0;
+void recompute_polygon_segments(const bool_mesh& mesh, const bool_state& state,
+    mesh_polygon& polygon, int index) {
+  if (index > 0) {
+    auto& last_segment = polygon.edges.back();
+    polygon.length -= last_segment.size();
+    polygon.edges.pop_back();
+  }
 
-  for (int i = 0; i < polygon.points.size(); i++) {
+  for (int i = index; i < polygon.points.size(); i++) {
     auto start = polygon.points[i];
     auto end   = polygon.points[(i + 1) % polygon.points.size()];
+    printf("Start: %d - End %d\n", start, end);
 
     auto path = compute_geodesic_path(
         mesh, state.points[start], state.points[end]);

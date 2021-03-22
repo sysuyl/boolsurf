@@ -88,12 +88,12 @@ struct app_state {
   }
 };
 
-void update_polygon(app_state* app, int polygon_id) {
+void update_polygon(app_state* app, int polygon_id, int index = 0) {
   auto& mesh_polygon  = app->state.polygons[polygon_id];
   auto& polygon_shape = app->polygon_shapes[polygon_id];
 
   // Draw polygon.
-  recompute_polygon_segments(app->mesh, app->state, mesh_polygon);
+  recompute_polygon_segments(app->mesh, app->state, mesh_polygon, index);
   if (mesh_polygon.length > 0)
     set_polygon_shape(polygon_shape->shape, app->mesh, mesh_polygon);
 }

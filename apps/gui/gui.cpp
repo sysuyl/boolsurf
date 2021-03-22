@@ -317,15 +317,17 @@ void mouse_input(app_state* app, const gui_input& input) {
 
     // Add point index to last polygon.
     auto polygon_id = (int)app->state.polygons.size() - 1;
+
     app->state.polygons[polygon_id].points.push_back(
         (int)app->state.points.size());
 
     // Add point to state.
     app->state.points.push_back(point);
+    auto polygon_points = app->state.polygons[polygon_id].points.size();
 
     // TODO(giacomo): recomputing all paths of the polygon at every click is
     // bad
-    update_polygon(app, polygon_id);
+    update_polygon(app, polygon_id, polygon_points - 2);
   }
 }
 
