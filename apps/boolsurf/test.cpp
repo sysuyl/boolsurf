@@ -110,7 +110,7 @@ scene_camera make_camera(const bool_mesh& mesh) {
 }
 
 int main(int num_args, const char* args[]) {
-  auto test_filename   = "data/tests/test.json"s;
+  auto test_filename   = ""s;
   auto output_filename = "data/render.png"s;
   auto model_filename  = ""s;
 
@@ -119,34 +119,37 @@ int main(int num_args, const char* args[]) {
   add_argument(cli, "input", test_filename, "Input test filename (.json).");
   add_option(cli, "output", output_filename, "Output image filename (.png).");
   add_option(cli, "model", model_filename, "Input model filename.");
-  parse_cli(cli, num_args, args);
+  add_option() parse_cli(cli, num_args, args);
 
   auto test = bool_test{};
-  if (!load_test(test, test_filename)) {
+  if (test_filename.size() && !load_test(test, test_filename)) {
     print_fatal("Error loading test " + test_filename);
   }
   if (model_filename.size()) test.model = model_filename;
 
-  auto          mesh = bool_mesh{};
-  vector<vec2f> texcoords;
-  vector<vec3f> colors;
-  string        error;
-
-  if (!load_shape(test.model, mesh, error)) {
-    printf("%s\n", error.c_str());
-    print_fatal("Error loading model " + test_filename);
+  // Init mesh.
+  auto mesh = bool_mesh{};
+  {
+    auto error = string{};
+    if (!load_shape(test.model, mesh, error)) {
+      printf("%s\n", error.c_str());
+      print_fatal("Error loading model " + test_filename);
+    }
+    init_mesh(mesh);
+    printf("triangles: %d\n", (int)mesh.triangles.size());
+    printf("positions: %d\n\n", (int)mesh.positions.size());
   }
-  init_mesh(mesh);
-  printf("triangles: %d\n", (int)mesh.triangles.size());
-  printf("positions: %d\n\n", (int)mesh.positions.size());
-
   auto bvh = make_triangles_bvh(mesh.triangles, mesh.positions, {});
-#if 0
+
+  // Init bool_state
+  auto state  = bool_state{};
+  auto camera = scene_camera{};
+#if 1
   auto camera = make_camera(mesh);
-  // auto state = make_test_state(mesh, bvh, camera, 0.005);
+  state       = make_test_state(mesh, bvh, camera, 0.005);
 #else
-  auto state  = state_from_test(mesh, test);
-  auto camera = test.camera;
+  state  = state_from_test(mesh, test);
+  camera = test.camera;
 #endif
 
   {
