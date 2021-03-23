@@ -201,6 +201,11 @@ inline bool contains(const hash_set<T>& set, const T& x) {
   return set.find(x) != set.end();
 }
 
+template <class T>
+inline bool contains(const vector<T>& vec, const T& x) {
+  return find(vec.begin(), vec.end(), x) != vec.end();
+}
+
 #ifdef MY_DEBUG
 static auto debug_triangles = hash_map<int, vector<vec3i>>{};
 static auto debug_edges     = hash_map<int, vector<vec2i>>{};

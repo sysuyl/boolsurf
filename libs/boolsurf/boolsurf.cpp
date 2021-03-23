@@ -527,13 +527,12 @@ static void compute_cell_labels2(
   }
 }
 
-static void compute_cell_labels(vector<mesh_cell>& cells,
-    const vector<int>& start, const vector<int>& skip_polygons) {
+template <typename Skip, typename Update>
+static void compute_cell_labels(vector<mesh_cell>& cells, vector<bool>& visited,
+    const vector<int>& start, Skip&& skip_edge, Update&& update) {
   // Calcoliamo le label delle celle visitando il grafo di adiacenza a partire
   // da una cella ambiente e incrementanto/decrementanto l'indice corrispondente
   // al poligono
-  auto visited = vector<bool>(cells.size(), false);
-  for (auto& s : start) visited[s] = true;
 
   auto stack = start;
   while (!stack.empty()) {
@@ -543,36 +542,35 @@ static void compute_cell_labels(vector<mesh_cell>& cells,
     visited[cell_id] = true;
 
     auto& cell = cells[cell_id];
-    for (auto& [neighbor, polygon] : cell.adjacency) {
-      auto polygon_id = yocto::abs(polygon);
-      if (find_idx(skip_polygons, polygon_id) != -1) continue;
+    for (auto& [neighbor, polygon_signed] : cell.adjacency) {
+      auto polygon = yocto::abs(polygon_signed);
+      // auto polygon_id = polygon;
+      // if (polygon < 0) continue;
+      // if (find_idx(skip_polygons, polygon_id) != -1) continue;
+      if (skip_edge(cell_id, polygon, neighbor)) {
+        continue;
+      }
 
       // Se il nodo è già stato visitato e la nuova etichetta è diversa da
       // quella già calcolata allora prendo il massimo valore in ogni componente
       if (visited[neighbor]) {
-        auto tmp = cell.labels;
-        tmp[polygon_id] += polygon > 0 ? 1 : -1;
-        if (tmp != cells[neighbor].labels) {
-          for (int i = 0; i < cell.labels.size(); i++) {
-            cells[neighbor].labels[i] = yocto::max(
-                cells[neighbor].labels[i], tmp[i]);
-            // cells[neighbor].labels[i] = cells[neighbor].labels[i] + tmp[i];
-          }
-        }
-        continue;
+        // auto tmp = cell.labels;
+        // tmp[polygon_id] += sign(polygon);
+        // if (tmp != cells[neighbor].labels) {
+        //   for (int i = 0; i < cell.labels.size(); i++) {
+        //     cells[neighbor].labels[i] = yocto::max(
+        //         cells[neighbor].labels[i], tmp[i]);
+        //     // cells[neighbor].labels[i] = cells[neighbor].labels[i] +
+        //     tmp[i];
+        //   }
+        // }
+        update(cell_id, polygon, neighbor);
+      } else {
+        cells[neighbor].labels = cell.labels;
+        cells[neighbor].labels[polygon] += polygon > 0 ? 1 : -1;
+        stack.push_back(neighbor);
+        visited[neighbor] = true;
       }
-
-      cells[neighbor].labels = cell.labels;
-      cells[neighbor].labels[polygon_id] += polygon > 0 ? 1 : -1;
-      stack.push_back(neighbor);
-      visited[neighbor] = true;
-    }
-  }
-
-  // Se l'etichetta è maggiore di 1 la riporto in modulo 2
-  for (auto& cell : cells) {
-    for (auto& label : cell.labels) {
-      if (label > 1) label = label % 2;
     }
   }
 }
@@ -1157,23 +1155,44 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   // labelling da quelle celle, in modo da propagare le informazioni già
   // acquisite. In caso contrario la visita parte normalmente da una qualsiasi
   // delle celle ambiente calcolate
+  auto start = vector<int>{};
   if (cycle_nodes.size() > 0) {
-    compute_cell_labels(cells, cycle_nodes, skip_polygons);
+    start = cycle_nodes;
   } else {
     // Trova le celle ambiente nel grafo dell'adiacenza delle celle
-    auto ambient_cells = find_ambient_cells(state.cells, skip_polygons);
-    compute_cell_labels(cells, {ambient_cells[0]}, skip_polygons);
+    start = find_ambient_cells(state.cells, skip_polygons);
   }
 
-  update_label_propagation(cells, label_size);
+  auto visited = vector<bool>(cells.size(), false);
+  for (auto& s : start) visited[s] = true;
 
-  for (auto& cell : state.cells) {
-    for (auto& label : cell.labels) {
-      if (label > 1) label = label % 2;
-    }
+  // First forward pass.
+  {
+    auto skip = [&](int cell_id, int polygon, int neighbor) {
+      return polygon < 0 && contains(skip_polygons, yocto::abs(polygon));
+    };
+    auto update = [&](int cell_id, int polygon, int neighbor) {
+      auto& cell_labels     = state.cells[cell_id].labels;
+      auto& neighbor_labels = state.cells[neighbor].labels;
+      auto  temp            = cell_labels;
+      assert(polygon > 0);
+      temp[polygon] += 1;
+
+      if (temp == neighbor_labels) return;
+      for (int i = 0; i < neighbor_labels.size(); i++) {
+        neighbor_labels[i] = yocto::max(neighbor_labels[i], temp[i]);
+      }
+    };
+    compute_cell_labels(cells, visited, start, skip, update);
   }
-  // assert(state.ambient_cell != -1);
-  //  save_tree_png(app, "1");
+
+  // update_label_propagation(cells, label_size);
+
+  // for (auto& cell : state.cells) {
+  //   for (auto& label : cell.labels) {
+  //     if (label > 1) label = label % 2;
+  //   }
+  // }
 }
 
 void compute_shapes(bool_state& state) {
