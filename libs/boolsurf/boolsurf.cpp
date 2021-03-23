@@ -152,9 +152,12 @@ void recompute_polygon_segments(
   for (int i = 0; i < polygon.points.size(); i++) {
     auto start = polygon.points[i];
     auto end   = polygon.points[(i + 1) % polygon.points.size()];
-
-    auto path = compute_geodesic_path(
+    auto path  = compute_geodesic_path(
         mesh, state.points[start], state.points[end]);
+    auto threshold = 0.001f;
+    for (auto& l : path.lerps) {
+      l = yocto::clamp(l, 0 + threshold, 1 - threshold);
+    }
     auto segments = mesh_segments(
         mesh.triangles, path.strip, path.lerps, path.start, path.end);
 
