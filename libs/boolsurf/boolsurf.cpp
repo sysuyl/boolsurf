@@ -1206,9 +1206,17 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     };
     start.clear();
     for (int i = 0; i < visited.size(); i++) {
-      if (visited[i]) start.push_back(i);
+      if (!visited[i]) {
+        for (auto& [neighbor, polygon] : state.cells[i].adjacency) {
+          if (visited[neighbor]) {
+            start.push_back(neighbor);
+          }
+        }
+      }
     }
-    if (start.size()) compute_cell_labels(cells, visited, start, skip, update);
+    if (start.size()) {
+      compute_cell_labels(cells, visited, start, skip, update);
+    }
   }
 
   // update_label_propagation(cells, label_size);
