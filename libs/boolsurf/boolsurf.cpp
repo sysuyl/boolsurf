@@ -542,10 +542,10 @@ static void compute_cell_labels(vector<mesh_cell>& cells, vector<bool>& visited,
     visited[cell_id] = true;
 
     auto& cell = cells[cell_id];
-    for (auto& [neighbor, polygon_signed] : cell.adjacency) {
-      auto polygon = yocto::abs(polygon_signed);
-      // auto polygon_id = polygon;
-      // if (polygon < 0) continue;
+    for (auto& [neighbor, polygon] : cell.adjacency) {
+      auto polygon_unsigned = uint(yocto::abs(polygon));
+      // auto polygon_id = polygon_unsigned;
+      // if (polygon_unsigned < 0) continue;
       // if (find_idx(skip_polygons, polygon_id) != -1) continue;
       if (skip_edge(cell_id, polygon, neighbor)) {
         continue;
@@ -555,7 +555,7 @@ static void compute_cell_labels(vector<mesh_cell>& cells, vector<bool>& visited,
       // quella già calcolata allora prendo il massimo valore in ogni componente
       if (visited[neighbor]) {
         // auto tmp = cell.labels;
-        // tmp[polygon_id] += sign(polygon);
+        // tmp[polygon_id] += sign(polygon_unsigned);
         // if (tmp != cells[neighbor].labels) {
         //   for (int i = 0; i < cell.labels.size(); i++) {
         //     cells[neighbor].labels[i] = yocto::max(
@@ -567,7 +567,7 @@ static void compute_cell_labels(vector<mesh_cell>& cells, vector<bool>& visited,
         update(cell_id, polygon, neighbor);
       } else {
         cells[neighbor].labels = cell.labels;
-        cells[neighbor].labels[polygon] += polygon > 0 ? 1 : -1;
+        cells[neighbor].labels[polygon_unsigned] += polygon > 0 ? 1 : -1;
         stack.push_back(neighbor);
         visited[neighbor] = true;
       }
@@ -1169,7 +1169,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   // First forward pass.
   {
     auto skip = [&](int cell_id, int polygon, int neighbor) {
-      return polygon < 0 && contains(skip_polygons, yocto::abs(polygon));
+      return polygon < 0 || contains(skip_polygons, yocto::abs(polygon));
     };
     auto update = [&](int cell_id, int polygon, int neighbor) {
       auto& cell_labels     = state.cells[cell_id].labels;
