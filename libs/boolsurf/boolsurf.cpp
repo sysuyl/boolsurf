@@ -1164,10 +1164,11 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   }
 
   auto visited = vector<bool>(cells.size(), false);
+  for (auto& s : start) visited[s] = true;
 
   // First forward pass.
   {
-    auto skip = [&](int cell_id, int polygon, int neighbor) {
+    auto skip = [&](int cell_id, int polygon, int neighbor) -> bool {
       return polygon < 0 || contains(skip_polygons, yocto::abs(polygon));
     };
     auto update = [&](int cell_id, int polygon, int neighbor) {
@@ -1187,8 +1188,9 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
 
   // Second backward pass.
   {
-    auto skip = [&](int cell_id, int polygon, int neighbor) {
-      return polygon > 0 || contains(skip_polygons, yocto::abs(polygon));
+    auto skip = [&](int cell_id, int polygon, int neighbor) -> bool {
+      return visited[neighbor] || polygon > 0 ||
+             contains(skip_polygons, yocto::abs(polygon));
     };
     auto update = [&](int cell_id, int polygon, int neighbor) {
       auto& cell_labels     = state.cells[cell_id].labels;
