@@ -539,8 +539,6 @@ static void compute_cell_labels(vector<mesh_cell>& cells, vector<bool>& visited,
     auto cell_id = stack.back();
     stack.pop_back();
 
-    visited[cell_id] = true;
-
     auto& cell = cells[cell_id];
     for (auto& [neighbor, polygon] : cell.adjacency) {
       auto polygon_unsigned = uint(yocto::abs(polygon));
@@ -568,8 +566,10 @@ static void compute_cell_labels(vector<mesh_cell>& cells, vector<bool>& visited,
       } else {
         cells[neighbor].labels = cell.labels;
         cells[neighbor].labels[polygon_unsigned] += polygon > 0 ? 1 : -1;
-        stack.push_back(neighbor);
-        visited[neighbor] = true;
+        if (!visited[neighbor]) {
+          stack.push_back(neighbor);
+          visited[neighbor] = true;
+        }
       }
     }
   }
@@ -1160,11 +1160,10 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     start = cycle_nodes;
   } else {
     // Trova le celle ambiente nel grafo dell'adiacenza delle celle
-    start = find_ambient_cells(state.cells, skip_polygons);
+    start = {find_ambient_cells(state.cells, skip_polygons)[0]};
   }
 
   auto visited = vector<bool>(cells.size(), false);
-  for (auto& s : start) visited[s] = true;
 
   // First forward pass.
   {
@@ -1184,6 +1183,30 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
       }
     };
     compute_cell_labels(cells, visited, start, skip, update);
+  }
+
+  // Second backward pass.
+  {
+    auto skip = [&](int cell_id, int polygon, int neighbor) {
+      return polygon > 0 || contains(skip_polygons, yocto::abs(polygon));
+    };
+    auto update = [&](int cell_id, int polygon, int neighbor) {
+      auto& cell_labels     = state.cells[cell_id].labels;
+      auto& neighbor_labels = state.cells[neighbor].labels;
+      auto  temp            = cell_labels;
+      assert(polygon < 0);
+      temp[-polygon] -= 1;
+
+      if (temp == neighbor_labels) return;
+      for (int i = 0; i < neighbor_labels.size(); i++) {
+        neighbor_labels[i] = yocto::max(neighbor_labels[i], temp[i]);
+      }
+    };
+    start.clear();
+    for (int i = 0; i < visited.size(); i++) {
+      if (visited[i]) start.push_back(i);
+    }
+    if (start.size()) compute_cell_labels(cells, visited, start, skip, update);
   }
 
   // update_label_propagation(cells, label_size);
