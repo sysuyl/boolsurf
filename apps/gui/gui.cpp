@@ -381,9 +381,9 @@ void key_input(app_state* app, const gui_input& input) {
 
         compute_cells(app->mesh, app->state);
 
-#ifdef MY_DEBUG
-        // save_tree_png(app->state, app->test_filename);
-#endif
+        // #ifdef MY_DEBUG
+        save_tree_png(app->state, app->test_filename);
+        // #endif
 
         compute_shapes(app->state);
 
