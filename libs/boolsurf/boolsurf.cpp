@@ -508,28 +508,9 @@ inline vector<vector<int>> compute_components(
   return components;
 }
 
-// (marzia) Not used but I'm keeping it
-static void compute_cell_labels2(
-    vector<mesh_cell>& cells, const vector<int>& skip_polygons) {
-  for (auto c = 0; c < cells.size(); c++) {
-    for (auto& [neighbor, polygon] : cells[c].adjacency) {
-      if (find_idx(skip_polygons, yocto::abs(polygon)) != -1) continue;
-      cells[neighbor].labels = cells[c].labels;
-      cells[neighbor].labels[yocto::abs(polygon)] += polygon > 0 ? 1 : -1;
-    }
-  }
-
-  // Se l'etichetta è maggiore di 1 la riporto in modulo 2
-  for (auto& cell : cells) {
-    for (auto& label : cell.labels) {
-      if (label > 1) label = label % 2;
-    }
-  }
-}
-
-template <typename Skip, typename Update>
+template <typename Skip>
 static void compute_cell_labels(vector<mesh_cell>& cells, vector<bool>& visited,
-    const vector<int>& start, Skip&& skip_edge, Update&& update) {
+    const vector<int>& start, Skip&& skip_edge) {
   // Calcoliamo le label delle celle visitando il grafo di adiacenza a partire
   // da una cella ambiente e incrementanto/decrementanto l'indice corrispondente
   // al poligono
@@ -542,30 +523,21 @@ static void compute_cell_labels(vector<mesh_cell>& cells, vector<bool>& visited,
     auto& cell = cells[cell_id];
     for (auto& [neighbor, polygon] : cell.adjacency) {
       auto polygon_unsigned = uint(yocto::abs(polygon));
-      // auto polygon_id = polygon_unsigned;
-      // if (polygon_unsigned < 0) continue;
-      // if (find_idx(skip_polygons, polygon_id) != -1) continue;
-      if (skip_edge(cell_id, polygon, neighbor)) {
-        continue;
-      }
+      if (skip_edge(cell_id, polygon, neighbor)) continue;
 
       // Se il nodo è già stato visitato e la nuova etichetta è diversa da
       // quella già calcolata allora prendo il massimo valore in ogni componente
       if (visited[neighbor]) {
-        // auto tmp = cell.labels;
-        // tmp[polygon_id] += sign(polygon_unsigned);
-        // if (tmp != cells[neighbor].labels) {
-        //   for (int i = 0; i < cell.labels.size(); i++) {
-        //     cells[neighbor].labels[i] = yocto::max(
-        //         cells[neighbor].labels[i], tmp[i]);
-        //     // cells[neighbor].labels[i] = cells[neighbor].labels[i] +
-        //     tmp[i];
-        //   }
-        // }
-        update(cell_id, polygon, neighbor);
+        auto  cell_labels     = cell.labels;
+        auto& neighbor_labels = cells[neighbor].labels;
+        cell_labels[polygon_unsigned] += sign(polygon);
+
+        if (cell_labels == neighbor_labels) continue;
+        for (int i = 0; i < neighbor_labels.size(); i++)
+          neighbor_labels[i] = yocto::max(neighbor_labels[i], cell_labels[i]);
       } else {
         cells[neighbor].labels = cell.labels;
-        cells[neighbor].labels[polygon_unsigned] += polygon > 0 ? 1 : -1;
+        cells[neighbor].labels[polygon_unsigned] += sign(polygon);
         if (!visited[neighbor]) {
           stack.push_back(neighbor);
           visited[neighbor] = true;
@@ -1172,19 +1144,8 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     auto skip = [&](int cell_id, int polygon, int neighbor) -> bool {
       return polygon < 0 || contains(skip_polygons, yocto::abs(polygon));
     };
-    auto update = [&](int cell_id, int polygon, int neighbor) {
-      auto& cell_labels     = state.cells[cell_id].labels;
-      auto& neighbor_labels = state.cells[neighbor].labels;
-      auto  temp            = cell_labels;
-      assert(polygon > 0);
-      temp[polygon] += 1;
 
-      if (temp == neighbor_labels) return;
-      for (int i = 0; i < neighbor_labels.size(); i++) {
-        neighbor_labels[i] = yocto::max(neighbor_labels[i], temp[i]);
-      }
-    };
-    compute_cell_labels(cells, visited, start, skip, update);
+    compute_cell_labels(cells, visited, start, skip);
   }
 
   // Second backward pass. Se sono rimasti altri nodi non coperti dalla visita
@@ -1195,18 +1156,6 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     auto skip = [&](int cell_id, int polygon, int neighbor) -> bool {
       return visited[neighbor] || polygon > 0 ||
              contains(skip_polygons, yocto::abs(polygon));
-    };
-    auto update = [&](int cell_id, int polygon, int neighbor) {
-      auto& cell_labels     = state.cells[cell_id].labels;
-      auto& neighbor_labels = state.cells[neighbor].labels;
-      auto  temp            = cell_labels;
-      assert(polygon < 0);
-      temp[-polygon] -= 1;
-
-      if (temp == neighbor_labels) return;
-      for (int i = 0; i < neighbor_labels.size(); i++) {
-        neighbor_labels[i] = yocto::max(neighbor_labels[i], temp[i]);
-      }
     };
 
     // Calcoliamo i nuovi nodi di partenza come i nodi vicini (già visitati!)
@@ -1221,7 +1170,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     }
 
     if (start.size()) {
-      compute_cell_labels(cells, visited, start, skip, update);
+      compute_cell_labels(cells, visited, start, skip);
     }
   }
 
