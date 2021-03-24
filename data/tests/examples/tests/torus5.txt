@@ -1,0 +1,19 @@
+digraph {
+forcelabels=true
+0 [label="0
+0 0 0 0 1 " style=filled fillcolor="0.500000 1.000000 0.500000"]
+0 -> 3 [ label="2" color="0.333333 1.000000 0.500000"]
+0 -> 1 [ label="1" color="0.000000 1.000000 1.000000"]
+1 [label="1
+0 1 0 0 1 " style=filled fillcolor="0.000000 0.427974 0.584147"]
+1 -> 4 [ label="3" color="0.666667 1.000000 1.000000"]
+2 [label="2
+0 1 0 0 0 " style=filled fillcolor="0.000000 0.916649 1.090930"]
+2 -> 3 [ label="3" color="0.666667 1.000000 1.000000"]
+2 -> 1 [ label="4" color="0.500000 1.000000 0.500000"]
+3 [label="3
+0 1 0 1 0 " style=filled fillcolor="0.833333 0.972551 0.514112"]
+3 -> 4 [ label="4" color="0.500000 1.000000 0.500000"]
+4 [label="4
+0 1 0 1 1 " style=filled fillcolor="0.750000 0.785571 0.424320"]
+}
