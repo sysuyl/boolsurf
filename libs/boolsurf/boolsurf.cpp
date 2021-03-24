@@ -1166,7 +1166,8 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   auto visited = vector<bool>(cells.size(), false);
   for (auto& s : start) visited[s] = true;
 
-  // First forward pass.
+  // First forward pass. Visitiamo il grafo partendo dalle celle con etichette
+  // già note e utilizzimo solamente gli archi taggati positivamente
   {
     auto skip = [&](int cell_id, int polygon, int neighbor) -> bool {
       return polygon < 0 || contains(skip_polygons, yocto::abs(polygon));
@@ -1186,7 +1187,10 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     compute_cell_labels(cells, visited, start, skip, update);
   }
 
-  // Second backward pass.
+  // Second backward pass. Se sono rimasti altri nodi non coperti dalla visita
+  // precedente allora visitiamo nuovamente il grafo partendo dalle celle di
+  // "frontiera" (quelle che hanno almeno un vicino non visitato) e utilizziamo
+  // solamente gli archi negativi
   {
     auto skip = [&](int cell_id, int polygon, int neighbor) -> bool {
       return visited[neighbor] || polygon > 0 ||
@@ -1204,23 +1208,31 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
         neighbor_labels[i] = yocto::max(neighbor_labels[i], temp[i]);
       }
     };
+
+    // Calcoliamo i nuovi nodi di partenza come i nodi vicini (già visitati!)
+    // dei nodi non visitati del grafo. Se tutti i nodi sono già stati visitati
+    // dal forward pass allora questa visita non viene eseguita
     start.clear();
     for (int i = 0; i < visited.size(); i++) {
-      if (!visited[i]) {
-        for (auto& [neighbor, polygon] : state.cells[i].adjacency) {
-          if (visited[neighbor]) {
-            start.push_back(neighbor);
-          }
-        }
+      if (visited[i]) continue;
+      for (auto& [neighbor, polygon] : state.cells[i].adjacency) {
+        if (visited[neighbor]) start.push_back(neighbor);
       }
     }
+
     if (start.size()) {
       compute_cell_labels(cells, visited, start, skip, update);
     }
   }
 
+  // Se la partenza avviene da una cella senza archi entranti che non è una
+  // cella ambiente effettiva allora troviamo delle etichette negative. In
+  // questo caso calcoliamo l'offset e lo propaghiamo su tutti il grafo
   update_label_propagation(cells, label_size);
 
+  // Applichiamo la even-odd rule nel caso in cui le label > 1 (Nelle self
+  // intersections posso entrare in un poligono più volte senza esserne prima
+  // uscito)
   for (auto& cell : state.cells) {
     for (auto& label : cell.labels) {
       if (label > 1) label = label % 2;
