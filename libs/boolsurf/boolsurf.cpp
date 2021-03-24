@@ -1219,7 +1219,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     }
   }
 
-  // update_label_propagation(cells, label_size);
+  update_label_propagation(cells, label_size);
 
   for (auto& cell : state.cells) {
     for (auto& label : cell.labels) {
