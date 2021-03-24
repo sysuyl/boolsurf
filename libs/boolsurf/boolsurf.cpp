@@ -528,20 +528,19 @@ static void compute_cell_labels(vector<mesh_cell>& cells, vector<bool>& visited,
       // Se il nodo è già stato visitato e la nuova etichetta è diversa da
       // quella già calcolata allora prendo il massimo valore in ogni componente
       if (visited[neighbor]) {
-        auto  cell_labels     = cell.labels;
         auto& neighbor_labels = cells[neighbor].labels;
+        auto  cell_labels     = cell.labels;
         cell_labels[polygon_unsigned] += sign(polygon);
 
         if (cell_labels == neighbor_labels) continue;
         for (int i = 0; i < neighbor_labels.size(); i++)
           neighbor_labels[i] = yocto::max(neighbor_labels[i], cell_labels[i]);
+
       } else {
         cells[neighbor].labels = cell.labels;
         cells[neighbor].labels[polygon_unsigned] += sign(polygon);
-        if (!visited[neighbor]) {
-          stack.push_back(neighbor);
-          visited[neighbor] = true;
-        }
+        stack.push_back(neighbor);
+        visited[neighbor] = true;
       }
     }
   }
@@ -553,7 +552,6 @@ void update_label_propagation(vector<mesh_cell>& cells, int label_size) {
 
   for (int i = 0; i < cells.size(); i++) {
     auto& cell = cells[i];
-
     for (int k = 0; k < label_size; k++) {
       offset[k] = min(cell.labels[k], offset[k]);
     }
@@ -1132,7 +1130,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     start = cycle_nodes;
   } else {
     // Trova le celle ambiente nel grafo dell'adiacenza delle celle
-    start = {find_ambient_cells(state.cells, skip_polygons)[0]};
+    start = {find_ambient_cells(state.cells, skip_polygons).front()};
   }
 
   auto visited = vector<bool>(cells.size(), false);
