@@ -88,7 +88,7 @@ string tree_to_string(const vector<mesh_cell>& cells) {
 
   for (int i = 0; i < cells.size(); i++) {
     auto& cell  = cells[i];
-    auto  color = rgb_to_hsv(get_cell_color(cell.labels, i));
+      auto  color = vec3f{1,1,1}; // TODO(giacomo): fix. rgb_to_hsv(get_cell_color(cell.labels, i));
     char  str[1024];
     auto  label = string{};
     for (auto& l : cell.labels) {

@@ -155,25 +155,6 @@ inline vec3f get_color(int i) {
   return colors[i % colors.size()];
 }
 
-inline vec3f get_cell_color(const vector<int>& labels, int cell_id) {
-  auto color = vec3f{0, 0, 0};
-  int  count = 0;
-  for (int p = 0; p < labels.size(); p++) {
-    auto label = labels[p];
-    if (label > 0) {
-      color += get_color(p);
-      count += 1;
-    }
-  }
-  if (count > 0) {
-    color /= count;
-    color += vec3f{1, 1, 1} * 0.1f * yocto::sin(float(cell_id));
-  } else {
-    color = {0.9, 0.9, 0.9};
-  }
-  return color;
-}
-
 #if 0
 #include "ext/robin_hood.h"
 template <typename Key, typename Value>

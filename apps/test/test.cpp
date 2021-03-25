@@ -136,6 +136,7 @@ int main(int num_args, const char* args[]) {
   auto test_filename   = ""s;
   auto output_filename = "data/render.png"s;
   auto model_filename  = ""s;
+  auto color_shapes    = false;
 
   // parse command line
   auto cli = make_cli("test", "test boolsurf algorithms");
@@ -143,7 +144,10 @@ int main(int num_args, const char* args[]) {
       cli, "input", test_filename, "Input test filename (.json).", {}, false);
   add_option(cli, "output", output_filename, "Output image filename (.png).");
   add_option(cli, "model", model_filename, "Input model filename.");
+  add_option(cli, "color-shapes", color_shapes, "Color shapes.");
   parse_cli(cli, num_args, args);
+
+  printf("color-shapes: %d\n", (int)color_shapes);
 
   auto test = bool_test{};
   if (test_filename.size() && !load_test(test, test_filename)) {
@@ -192,18 +196,10 @@ int main(int num_args, const char* args[]) {
   for (int i = 0; i < state.cells.size(); i++) {
     auto& cell = state.cells[i];
 
-    auto& instance    = scene.instances.emplace_back();
-    instance.material = (int)scene.materials.size();
-    auto& material    = scene.materials.emplace_back();
-    auto  shape_id    = 0;
-    for (int s = (int)state.shapes.size() - 1; s >= 0; s--) {
-      if (state.shapes[s].cells.count(i)) {
-        shape_id = s;
-        break;
-      }
-    }
-
-    material.color     = get_color(shape_id);
+    auto& instance     = scene.instances.emplace_back();
+    instance.material  = (int)scene.materials.size();
+    auto& material     = scene.materials.emplace_back();
+    material.color     = get_cell_color(state, i, color_shapes);
     material.type      = scene_material_type::glossy;
     material.roughness = 0.5;
     instance.shape     = (int)scene.shapes.size();

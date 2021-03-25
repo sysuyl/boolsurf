@@ -30,6 +30,7 @@ struct app_state {
   bool_test      test           = {};
   bool_operation operation      = {};
   gui_window*    window         = nullptr;
+  bool           color_shapes   = false;
 
   // options
   shade_params drawgl_prms = {};
@@ -455,7 +456,7 @@ inline void update_cell_colors(app_state* app) {
     }
     // app->cell_shapes[i]->material->color = get_color(shape_id);
     app->cell_shapes[i]->material->color = get_cell_color(
-        state.cells[i].labels, i);
+        state, i, app->color_shapes);
   }
 
   // instance->material->color     = get_cell_color(cell.labels, i);
