@@ -148,12 +148,13 @@ inline vec3f get_cell_color(
   if (color_shapes) {
     auto shape_id = 0;
     for (int s = (int)state.shapes.size() - 1; s >= 0; s--) {
-      if (state.shapes[s].cells.count(cell_id)) {
+      if (state.shapes[s].cells.count(cell_id) && state.shapes[s].is_root) {
         shape_id = s;
         break;
       }
     }
     return get_color(shape_id);
+
   } else {
     auto color = vec3f{0, 0, 0};
     int  count = 0;

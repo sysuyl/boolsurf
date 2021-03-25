@@ -162,8 +162,13 @@ int main(int num_args, const char* args[]) {
   state  = make_test_state(mesh, bvh, camera, svg_filename, 0.005);
 
   test.operations.push_back({1, 2, bool_operation::Type::op_difference});
-  // test.operations.push_back({0, 1, bool_operation::Type::op_difference})
+  test.operations.push_back({3, 4, bool_operation::Type::op_difference});
+  test.operations.push_back({8, 5, bool_operation::Type::op_difference});
+  test.operations.push_back(
+      {6, 9, bool_operation::Type::op_symmetrical_difference});
+
 #else
+
   state  = state_from_test(mesh, test);
   camera = test.camera;
 #endif
