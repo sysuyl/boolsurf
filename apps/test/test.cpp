@@ -35,20 +35,8 @@ bool_state make_test_state(const bool_mesh& mesh, const shape_bvh& bvh,
         auto& next  = polygon[(i + 1) % polygon.size()];
         area += cross(next, point);
       }
-      printf("flipping %d, area %f\n", p, area);
 
-      for (auto& point : polygon) {
-        printf("%f %f\n", point.x, point.y);
-      }
-
-      printf("*****\n");
-      if (area < 0) {
-        std::reverse(polygon.begin(), polygon.end());
-      }
-      for (auto& point : polygon) {
-        printf("%f %f\n", point.x, point.y);
-      }
-      // printf("\n");
+      if (area < 0) std::reverse(polygon.begin(), polygon.end());
     }
     close_serializer(reader);
   }
@@ -83,11 +71,14 @@ bool_state make_test_state(const bool_mesh& mesh, const shape_bvh& bvh,
       state.polygons[polygon_id].points.push_back((int)state.points.size());
       state.points.push_back(point);
     }
+
     if (state.polygons[polygon_id].points.empty()) {
       continue;
     }
+
     recompute_polygon_segments(mesh, state, state.polygons[polygon_id]);
   }
+
   return state;
 }
 
@@ -169,6 +160,9 @@ int main(int num_args, const char* args[]) {
 #if 1
   camera = make_camera(mesh);
   state  = make_test_state(mesh, bvh, camera, svg_filename, 0.005);
+
+  test.operations.push_back({1, 2, bool_operation::Type::op_difference});
+  // test.operations.push_back({0, 1, bool_operation::Type::op_difference})
 #else
   state  = state_from_test(mesh, test);
   camera = test.camera;

@@ -15,10 +15,6 @@ struct Serializer {
   unsigned char* buffer          = nullptr;
   size_t         buffer_capacity = 0;
   size_t         buffer_count    = 0;
-
-  ~Serializer() {
-    if (file || buffer) assert(0 && "Close serializer before destruction!");
-  }
 };
 
 inline Serializer make_serializer(
