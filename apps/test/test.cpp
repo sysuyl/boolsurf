@@ -5,6 +5,8 @@
 #include <yocto/yocto_sceneio.h>
 #include <yocto/yocto_shape.h>
 #include <yocto/yocto_trace.h>
+
+#include "serialize/serialize.h"
 using namespace yocto;
 
 mesh_point intersect_mesh(const bool_mesh& mesh, const shape_bvh& bvh,
@@ -18,19 +20,19 @@ mesh_point intersect_mesh(const bool_mesh& mesh, const shape_bvh& bvh,
 bool_state make_test_state(const bool_mesh& mesh, const shape_bvh& bvh,
     const scene_camera& camera, float svg_size) {
   auto state    = bool_state{};
-  auto polygons = vector<vector<vec2f>>{
-      // B
-      {{344.261, 488.09}, {435.116, 100.957}, {603.936, 129.097},
-          {638.062, 169.8}, {647.917, 208.993}, {646.561, 252.953},
-          {629.785, 276.726}, {610.792, 303.154}, {583.55, 316.923},
-          {609.525, 332.67}, {628.794, 365.505}, {631.995, 400.703},
-          {626.094, 452.98}, {601.427, 487.932}, {537.858, 511.936},
-          {450.002, 514.445}},
+  auto polygons = vector<vector<vec2f>>{};
+  //     // B
+  //     {{344.261, 488.09}, {435.116, 100.957}, {603.936, 129.097},
+  //         {638.062, 169.8}, {647.917, 208.993}, {646.561, 252.953},
+  //         {629.785, 276.726}, {610.792, 303.154}, {583.55, 316.923},
+  //         {609.525, 332.67}, {628.794, 365.505}, {631.995, 400.703},
+  //         {626.094, 452.98}, {601.427, 487.932}, {537.858, 511.936},
+  //         {450.002, 514.445}},
 
-      {{386.142, 290.879}, {433.53, 297.812}, {448.881, 292.352},
-          {459.982, 274.828}, {459.747, 246.494}, {451.827, 228.84},
-          {434.914, 221.268}, {392.334, 210.984}},
-  };
+  //     {{386.142, 290.879}, {433.53, 297.812}, {448.881, 292.352},
+  //         {459.982, 274.828}, {459.747, 246.494}, {451.827, 228.84},
+  //         {434.914, 221.268}, {392.334, 210.984}},
+  // };
 
   // ,{{344.261, 488.09}, {435.116, 100.957}, {603.936, 129.097},
   //     {638.062, 169.8}, {647.917, 208.993}, {646.561, 252.953},
@@ -38,6 +40,28 @@ bool_state make_test_state(const bool_mesh& mesh, const shape_bvh& bvh,
   //     {609.525, 332.67}, {628.794, 365.505}, {631.995, 400.703},
   //     {626.094, 452.98}, {601.427, 487.932}, {537.858, 511.936},
   //     {450.002, 514.445}}};
+
+  {
+    auto reader = make_reader("data/svgs/prova.txt", 1e4);
+    auto f      = [](Serializer& srl, vector<vec2f>& vec) {
+      serialize_vector(srl, vec);
+    };
+    serialize_vector_custom(reader, polygons, f);
+    for (auto& polygon : polygons) {
+      auto area = 0.0f;
+      for (int i = 0; i < polygon.size(); i++) {
+        auto& point = polygon[i];
+        auto& next  = polygon[(i + 1) % polygon.size()];
+        area += cross(next, point);
+        // printf("%f, %f\n", point.x, point.y);
+      }
+      if (area < 0) {
+        std::reverse(polygon.begin(), polygon.end());
+      }
+      // printf("\n");
+    }
+    close_serializer(reader);
+  }
 
   auto bbox = bbox2f{};
   for (auto& polygon : polygons) {
@@ -115,7 +139,8 @@ int main(int num_args, const char* args[]) {
 
   // parse command line
   auto cli = make_cli("test", "test boolsurf algorithms");
-  add_argument(cli, "input", test_filename, "Input test filename (.json).");
+  add_argument(
+      cli, "input", test_filename, "Input test filename (.json).", {}, false);
   add_option(cli, "output", output_filename, "Output image filename (.png).");
   add_option(cli, "model", model_filename, "Input model filename.");
   parse_cli(cli, num_args, args);
@@ -143,7 +168,7 @@ int main(int num_args, const char* args[]) {
   // Init bool_state
   auto state  = bool_state{};
   auto camera = scene_camera{};
-#if 0
+#if 1
   camera = make_camera(mesh);
   state  = make_test_state(mesh, bvh, camera, 0.005);
 #else
