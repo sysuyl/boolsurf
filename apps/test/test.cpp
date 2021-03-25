@@ -18,7 +18,7 @@ mesh_point intersect_mesh(const bool_mesh& mesh, const shape_bvh& bvh,
 }
 
 bool_state make_test_state(const bool_mesh& mesh, const shape_bvh& bvh,
-    const scene_camera& camera, float svg_size) {
+    const scene_camera& camera, const string& svg_filename, float svg_size) {
   auto state    = bool_state{};
   auto polygons = vector<vector<vec2f>>{};
   //     // B
@@ -42,7 +42,7 @@ bool_state make_test_state(const bool_mesh& mesh, const shape_bvh& bvh,
   //     {450.002, 514.445}}};
 
   {
-    auto reader = make_reader("data/svgs/prova.txt", 1e4);
+    auto reader = make_reader(svg_filename, 1e4);
     auto f      = [](Serializer& srl, vector<vec2f>& vec) {
       serialize_vector(srl, vec);
     };
@@ -136,6 +136,7 @@ int main(int num_args, const char* args[]) {
   auto test_filename   = ""s;
   auto output_filename = "data/render.png"s;
   auto model_filename  = ""s;
+  auto svg_filename    = ""s;
   auto color_shapes    = false;
 
   // parse command line
@@ -144,6 +145,8 @@ int main(int num_args, const char* args[]) {
       cli, "input", test_filename, "Input test filename (.json).", {}, false);
   add_option(cli, "output", output_filename, "Output image filename (.png).");
   add_option(cli, "model", model_filename, "Input model filename.");
+  add_option(cli, "svg", svg_filename, "Input svg filename.");
+
   add_option(cli, "color-shapes", color_shapes, "Color shapes.");
   parse_cli(cli, num_args, args);
 
@@ -174,7 +177,7 @@ int main(int num_args, const char* args[]) {
   auto camera = scene_camera{};
 #if 1
   camera = make_camera(mesh);
-  state  = make_test_state(mesh, bvh, camera, 0.005);
+  state  = make_test_state(mesh, bvh, camera, svg_filename, 0.005);
 #else
   state  = state_from_test(mesh, test);
   camera = test.camera;
