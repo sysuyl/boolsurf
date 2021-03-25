@@ -18,6 +18,7 @@ def parse(infile, outfile):
 
             points1 = [point.split(",") for point in points]
             points1 = [(float(x), float(y)) for x, y in points1]
+            points1 = points1[:-1]
 
             out.write(len(points1).to_bytes(8, "little"))
             np_points = np.array(points1, 'float32').flatten()

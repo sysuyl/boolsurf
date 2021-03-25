@@ -87,10 +87,10 @@ bool load_test(bool_test& test, const string& filename);
 
 bool_state state_from_test(const bool_mesh& mesh, const bool_test& test);
 
-string tree_to_string(const vector<mesh_cell>& cells);
+string tree_to_string(const bool_state& state, bool color_shapes);
 
-void save_tree_png(
-    const bool_state& state, string filename, const string& extra = "");
+void save_tree_png(const bool_state& state, string filename,
+    const string& extra, bool color_shapes);
 
 using Svg_Path = vector<array<vec2f, 4>>;
 struct Svg_Shape {

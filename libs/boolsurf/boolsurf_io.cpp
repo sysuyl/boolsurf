@@ -82,15 +82,17 @@ bool_state state_from_test(const bool_mesh& mesh, const bool_test& test) {
 
 #include <yocto/yocto_color.h>
 
-string tree_to_string(const vector<mesh_cell>& cells) {
+string tree_to_string(const bool_state& state, bool color_shapes) {
+  auto&  cells  = state.cells;
   string result = "digraph {\n";
   result += "forcelabels=true\n";
 
   for (int i = 0; i < cells.size(); i++) {
     auto& cell  = cells[i];
-      auto  color = vec3f{1,1,1}; // TODO(giacomo): fix. rgb_to_hsv(get_cell_color(cell.labels, i));
-    char  str[1024];
-    auto  label = string{};
+    auto  color = get_cell_color(state, i, color_shapes);
+    color       = rgb_to_hsv(color);
+    char str[1024];
+    auto label = string{};
     for (auto& l : cell.labels) {
       label += to_string(l) + " ";
     }
@@ -111,12 +113,12 @@ string tree_to_string(const vector<mesh_cell>& cells) {
   return result;
 }
 
-void save_tree_png(
-    const bool_state& state, string filename, const string& extra) {
+void save_tree_png(const bool_state& state, string filename,
+    const string& extra, bool color_shapes) {
   if (filename.empty()) filename = "data/tests/test.json";
   auto  graph = replace_extension(filename, extra + ".txt");
   FILE* file  = fopen(graph.c_str(), "w");
-  fprintf(file, "%s", tree_to_string(state.cells).c_str());
+  fprintf(file, "%s", tree_to_string(state, color_shapes).c_str());
   fclose(file);
 
   auto image = replace_extension(filename, extra + ".png");
