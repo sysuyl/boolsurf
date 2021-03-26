@@ -155,6 +155,45 @@ inline vec3f get_color(int i) {
   return colors[i % colors.size()];
 }
 
+namespace std {
+inline string to_string(const vec3i& v) {
+  return "{" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", " +
+         std::to_string(v.z) + "}";
+}
+
+inline string to_string(const vec3f& v) {
+  return "{" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", " +
+         std::to_string(v.z) + "}";
+}
+
+inline string to_string(const vec2i& v) {
+  return "{" + std::to_string(v.x) + ", " + std::to_string(v.y) + "}";
+}
+
+inline string to_string(const vec2f& v) {
+  return "{" + std::to_string(v.x) + ", " + std::to_string(v.y) + "}";
+}
+}  // namespace std
+
+template <typename T>
+void print(const string& name, const vector<T>& vec, int max_elements = 100) {
+  printf("[size: %lu] ", vec.size());
+  printf("%s: [", name.c_str());
+  if (vec.empty()) {
+    printf("]\n");
+    return;
+  }
+  for (int i = 0; i < min((int)vec.size() - 1, max_elements); i++) {
+    printf("%s, ", std::to_string(vec[i]).c_str());
+  }
+  if (vec.size() > max_elements) {
+    printf("...]");
+  } else {
+    printf("%s]", std::to_string(vec.back()).c_str());
+  }
+  printf("\n");
+}
+
 #if 0
 #include "ext/robin_hood.h"
 template <typename Key, typename Value>
