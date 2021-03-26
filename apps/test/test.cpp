@@ -36,7 +36,7 @@ bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
       auto& point = test.points_in_screenspace[point_idx];
       auto& next  = test.points_in_screenspace[next_idx];
       area += cross(next, point);
-      printf("polygon %d, area %f\n", i, area);
+      // printf("polygon %d, area %f\n", i, area);
 
       polygon.push_back(point);
     }
@@ -152,8 +152,6 @@ int main(int num_args, const char* args[]) {
 
   add_option(cli, "color-shapes", color_shapes, "Color shapes.");
   parse_cli(cli, num_args, args);
-
-  printf("color-shapes: %d\n", (int)color_shapes);
 
   auto test = bool_test{};
   if (test_filename.size() && !load_test(test, test_filename)) {
