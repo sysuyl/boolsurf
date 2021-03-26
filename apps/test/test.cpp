@@ -54,6 +54,9 @@ bool_state make_test_state(const bool_mesh& mesh, const shape_bvh& bvh,
     }
   }
 
+  auto center = intersect_mesh(mesh, bvh, camera, {0.5, 0.5});
+  assert(center.face != -1);
+
   for (auto& polygon : polygons) {
     state.polygons.push_back({});
     auto polygon_id = (int)state.polygons.size() - 1;
@@ -62,17 +65,22 @@ bool_state make_test_state(const bool_mesh& mesh, const shape_bvh& bvh,
       uv.x /= camera.film;                    // input.window_size.x;
       uv.y /= (camera.film / camera.aspect);  // input.window_size.y;
       uv *= svg_size;
-      uv += vec2f{0.5, 0.5};
+      // uv += vec2f{0.5, 0.5};
 
-      auto point = intersect_mesh(mesh, bvh, camera, uv);
-      if (point.face == -1) continue;
+      auto path     = straightest_path(mesh, center, uv);
+      path.end.uv.x = clamp(path.end.uv.x, 0.0f, 1.0f);
+      path.end.uv.y = clamp(path.end.uv.y, 0.0f, 1.0f);
+      // check_point(path.end);
+      auto point = path.end;
 
       // Add point to state.
       state.polygons[polygon_id].points.push_back((int)state.points.size());
       state.points.push_back(point);
     }
 
-    if (state.polygons[polygon_id].points.empty()) {
+    if (state.polygons[polygon_id].points.size() <= 2) {
+      assert(0);
+      state.polygons[polygon_id].points.clear();
       continue;
     }
 
