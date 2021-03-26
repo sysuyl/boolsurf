@@ -54,7 +54,15 @@ bool_state make_test_state(const bool_mesh& mesh, const shape_bvh& bvh,
     }
   }
 
-  auto center = intersect_mesh(mesh, bvh, camera, {0.5, 0.5});
+  auto rng    = make_rng(0);
+  auto ss     = vec2f{0.5, 0.5};
+  auto size   = 0.1f;
+  auto center = intersect_mesh(mesh, bvh, camera, ss);
+  while (center.face == -1) {
+    ss     = vec2f{0.5, 0.5} + (rand2f(rng) - vec2f{0.5, 0.5}) * size;
+    center = intersect_mesh(mesh, bvh, camera, ss);
+    size += 0.001;
+  }
   assert(center.face != -1);
 
   for (auto& polygon : polygons) {
