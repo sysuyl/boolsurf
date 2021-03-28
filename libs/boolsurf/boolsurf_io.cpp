@@ -47,7 +47,10 @@ bool load_test(bool_test& test, const string& filename) {
   }
 
   try {
-    test.screenspace = js["points_in_screenspace"].get<bool>();
+    if (js.find("points_in_screenspace") != js.end()) {
+      test.screenspace = js["points_in_screenspace"].get<bool>();
+    }
+
     if (test.screenspace) {
       test.points_in_screenspace = js["points"].get<vector<vec2f>>();
     } else {
@@ -81,7 +84,6 @@ bool_state state_from_test(const bool_mesh& mesh, const bool_test& test) {
   state.polygons.clear();
 
   for (auto& polygon : test.polygons) {
-    if (!polygon.size()) continue;
     // Add new polygon to state.
     auto& mesh_polygon  = state.polygons.emplace_back();
     mesh_polygon.points = polygon;
