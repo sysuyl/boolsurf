@@ -3,9 +3,44 @@
 import sys
 import json
 import numpy as np
+import matplotlib.pyplot as plt
 from xml.dom import minidom
 import xml.etree.ElementTree as ET
 
+def subdivide_bezier(points):
+    points.append(points[0])
+    result = []
+    def subdivide_polygon(polygon):
+        def midpoint(a, b): return ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+        
+        Q0 = midpoint(polygon[0], polygon[1])
+        Q1 = midpoint(polygon[1], polygon[2])
+        Q2 = midpoint(polygon[2], polygon[3])
+        R0 = midpoint(Q0, Q1)
+        R1 = midpoint(Q1, Q2)
+        S  = midpoint(R0, R1)
+        return [polygon[0], Q0, R0, S, R1, Q2]
+
+    for i in range(0, len(points)-1, 3):
+        print(f'len {len(points)}: {i}, {i+4}')
+        polygon = points[i:i+4]
+        print('len', len(polygon))
+        result += subdivide_polygon(polygon)
+
+    return result
+
+def bezier(points, num_subdivisions):
+    result = []
+    for _ in range(num_subdivisions):
+        result = subdivide_bezier(points)
+        points = result[:]
+    return result
+
+def draw_points(points):
+    x = [p[0] for p in points]
+    y = [p[1] for p in points]
+    plt.scatter(x, y)
+    plt.show()
 
 def parse(infile, outfile):
     doc = minidom.parse(infile)
@@ -72,6 +107,10 @@ def create_json(infile, outfile):
 
 
 if __name__ == "__main__":
-    infile = sys.argv[1]
-    outfile = sys.argv[2]
-    create_json(infile, outfile)
+    points = [(0,0), (0,1), (1, 0.5), (1, 0), (1, 0.25), (0,0.5)]
+    p = bezier(points, 4)
+    draw_points(p)
+
+    # infile = sys.argv[1]
+    # outfile = sys.argv[2]
+    # create_json(infile, outfile)
