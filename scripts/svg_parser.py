@@ -3,31 +3,34 @@
 import sys
 import json
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from xml.dom import minidom
 import xml.etree.ElementTree as ET
+
 
 def subdivide_bezier(points):
     points.append(points[0])
     result = []
+
     def subdivide_polygon(polygon):
         def midpoint(a, b): return ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
-        
+
         Q0 = midpoint(polygon[0], polygon[1])
         Q1 = midpoint(polygon[1], polygon[2])
         Q2 = midpoint(polygon[2], polygon[3])
         R0 = midpoint(Q0, Q1)
         R1 = midpoint(Q1, Q2)
-        S  = midpoint(R0, R1)
+        S = midpoint(R0, R1)
         return [polygon[0], Q0, R0, S, R1, Q2]
 
-    for i in range(0, len(points)-1, 3):
+    for i in range(0, len(points)-3, 3):
         print(f'len {len(points)}: {i}, {i+4}')
         polygon = points[i:i+4]
         print('len', len(polygon))
         result += subdivide_polygon(polygon)
 
     return result
+
 
 def bezier(points, num_subdivisions):
     result = []
@@ -36,11 +39,13 @@ def bezier(points, num_subdivisions):
         points = result[:]
     return result
 
-def draw_points(points):
-    x = [p[0] for p in points]
-    y = [p[1] for p in points]
-    plt.scatter(x, y)
-    plt.show()
+
+# def draw_points(points):
+#     x = [p[0] for p in points]
+#     y = [p[1] for p in points]
+#     plt.scatter(x, y)
+#     plt.show()
+
 
 def parse(infile, outfile):
     doc = minidom.parse(infile)
@@ -84,17 +89,20 @@ def create_json(infile, outfile):
             for child in element:
                 polygon = []
                 path_points = parse_path(child.attrib['d'])
+                path_points = bezier(path_points, 2)
                 for point in path_points:
-                    point[0] += translation[0]
-                    point[1] += translation[1]
+                    point = (point[0] + translation[0],
+                             point[1] + translation[1])
                     polygon.append(len(data['points']))
                     data['points'].append(point)
 
                 data['polygons'].append(polygon)
 
         elif element.tag == "{http://www.w3.org/2000/svg}path":
-            path_points = parse_path(element.attrib['d'])
             polygon = []
+            path_points = parse_path(element.attrib['d'])
+            path_points = bezier(path_points, 2)
+
             for point in path_points:
                 polygon.append(len(data['points']))
                 data['points'].append(point)
