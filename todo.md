@@ -12,7 +12,7 @@
 # Performance
 - [x] Farsi a mano triangle-split con singolo segmento (senza chiamare CDT).
 - [ ] Provare varie hashmaps.
-- [ ] Riordinare triangoli per flood fill.
+- [x] Riordinare triangoli per flood fill.
 - [ ] Provare border_tags rappresentato in maniera sparsa invece che densa, ossia con `hash_map<int, vec3i>` invece che `vector<vec3i>`
 
 # Giacomo

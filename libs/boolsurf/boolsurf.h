@@ -10,6 +10,7 @@ struct bool_mesh : scene_shape {
   dual_geodesic_solver dual_solver = {};
   vector<vec3i>        border_tags = {};
 
+  shape_bvh                  bvh                = {};
   bbox3f                     bbox               = {};
   int                        num_triangles      = 0;
   int                        num_positions      = 0;
@@ -167,12 +168,20 @@ inline vec3f get_cell_color(
     }
     if (count > 0) {
       color /= count;
-      color += vec3f{1, 1, 1} * 0.1f * yocto::sin(float(cell_id));
+      // color += vec3f{1, 1, 1} * 0.1f * yocto::sin(float(cell_id));
     } else {
       color = {0.9, 0.9, 0.9};
     }
     return color;
   }
+}
+
+inline mesh_point intersect_mesh(const bool_mesh& mesh, const shape_bvh& bvh,
+    const scene_camera& camera, const vec2f& uv) {
+  auto ray = camera_ray(
+      camera.frame, camera.lens, camera.aspect, camera.film, uv);
+  auto isec = intersect_triangles_bvh(bvh, mesh.triangles, mesh.positions, ray);
+  return {isec.element, isec.uv};
 }
 
 /*

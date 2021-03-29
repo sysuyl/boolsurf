@@ -83,6 +83,11 @@ bool_state state_from_test(const bool_mesh& mesh, const bool_test& test) {
   state.points = test.points;
   state.polygons.clear();
 
+  if (test.screenspace) {
+    auto camera = make_camera(mesh);
+    return make_test_state(test, mesh, mesh.bvh, camera, 0.005);
+  }
+
   for (auto& polygon : test.polygons) {
     // Add new polygon to state.
     auto& mesh_polygon  = state.polygons.emplace_back();

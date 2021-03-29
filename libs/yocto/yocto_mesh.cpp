@@ -2863,8 +2863,9 @@ geodesic_path straightest_path(const vector<vec3i>& triangles,
     return pair<float, float>{t0, t1};
   };
 
-  while (len < path_length) {
+  for (int i = 0; i < 1024 && len < path_length; i++) {
     // Given the triangle, find which edge is intersected by the line.
+    auto found = false;
     for (auto k = 0; k < 3; ++k) {
       auto neighbor = adjacencies[face][k];
       if (neighbor == prev_face) continue;
@@ -2872,7 +2873,8 @@ geodesic_path straightest_path(const vector<vec3i>& triangles,
       auto right    = coords[mod3(k + 1)];
       auto [t0, t1] = intersect(direction, left, right);
       if (t0 > 0 && t1 >= 0 && t1 <= 1) {
-        len = t0;
+        found = true;
+        len   = t0;
         if (t0 < path_length) {
           path.lerps.push_back(t1);
           // Step to next face.
@@ -2888,6 +2890,7 @@ geodesic_path straightest_path(const vector<vec3i>& triangles,
         break;
       }
     }
+    assert(found);
   }
 
   auto p   = direction * path_length;

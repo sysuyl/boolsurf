@@ -173,7 +173,16 @@ inline string to_string(const vec2i& v) {
 inline string to_string(const vec2f& v) {
   return "{" + std::to_string(v.x) + ", " + std::to_string(v.y) + "}";
 }
+
+inline string to_string(const mesh_point& p) {
+  return "{" + std::to_string(p.face) + ", " + std::to_string(p.uv) + "}";
+}
 }  // namespace std
+
+template <typename T>
+void print(const string& name, const T& v) {
+  printf("%s: %s\n", name.c_str(), std::to_string(v).c_str());
+}
 
 template <typename T>
 void print(const string& name, const vector<T>& vec, int max_elements = 100) {

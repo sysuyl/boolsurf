@@ -56,6 +56,8 @@ void init_mesh(bool_mesh& mesh) {
   mesh.bbox.min = (mesh.bbox.min - center(bbox)) / max(size(bbox));
   mesh.bbox.max = (mesh.bbox.max - center(bbox)) / max(size(bbox));
 
+  mesh.bvh = make_triangles_bvh(mesh.triangles, mesh.positions, {});
+
   mesh.dual_solver = make_dual_geodesic_solver(
       mesh.triangles, mesh.positions, mesh.adjacencies);
 }

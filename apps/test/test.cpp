@@ -9,130 +9,122 @@
 #include "serialize/serialize.h"
 using namespace yocto;
 
-mesh_point intersect_mesh(const bool_mesh& mesh, const shape_bvh& bvh,
-    const scene_camera& camera, const vec2f& uv) {
-  auto ray = camera_ray(
-      camera.frame, camera.lens, camera.aspect, camera.film, uv);
-  auto isec = intersect_triangles_bvh(bvh, mesh.triangles, mesh.positions, ray);
-  return {isec.element, isec.uv};
-}
-
-bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
-    const shape_bvh& bvh, const scene_camera& camera, float svg_size) {
-  auto state = bool_state{};
-
-  auto polygons = vector<vector<vec2f>>{};
-  // for (auto& test_polygon : test.polygons) {
-  for (int i = 0; i < test.polygons.size(); i++) {
-    auto& test_polygon = test.polygons[i];
-
-    auto& polygon = polygons.emplace_back();
-
-    auto area = 0.0f;
-    for (int p = 0; p < test_polygon.size(); p++) {
-      auto point_idx = test_polygon[p];
-      auto next_idx  = test_polygon[(p + 1) % test_polygon.size()];
-
-      auto& point = test.points_in_screenspace[point_idx];
-      auto& next  = test.points_in_screenspace[next_idx];
-      area += cross(next, point);
-
-      polygon.push_back(point);
-    }
-
-    if (area < 0) {
-      std::reverse(polygon.begin(), polygon.end());
-    }
-  }
-
-  auto bbox = bbox2f{};
-  for (auto& polygon : polygons) {
-    for (auto& p : polygon) {
-      bbox = merge(bbox, p);
-    }
-  }
-
-  for (auto& polygon : polygons) {
-    for (auto& p : polygon) {
-      p = (p - center(bbox)) / max(size(bbox));
-    }
-  }
-
-  auto rng    = make_rng(0);
-  auto ss     = vec2f{0.5, 0.5};
-  auto size   = 0.1f;
-  auto center = intersect_mesh(mesh, bvh, camera, ss);
-  while (center.face == -1) {
-    ss     = vec2f{0.5, 0.5} + (rand2f(rng) - vec2f{0.5, 0.5}) * size;
-    center = intersect_mesh(mesh, bvh, camera, ss);
-    size += 0.001;
-  }
-  assert(center.face != -1);
-
-  for (auto& polygon : polygons) {
-    state.polygons.push_back({});
-    auto polygon_id = (int)state.polygons.size() - 1;
-
-    for (auto uv : polygon) {
-      uv.x /= camera.film;                    // input.window_size.x;
-      uv.y /= (camera.film / camera.aspect);  // input.window_size.y;
-      uv *= svg_size;
-      uv.x = -uv.x;
-
-      auto path     = straightest_path(mesh, center, uv);
-      path.end.uv.x = clamp(path.end.uv.x, 0.0f, 1.0f);
-      path.end.uv.y = clamp(path.end.uv.y, 0.0f, 1.0f);
-      // check_point(path.end);
-      auto point = path.end;
-
-      // Add point to state.
-      state.polygons[polygon_id].points.push_back((int)state.points.size());
-      state.points.push_back(point);
-    }
-
-    if (state.polygons[polygon_id].points.size() <= 2) {
-      assert(0);
-      state.polygons[polygon_id].points.clear();
-      continue;
-    }
-
-    recompute_polygon_segments(mesh, state, state.polygons[polygon_id]);
-  }
-
-  return state;
-}
-
-scene_camera make_camera(const bool_mesh& mesh) {
-  auto bbox_size = size(mesh.bbox);
-  auto z         = zero3f;
-  if (bbox_size.x < bbox_size.y && bbox_size.x < bbox_size.z) {
-    z = {1, 0, 0};
-  }
-  if (bbox_size.y < bbox_size.x && bbox_size.y < bbox_size.z) {
-    z = {0, 1, 0};
-  }
-  if (bbox_size.z < bbox_size.x && bbox_size.z < bbox_size.y) {
-    z = {0, 0, 1};
-  }
-
-  // auto x = vec3f{1, 0, 0};
-  auto x = zero3f;
-  if (bbox_size.x > bbox_size.y && bbox_size.x > bbox_size.z) {
-    x = {1, 0, 0};
-  }
-  if (bbox_size.y > bbox_size.x && bbox_size.y > bbox_size.z) {
-    x = {0, 1, 0};
-  }
-  if (bbox_size.z > bbox_size.x && bbox_size.z > bbox_size.y) {
-    x = {0, 0, 1};
-  }
-
-  auto up = -cross(x, z);
-  // if (up == z) up = {1, 0, 0};
-  auto camera  = scene_camera{};
-  camera.frame = lookat_frame(3 * z, zero3f, up);
-  return camera;
-}
+//bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
+//    const shape_bvh& bvh, const scene_camera& camera, float svg_size) {
+//  auto state = bool_state{};
+//
+//  auto polygons = vector<vector<vec2f>>{};
+//  // for (auto& test_polygon : test.polygons) {
+//  for (int i = 0; i < test.polygons.size(); i++) {
+//    auto& test_polygon = test.polygons[i];
+//
+//    auto& polygon = polygons.emplace_back();
+//
+//    auto area = 0.0f;
+//    for (int p = 0; p < test_polygon.size(); p++) {
+//      auto point_idx = test_polygon[p];
+//      auto next_idx  = test_polygon[(p + 1) % test_polygon.size()];
+//
+//      auto& point = test.points_in_screenspace[point_idx];
+//      auto& next  = test.points_in_screenspace[next_idx];
+//      area += cross(next, point);
+//
+//      polygon.push_back(point);
+//    }
+//
+//    if (area < 0) {
+//      std::reverse(polygon.begin(), polygon.end());
+//    }
+//  }
+//
+//  auto bbox = bbox2f{};
+//  for (auto& polygon : polygons) {
+//    for (auto& p : polygon) {
+//      bbox = merge(bbox, p);
+//    }
+//  }
+//
+//  for (auto& polygon : polygons) {
+//    for (auto& p : polygon) {
+//      p = (p - center(bbox)) / max(size(bbox));
+//    }
+//  }
+//
+//  auto rng    = make_rng(0);
+//  auto ss     = vec2f{0.5, 0.5};
+//  auto size   = 0.1f;
+//  auto center = intersect_mesh(mesh, bvh, camera, ss);
+//  while (center.face == -1) {
+//    ss     = vec2f{0.5, 0.5} + (rand2f(rng) - vec2f{0.5, 0.5}) * size;
+//    center = intersect_mesh(mesh, bvh, camera, ss);
+//    size += 0.001;
+//  }
+//  assert(center.face != -1);
+//
+//  for (auto& polygon : polygons) {
+//    state.polygons.push_back({});
+//    auto polygon_id = (int)state.polygons.size() - 1;
+//
+//    for (auto uv : polygon) {
+//      uv.x /= camera.film;                    // input.window_size.x;
+//      uv.y /= (camera.film / camera.aspect);  // input.window_size.y;
+//      uv *= svg_size;
+//      uv.x = -uv.x;
+//
+//      auto path     = straightest_path(mesh, center, uv);
+//      path.end.uv.x = clamp(path.end.uv.x, 0.0f, 1.0f);
+//      path.end.uv.y = clamp(path.end.uv.y, 0.0f, 1.0f);
+//      // check_point(path.end);
+//      auto point = path.end;
+//
+//      // Add point to state.
+//      state.polygons[polygon_id].points.push_back((int)state.points.size());
+//      state.points.push_back(point);
+//    }
+//
+//    if (state.polygons[polygon_id].points.size() <= 2) {
+//      assert(0);
+//      state.polygons[polygon_id].points.clear();
+//      continue;
+//    }
+//
+//    recompute_polygon_segments(mesh, state, state.polygons[polygon_id]);
+//  }
+//
+//  return state;
+//}
+//
+//scene_camera make_camera(const bool_mesh& mesh) {
+//  auto bbox_size = size(mesh.bbox);
+//  auto z         = zero3f;
+//  if (bbox_size.x < bbox_size.y && bbox_size.x < bbox_size.z) {
+//    z = {1, 0, 0};
+//  }
+//  if (bbox_size.y < bbox_size.x && bbox_size.y < bbox_size.z) {
+//    z = {0, 1, 0};
+//  }
+//  if (bbox_size.z < bbox_size.x && bbox_size.z < bbox_size.y) {
+//    z = {0, 0, 1};
+//  }
+//
+//  // auto x = vec3f{1, 0, 0};
+//  auto x = zero3f;
+//  if (bbox_size.x > bbox_size.y && bbox_size.x > bbox_size.z) {
+//    x = {1, 0, 0};
+//  }
+//  if (bbox_size.y > bbox_size.x && bbox_size.y > bbox_size.z) {
+//    x = {0, 1, 0};
+//  }
+//  if (bbox_size.z > bbox_size.x && bbox_size.z > bbox_size.y) {
+//    x = {0, 0, 1};
+//  }
+//
+//  auto up = -cross(x, z);
+//  // if (up == z) up = {1, 0, 0};
+//  auto camera  = scene_camera{};
+//  camera.frame = lookat_frame(3 * z, zero3f, up);
+//  return camera;
+//}
 
 int main(int num_args, const char* args[]) {
   auto test_filename   = ""s;

@@ -564,11 +564,11 @@ void update_app(const gui_input& input, void* data) {
 }
 
 int main(int argc, const char* argv[]) {
-  auto app         = new app_state{};
-  auto filename    = "data/models/bunny.ply"s;
-  auto camera_name = ""s;
-  auto input       = ""s;
-  auto window      = new gui_window{};
+  auto app            = new app_state{};
+  auto camera_name    = ""s;
+  auto input          = ""s;
+  auto model_filename = ""s;
+  auto window         = new gui_window{};
 
   window->msaa = 8;
 
@@ -577,10 +577,12 @@ int main(int argc, const char* argv[]) {
   add_option(cli, "camera", camera_name, "Camera name.");
   add_argument(cli, "input", input,
       "Input filename. Either a model or a json test file");
-  add_option(cli, "msaa", window->msaa, "Multisample anti-aliasing.");
-  add_option(cli, "test", app->test_filename, "Test filename.");
-  add_option(cli, "svg", app->svg_filename, "Svg filename.");
-  add_option(cli, "svg-size", app->svg_size, "Svg size.");
+  add_option(cli, "model", model_filename, "Input model filename.");
+
+  // add_option(cli, "msaa", window->msaa, "Multisample anti-aliasing.");
+  // add_option(cli, "test", app->test_filename, "Test filename.");
+  // add_option(cli, "svg", app->svg_filename, "Svg filename.");
+  // add_option(cli, "svg-size", app->svg_size, "Svg size.");
   parse_cli(cli, argc, argv);
 
   init_window(window, {1280 + 320, 720}, "boolsurf", true);
@@ -596,8 +598,12 @@ int main(int argc, const char* argv[]) {
     app->model_filename = input;
   }
 
+  if (model_filename != "") {
+    app->model_filename = model_filename;
+  }
+
   load_shape(app, app->model_filename);
-  app->test.model = app->model_filename;
+  app->test.model = app->model_filename;  // To save it later.
 
   init_glscene(app, app->glscene, app->mesh);
   if (window->msaa > 1) set_ogl_msaa();
