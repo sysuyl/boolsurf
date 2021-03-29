@@ -3654,7 +3654,10 @@ vector<int> compute_strip(const dual_geodesic_solver& solver,
     assert(find_in_vector(strip, node) != 1);
     assert(strip.size() < parents.size());
     strip.push_back(node);
-    node = parents[node];
+    if (node == start.face) break;
+    auto parent = parents[node];
+    assert(parent != node);
+    node = parent;
   }
 
   // cleanup buffers
