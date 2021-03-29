@@ -24,8 +24,10 @@ inline void set_polygon_shape(
     for (auto& segment : edge)
       positions.push_back(eval_position(mesh, {segment.face, segment.start}));
 
-  auto& segment = polygon.edges.back().back();
-  positions.push_back(eval_position(mesh, {segment.face, segment.end}));
+  if (polygon.edges.size() && polygon.edges.back().size()) {
+    auto& segment = polygon.edges.back().back();
+    positions.push_back(eval_position(mesh, {segment.face, segment.end}));
+  }
 
   set_positions(shape, positions);
   set_instances(shape, {}, {});
