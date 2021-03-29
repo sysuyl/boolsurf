@@ -18,7 +18,11 @@ def trace_meshes(dirname, output):
 
     result = {}
     result['num_tests'] = 0
+
     result['num_errors'] = 0
+    result['errors'] = []
+
+    result['num_ok'] = 0
     result['ok'] = []
 
     append = ''
@@ -40,17 +44,26 @@ def trace_meshes(dirname, output):
             retcode = subprocess.run(cmd, timeout=60, shell=True).returncode
             if retcode < 0:
                 result['num_errors'] += 1
+                result['errors'] += [mesh_name]
             elif retcode > 0:
                 result['num_errors'] += 1
+                result['errors'] += [mesh_name]
+
             else:
+                result['num_ok'] += 1
                 result['ok'] += [mesh_name]
+
         except OSError:
             result['num_errors'] += 1
+            result['errors'] += [mesh_name]
+
         except subprocess.TimeoutExpired:
             result['num_errors'] += 1
+            result['errors'] += [mesh_name]
+
     
-    # with open(f'{output}/trace-result.json', 'wt') as f:
-        # json.dump(result, f, indent=2)
+    with open(f'{output}/trace-result.json', 'wt') as f:
+        json.dump(result, f, indent=2)
 
 
 

@@ -36,7 +36,6 @@ bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
       auto& point = test.points_in_screenspace[point_idx];
       auto& next  = test.points_in_screenspace[next_idx];
       area += cross(next, point);
-      // printf("polygon %d, area %f\n", i, area);
 
       polygon.push_back(point);
     }
@@ -177,18 +176,16 @@ int main(int num_args, const char* args[]) {
   // Init bool_state
   auto state  = bool_state{};
   auto camera = scene_camera{};
+
 #if 1
   camera = make_camera(mesh);
+  state  = make_test_state(test, mesh, bvh, camera, 0.005);
 
-  // state  = state_from_test(mesh, test);
-
-  state = make_test_state(test, mesh, bvh, camera, 0.005);
-
-  test.operations.push_back({1, 2, bool_operation::Type::op_difference});
-  test.operations.push_back({3, 4, bool_operation::Type::op_difference});
-  test.operations.push_back({8, 5, bool_operation::Type::op_difference});
-  test.operations.push_back(
-      {6, 9, bool_operation::Type::op_symmetrical_difference});
+  // test.operations.push_back({1, 2, bool_operation::Type::op_difference});
+  // test.operations.push_back({3, 4, bool_operation::Type::op_difference});
+  // test.operations.push_back({8, 5, bool_operation::Type::op_difference});
+  // test.operations.push_back(
+  //     {6, 9, bool_operation::Type::op_symmetrical_difference});
 
 #else
 
@@ -202,7 +199,11 @@ int main(int num_args, const char* args[]) {
     compute_shapes(state);
   }
 
-  save_tree_png(state, "graph.png", "", color_shapes);
+  auto graph_dir      = path_dirname(output_filename);
+  auto graph_filename = path_basename(output_filename) + string("_graph.png");
+  auto graph_outfile  = path_join(graph_dir, graph_filename);
+
+  save_tree_png(state, graph_outfile.c_str(), "", color_shapes);
 
   if (color_shapes) {
     for (auto& operation : test.operations) {
