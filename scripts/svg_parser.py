@@ -5,6 +5,26 @@ import json
 import numpy as np
 from xml.dom import minidom
 
+def subdivide_bezier(points):
+    points.append(points[0])
+
+    def subdivide_polygon(polygon):
+        def midpoint(a, b): return ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+        
+        Q0 = midpoint(polygon[0], polygon[1])
+        Q1 = midpoint(polygon[1], polygon[2])
+        Q2 = midpoint(polygon[2], polygon[3])
+        R0 = midpoint(Q0, Q1)
+        R1 = midpoint(Q1, Q2)
+        S  = midpoint(R0, R1)
+        return [polygon[0], Q0, R0, S, R1, Q2]
+
+    for i in range(0, len(points), 4):
+        polygon = points[i:i+4]
+        result += subdivide_polygon(polygon)
+
+    return result
+
 
 def parse(infile, outfile):
     doc = minidom.parse(infile) 
