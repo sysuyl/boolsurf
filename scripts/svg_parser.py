@@ -72,7 +72,7 @@ def create_json(infile, outfile):
     data = {'points_in_screenspace': True, 'points': [], 'polygons': []}
 
     def parse_path(path_string):
-        paths = path_string[1:-2].lower()
+        paths = path_string[1:-1].lower()
         paths = paths.split("zm")
         result = []
 
