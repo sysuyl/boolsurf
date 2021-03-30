@@ -149,7 +149,7 @@ inline bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
   auto rng    = make_rng(0);
   auto ss     = vec2f{0.5, 0.5};
   auto size   = 0.1f;
-  auto center = intersect_mesh(mesh, bvh, camera, ss);
+  auto center = intersect_mesh(mesh, camera, ss);
 
   // print("center", center);
   while (center.face == -1) {
@@ -157,7 +157,7 @@ inline bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
     //       center.uv == vec2f{0, 1}) {
     ss = vec2f{0.5, 0.5} + (rand2f(rng) - vec2f{0.5, 0.5}) * size;
     // print("ss", ss);
-    center = intersect_mesh(mesh, bvh, camera, ss);
+    center = intersect_mesh(mesh, camera, ss);
     // print("center", center);
     size += 0.001;
   }

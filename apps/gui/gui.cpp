@@ -174,8 +174,6 @@ void draw_widgets(app_state* app, const gui_input& input) {
       if (shape_id < app->state.shapes.size() - 1) {
         swap(app->state.shapes[shape_id], app->state.shapes[shape_id + 1]);
         shape_id += 1;
-        //        update_shapes(app); // TODO(giacomo): fix
-        // set_default_shapes(app);
         update_cell_colors(app);
       }
     }
@@ -243,9 +241,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
         uv.x /= input.window_size.x;
         uv.y /= input.window_size.y;
-        auto [isec, _] = intersect_shapes(app, uv);
-        if (!isec.hit) continue;
-        auto point = mesh_point{isec.element, isec.uv};
+        auto point = intersect_mesh(app->mesh, app->camera, uv);
+        if (point.face == -1) continue;
 
         // Add point to state.
         app->state.points.push_back(point);
@@ -272,12 +269,11 @@ void mouse_input(app_state* app, const gui_input& input) {
 
   if (input.mouse_left.state != gui_button::state::releasing) return;
 
-  auto [isec, isec_original] = intersect_shapes(app, input);
-  if (!isec.hit) return;
-  auto point              = mesh_point{isec.element, isec.uv};
+  auto point = intersect_mesh(app, input);
+  if (point.face == -1) return;
   app->last_clicked_point = point;
 
-  auto point_original = mesh_point{isec_original.element, isec_original.uv};
+  auto point_original              = intersect_mesh_original(app, input);
   app->last_clicked_point_original = point_original;
 
   for (int i = 0; i < app->state.cells.size(); i++) {
@@ -578,11 +574,11 @@ int main(int argc, const char* argv[]) {
   add_argument(cli, "input", input,
       "Input filename. Either a model or a json test file");
   add_option(cli, "model", model_filename, "Input model filename.");
-
   // add_option(cli, "msaa", window->msaa, "Multisample anti-aliasing.");
   // add_option(cli, "test", app->test_filename, "Test filename.");
   // add_option(cli, "svg", app->svg_filename, "Svg filename.");
   // add_option(cli, "svg-size", app->svg_size, "Svg size.");
+  add_option(cli, "color-shapes", app->color_shapes, "Color shapes.");
   parse_cli(cli, argc, argv);
 
   init_window(window, {1280 + 320, 720}, "boolsurf", true);

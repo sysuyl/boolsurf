@@ -31,6 +31,7 @@ struct app_state {
   bool_operation operation      = {};
   gui_window*    window         = nullptr;
   bool           color_shapes   = false;
+  scene_camera   camera         = {};
 
   // options
   shade_params drawgl_prms = {};
@@ -307,6 +308,12 @@ void update_camera(app_state* app, const gui_input& input) {
     std::tie(app->glcamera->frame, app->glcamera->focus) = camera_turntable(
         app->glcamera->frame, app->glcamera->focus, rotate, dolly, pan);
   }
+  app->camera.frame    = app->glcamera->frame;
+  app->camera.lens     = app->glcamera->lens;
+  app->camera.film     = app->glcamera->film;
+  app->camera.aspect   = app->glcamera->aspect;
+  app->camera.aperture = app->glcamera->aperture;
+  app->camera.focus    = app->glcamera->focus;
 };
 
 void drop(app_state* app, const gui_input& input) {
@@ -319,44 +326,17 @@ void drop(app_state* app, const gui_input& input) {
   }
 }
 
-shape_intersection intersect_shape(
-    const app_state* app, const gui_input& input) {
-  auto mouse_uv = vec2f{input.mouse_pos.x / float(input.window_size.x),
+mesh_point intersect_mesh(const app_state* app, const gui_input& input) {
+  auto uv = vec2f{input.mouse_pos.x / float(input.window_size.x),
       input.mouse_pos.y / float(input.window_size.y)};
-  auto ray      = camera_ray(app->glcamera->frame, app->glcamera->lens,
-      app->glcamera->aspect, app->glcamera->film, mouse_uv);
-
-  // TODO(giacomo): we always use the same original mesh for intersection to
-  // support triangulation viewer, but we don't want to do that in the future.
-  // We need two kinds of intersect.
-  auto isec = intersect_triangles_bvh(app->bvh, app->mesh_original.triangles,
-      app->mesh_original.positions, ray);
-
-  return isec;
+  return intersect_mesh(app->mesh, app->camera, uv);
 }
 
-tuple<shape_intersection, shape_intersection> intersect_shapes(
-    const app_state* app, const vec2f& uv) {
-  auto ray = camera_ray(app->glcamera->frame, app->glcamera->lens,
-      app->glcamera->aspect, app->glcamera->film, uv);
-
-  // TODO(giacomo): we always use the same original mesh for intersection to
-  // support triangulation viewer, but we don't want to do that in the future.
-  // We need two kinds of intersect.
-  auto isec_original = intersect_triangles_bvh(app->bvh_original,
-      app->mesh_original.triangles, app->mesh_original.positions, ray);
-
-  auto isec = intersect_triangles_bvh(
-      app->bvh, app->mesh.triangles, app->mesh.positions, ray);
-
-  return {isec, isec_original};
-}
-
-tuple<shape_intersection, shape_intersection> intersect_shapes(
+mesh_point intersect_mesh_original(
     const app_state* app, const gui_input& input) {
   auto uv = vec2f{input.mouse_pos.x / float(input.window_size.x),
       input.mouse_pos.y / float(input.window_size.y)};
-  return intersect_shapes(app, uv);
+  return intersect_mesh(app->mesh_original, app->camera, uv);
 }
 
 shade_instance* add_patch_shape(

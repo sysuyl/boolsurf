@@ -1363,3 +1363,42 @@ void compute_bool_operation(bool_state& state, const bool_operation& op) {
   for (auto i = 0; i < aa.size(); i++)
     if (aa[i]) c.cells.insert(i);
 }
+
+mesh_point intersect_mesh(const bool_mesh& mesh, const shape_bvh& bvh,
+    const scene_camera& camera, const vec2f& uv) {
+  auto ray = camera_ray(
+      camera.frame, camera.lens, camera.aspect, camera.film, uv);
+  auto isec = intersect_triangles_bvh(bvh, mesh.triangles, mesh.positions, ray);
+  return {isec.element, isec.uv};
+}
+
+vec3f get_cell_color(const bool_state& state, int cell_id, bool color_shapes) {
+  if (color_shapes) {
+    auto shape_id = 0;
+    for (int s = (int)state.shapes.size() - 1; s >= 0; s--) {
+      if (state.shapes[s].cells.count(cell_id) && state.shapes[s].is_root) {
+        shape_id = s;
+        break;
+      }
+    }
+    return get_color(shape_id);
+
+  } else {
+    auto color = vec3f{0, 0, 0};
+    int  count = 0;
+    for (int p = 0; p < state.cells[cell_id].labels.size(); p++) {
+      auto label = state.cells[cell_id].labels[p];
+      if (label > 0) {
+        color += get_color(p);
+        count += 1;
+      }
+    }
+    if (count > 0) {
+      color /= count;
+      // color += vec3f{1, 1, 1} * 0.1f * yocto::sin(float(cell_id));
+    } else {
+      color = {0.9, 0.9, 0.9};
+    }
+    return color;
+  }
+}
