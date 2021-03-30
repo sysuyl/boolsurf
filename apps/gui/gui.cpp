@@ -575,9 +575,8 @@ int main(int argc, const char* argv[]) {
       "Input filename. Either a model or a json test file");
   add_option(cli, "model", model_filename, "Input model filename.");
   // add_option(cli, "msaa", window->msaa, "Multisample anti-aliasing.");
-  // add_option(cli, "test", app->test_filename, "Test filename.");
-  // add_option(cli, "svg", app->svg_filename, "Svg filename.");
-  // add_option(cli, "svg-size", app->svg_size, "Svg size.");
+  add_option(cli, "svg", app->svg_filename, "Svg filename.");
+  add_option(cli, "svg-size", app->svg_size, "Svg size.");
   add_option(cli, "color-shapes", app->color_shapes, "Color shapes.");
   parse_cli(cli, argc, argv);
 

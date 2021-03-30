@@ -91,8 +91,18 @@ struct app_state {
 };
 
 void update_polygon(app_state* app, int polygon_id, int index = 0) {
-  auto& mesh_polygon  = app->state.polygons[polygon_id];
+  auto& mesh_polygon = app->state.polygons[polygon_id];
+  app->polygon_shapes.resize(app->state.polygons.size());
   auto& polygon_shape = app->polygon_shapes[polygon_id];
+
+  // TODO(giacomo): Solve this situation.
+  if (!polygon_shape) {
+    polygon_shape = new shade_instance{};
+  }
+
+  if (!polygon_shape->shape) {
+    polygon_shape->shape = new shade_shape{};
+  }
 
   // Draw polygon.
   recompute_polygon_segments(app->mesh, app->state, mesh_polygon, index);
