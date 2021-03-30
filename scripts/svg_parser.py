@@ -20,7 +20,7 @@ def subdivide_bezier(points):
         Q2 = midpoint(polygon[2], polygon[3])
         R0 = midpoint(Q0, Q1)
         R1 = midpoint(Q1, Q2)
-        S  = midpoint(R0, R1)
+        S = midpoint(R0, R1)
         return [Q0, R0, S, R1, Q2, polygon[3]]
 
     for i in range(0, len(points)-3, 3):
@@ -71,41 +71,80 @@ def create_json(infile, outfile):
     root = ET.parse(infile).getroot()
     data = {'points_in_screenspace': True, 'points': [], 'polygons': []}
 
-    def parse_path(path):
-        points = path[1:-2].lower().split("l")
-        points = [point.split(",") for point in points]
-        points = [[float(x), float(y)] for x, y in points]
-        points = points[:-1]
-        return points
+    def parse_path(path_string):
+        paths = path_string[1:-2].lower()
+        paths = paths.split("zm")
+        result = []
+
+        for path in paths:
+            final_points = []
+            elements = []
+            segments = path.split("l")
+
+            for s in segments:
+                if "c" in s:
+                    points = s.split("c")
+                    for p in points:
+                        if " " in p:
+                            p = p.split(" ")
+                            elements.append(p)
+                        else:
+                            elements.append([p])
+                else:
+                    elements.append([s])
+
+            for element in elements:
+                element = [point.split(",") for point in element]
+                element = [(float(x), float(y)) for x, y in element]
+
+                if len(element) == 1:
+                    final_points.append(element[0])
+
+                elif len(element) == 3:
+                    bezier_points = [final_points[-1]]
+                    bezier_points += element
+
+                    assert(len(bezier_points) == 4)
+                    bpoints = bezier(bezier_points, 4)
+
+                    final_points += bpoints
+
+                else:
+                    print("Boh")
+
+            final_points = final_points[:-1]
+            result.append(final_points)
+
+        draw_points(result[0])
+        return result
 
     for element in root:
         if element.tag == "{http://www.w3.org/2000/svg}g":
 
             transform = element.attrib['transform'][7:-1].split(',')[-2:]
             translation = (float(transform[0]), float(transform[1]))
-            # inserire anche altre trasformazioni
 
             for child in element:
-                polygon = []
                 path_points = parse_path(child.attrib['d'])
-                path_points = bezier(path_points, 2)
-                for point in path_points:
-                    point = (point[0] + translation[0],
-                             point[1] + translation[1])
-                    polygon.append(len(data['points']))
-                    data['points'].append(point)
+                for path in path_points:
+                    polygon = []
+                    for point in path:
+                        point = (point[0] + translation[0],
+                                 point[1] + translation[1])
+                        polygon.append(len(data['points']))
+                        data['points'].append(point)
 
-                data['polygons'].append(polygon)
+                    data['polygons'].append(polygon)
 
         elif element.tag == "{http://www.w3.org/2000/svg}path":
-            polygon = []
             path_points = parse_path(element.attrib['d'])
-            path_points = bezier(path_points, 2)
 
-            for point in path_points:
-                polygon.append(len(data['points']))
-                data['points'].append(point)
-            data['polygons'].append(polygon)
+            for path in path_points:
+                polygon = []
+                for point in path:
+                    polygon.append(len(data['points']))
+                    data['points'].append(point)
+                data['polygons'].append(polygon)
 
     with open(outfile, "w") as out:
         json.dump(data, out, indent=2)
