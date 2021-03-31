@@ -339,6 +339,27 @@ void key_input(app_state* app, const gui_input& input) {
     if (button.state != gui_button::state::pressing) continue;
 
     switch (idx) {
+      case (int)gui_key::up: {
+        if (input.modifier_shift) {
+          app->glcamera->frame.o -= app->glcamera->frame.z * 0.001;
+        } else {
+          app->glcamera->frame.o += app->glcamera->frame.y * 0.001;
+        }
+      } break;
+      case (int)gui_key::down: {
+        if (input.modifier_shift) {
+          app->glcamera->frame.o += app->glcamera->frame.z * 0.001;
+        } else {
+          app->glcamera->frame.o -= app->glcamera->frame.y * 0.001;
+        }
+      } break;
+      case (int)gui_key::left: {
+        app->glcamera->frame.o -= app->glcamera->frame.x * 0.001;
+      } break;
+      case (int)gui_key::right: {
+        app->glcamera->frame.o += app->glcamera->frame.x * 0.001;
+      } break;
+
       case (int)gui_key('Z'): {
         undo_state(app);
       } break;
