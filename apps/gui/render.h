@@ -1,4 +1,7 @@
+#ifndef _WIN32
 #include <yocto_gui/yocto_font.h>
+#endif
+
 #include <yocto_gui/yocto_shade.h>
 
 inline void set_patch_shape(
@@ -90,10 +93,9 @@ inline void set_border_shape(shade_scene* scene, const bool_state& state,
   set_instances(shape.borders_shape->shape, {}, {});
 }
 
-#if 1
-
 inline void draw_triangulation(
     ogl_texture* texture, int face, vec2i size = {2048, 2048}) {
+#ifndef _WIN32
   auto& triangles = debug_triangles()[face];
   auto& positions = debug_nodes()[face];
   auto& indices   = debug_indices()[face];
@@ -234,9 +236,11 @@ inline void draw_triangulation(
   }
 
   unbind_framebuffer();
+#endif
 }
 
 inline void save_triangulation(const string& filename, int face) {
+#ifndef _WIN32
   auto texture = new ogl_texture{};
   draw_triangulation(texture, face);
   auto img = get_texture(texture);
@@ -250,9 +254,8 @@ inline void save_triangulation(const string& filename, int face) {
   if (!save_image(filename, img, error)) {
     printf("%s: %s\n", __FUNCTION__, error.c_str());
   }
-}
-
 #endif
+}
 
 [[nodiscard]] shade_instance* draw_segment(shade_scene* scene,
     const bool_mesh& mesh, shade_material* material, const vec3f& start,

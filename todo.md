@@ -5,7 +5,7 @@
 
 # Implementation
 - [x] Visualizzare booleane.
-- [ ] Tirare su tests.
+- [x] Tirare su tests.
 - [x] Rappresentare il risultato implicitamente come sequenze di punti: inserire intersezioni nei poligoni e taggare i lati per visualizzare bene le booleane.
 - [ ] Integrare bezier.
 
@@ -15,10 +15,17 @@
 - [x] Riordinare triangoli per flood fill.
 - [ ] Provare border_tags rappresentato in maniera sparsa invece che densa, ossia con `hash_map<int, vec3i>` invece che `vector<vec3i>`
 
+# Misc
+- [ ] Script svg parser con suddivisioni da cli
+- [ ] Chiamare svg_parser.py da c++ per convertire .svg come cli 
+- [ ] Triangolatore di Cino 
+- [ ] Fare immagini belle
+- [ ] Runnare test 
+  
 # Giacomo
-- [ ] Fix windows build (freetype)
+- [x] Fix windows build (freetype)
 - [ ] Fix windows rendering
 
 # Marzia
 - [x] Rimuovere segments da polygon (lasciare solo edges ovunque)
-- [ ] Fix compilazione in release windows (?)
+- [x] Fix compilazione in release windows (?)

@@ -2,7 +2,24 @@ if(YOCTO_OPENGL)
   add_definitions(-DYOCTO_OPENGL)
   find_package(OpenGL REQUIRED)
 
+if (WIN32)
   add_library(yocto_gui 
+    yocto_opengl.h 
+    yocto_opengl.cpp 
+    yocto_shade.h 
+    yocto_shade.cpp 
+    yocto_window.h 
+    yocto_window.cpp 
+    yocto_imgui.h 
+    yocto_imgui.cpp 
+    ext/imgui/imgui.cpp 
+    ext/imgui/imgui_draw.cpp 
+    ext/imgui/imgui_widgets.cpp
+    ext/imgui/imgui_impl_glfw.cpp 
+    ext/imgui/imgui_impl_opengl3.cpp 
+    ext/glad/glad.c)
+else()
+ add_library(yocto_gui 
     yocto_opengl.h 
     yocto_opengl.cpp 
     yocto_font.h 
@@ -19,6 +36,7 @@ if(YOCTO_OPENGL)
     ext/imgui/imgui_impl_glfw.cpp 
     ext/imgui/imgui_impl_opengl3.cpp 
     ext/glad/glad.c)
+endif()
   
   # include_directories(/usr/local/include /usr/local/include/freetype2)
   # link_directories(/usr/local/lib)
