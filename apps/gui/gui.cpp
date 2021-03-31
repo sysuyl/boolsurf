@@ -1,8 +1,12 @@
+#define MY_DEBUG
+
 #include "app.h"
 
 using namespace yocto;
 
 #include <deque>
+
+#include "../../libs/yocto_gui/ext/imgui/imgui.h"
 
 #ifdef _WIN32
 #undef near
@@ -14,7 +18,7 @@ void debug_draw(app_state* app, int face, const vector<vec2i>& edges,
     const string& header = "") {
   static int count = 0;
 
-  auto& is = debug_indices[face];
+  auto& is = debug_indices()[face];
 
   //  auto       e     = vec2i{find_idx(is, edge_key.x), find_idx(is,
   //  edge_key.y)};
@@ -30,7 +34,7 @@ void debug_draw(app_state* app, int face, const vector<vec2i>& edges,
   //    auto e = vec2i{find_idx(is, s.start_vertex), find_idx(is,
   //    s.end_vertex)}; edges.push_back({e.x, e.y});
   //  }
-  debug_edges[face] = edges;
+  debug_edges()[face] = edges;
 
   // save_triangulation(replace_extension(base, ext0), face);
 
@@ -83,16 +87,16 @@ void draw_widgets(app_state* app, const gui_input& input) {
   static auto view_triangulation = false;
   draw_checkbox(widgets, "view triangulation", view_triangulation);
   if (view_triangulation) {
-    // static ogl_texture* texture = new ogl_texture{};
-    // ImGui::Begin("Triangulation viewer");
-    // auto [x, y] = ImGui::GetWindowSize();
-    // // auto size   = yocto::min(yocto::min(x, y), 1024);
+    static ogl_texture* texture = new ogl_texture{};
+    ImGui::Begin("Triangulation viewer");
+    auto [x, y] = ImGui::GetWindowSize();
+    // auto size   = yocto::min(yocto::min(x, y), 1024);
 
-    // // ImGui::Text("pointer = %p", texture);
-    // auto face = app->last_clicked_point.face;
-    // draw_triangulation(texture, face);
-    // ImGui::Image((void*)texture->texture_id, {800, 800}, {0, 1}, {1, 0});
-    // ImGui::End();
+    // ImGui::Text("pointer = %p", texture);
+    auto face = app->last_clicked_point.face;
+    draw_triangulation(texture, face);
+    ImGui::Image((void*)texture->texture_id, {800, 800}, {0, 1}, {1, 0});
+    ImGui::End();
   }
 
   if (begin_header(widgets, "view")) {
@@ -305,7 +309,7 @@ void mouse_input(app_state* app, const gui_input& input) {
   }
 
 #ifdef MY_DEBUG
-  debug_restart = true;
+  debug_restart() = true;
 #endif
 
   if (input.modifier_alt) {
@@ -366,9 +370,9 @@ void key_input(app_state* app, const gui_input& input) {
 
       case (int)gui_key('I'): {
 #ifdef MY_DEBUG
-        debug_triangles.clear();
-        debug_nodes.clear();
-        debug_indices.clear();
+        debug_triangles().clear();
+        debug_nodes().clear();
+        debug_indices().clear();
 #endif
         // remove trailing empty polygons.
         while (app->state.polygons.back().points.empty()) {
@@ -476,14 +480,14 @@ void key_input(app_state* app, const gui_input& input) {
         };
         auto start = app->last_clicked_point.face;
 
-        if (debug_restart) {
-          debug_visited = vector<bool>(app->mesh.adjacencies.size(), false);
-          debug_stack   = {start};
-          debug_result.clear();
-          debug_restart = false;
+        if (debug_restart()) {
+          debug_visited() = vector<bool>(app->mesh.adjacencies.size(), false);
+          debug_stack()   = {start};
+          debug_result().clear();
+          debug_restart() = false;
         }
         flood_fill_debug(app->mesh, {start}, add);
-        auto visited = debug_result;
+        auto visited = debug_result();
 
         for (int i = 0; i < visited.size(); i++) {
           auto tag = app->mesh.border_tags[visited[i]];

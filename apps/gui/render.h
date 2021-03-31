@@ -90,153 +90,157 @@ inline void set_border_shape(shade_scene* scene, const bool_state& state,
   set_instances(shape.borders_shape->shape, {}, {});
 }
 
-// inline void draw_triangulation(
-//     ogl_texture* texture, int face, vec2i size = {2048, 2048}) {
-//   auto& triangles = debug_triangles[face];
-//   auto& positions = debug_nodes[face];
-//   auto& indices   = debug_indices[face];
-//   if (positions.empty()) return;
+#if 1
 
-//   static opengl_font* font = nullptr;
-//   if (!font) {
-//     font = new opengl_font{};
-//     init_font(font, "data/Menlo-Regular.ttf", 100);
-//   }
+inline void draw_triangulation(
+    ogl_texture* texture, int face, vec2i size = {2048, 2048}) {
+  auto& triangles = debug_triangles()[face];
+  auto& positions = debug_nodes()[face];
+  auto& indices   = debug_indices()[face];
+  if (positions.empty()) return;
 
-//   static ogl_shape* faces = nullptr;
-//   if (!faces) {
-//     faces = new ogl_shape{};
-//   }
-//   set_vertex_buffer(faces, positions, 0);
-//   set_index_buffer(faces, triangles);
-//   faces->elements = ogl_element_type::triangles;
+  static opengl_font* font = nullptr;
+  if (!font) {
+    font = new opengl_font{};
+    init_font(font, "data/Menlo-Regular.ttf", 100);
+  }
 
-//   static ogl_shape* edges = nullptr;
-//   if (!edges) {
-//     edges = new ogl_shape{};
-//   }
-//   set_vertex_buffer(edges, positions, 0);
-//   auto lines = vector<vec2i>();
-//   for (auto& t : triangles) {
-//     lines.push_back({t.x, t.y});
-//     lines.push_back({t.y, t.z});
-//     lines.push_back({t.z, t.x});
-//   }
-//   set_index_buffer(edges, lines);
-//   edges->elements = ogl_element_type::lines;
+  static ogl_shape* faces = nullptr;
+  if (!faces) {
+    faces = new ogl_shape{};
+  }
+  set_vertex_buffer(faces, positions, 0);
+  set_index_buffer(faces, triangles);
+  faces->elements = ogl_element_type::triangles;
 
-//   static ogl_shape* points = nullptr;
-//   if (!points) {
-//     points = new ogl_shape{};
-//   }
-//   set_vertex_buffer(points, positions, 0);
-//   points->elements   = ogl_element_type::points;
-//   points->point_size = 5;
+  static ogl_shape* edges = nullptr;
+  if (!edges) {
+    edges = new ogl_shape{};
+  }
+  set_vertex_buffer(edges, positions, 0);
+  auto lines = vector<vec2i>();
+  for (auto& t : triangles) {
+    lines.push_back({t.x, t.y});
+    lines.push_back({t.y, t.z});
+    lines.push_back({t.z, t.x});
+  }
+  set_index_buffer(edges, lines);
+  edges->elements = ogl_element_type::lines;
 
-//   static ogl_program* program = nullptr;
-//   if (!program) {
-//     program          = new ogl_program{};
-//     auto vertex_code = R"(
-//       #version 330
-//       layout(location = 0) in vec2 positions;
+  static ogl_shape* points = nullptr;
+  if (!points) {
+    points = new ogl_shape{};
+  }
+  set_vertex_buffer(points, positions, 0);
+  points->elements   = ogl_element_type::points;
+  points->point_size = 5;
 
-//       void main() {
-//         vec2 position = (positions - vec2(0.5)) * 1.5;
-//         gl_Position = vec4(position, 0, 1);
-//       }
-//     )";
+  static ogl_program* program = nullptr;
+  if (!program) {
+    program          = new ogl_program{};
+    auto vertex_code = R"(
+      #version 330
+      layout(location = 0) in vec2 positions;
 
-//     auto fragment_code = R"(
-//       #version 330
-//       out vec4 frag_color;
-//       uniform vec3 color = vec3(1,1,1);
-//       uniform float alpha = 1;
-//       void main() {
-//         frag_color = vec4(color, alpha);
-//     })";
+      void main() {
+        vec2 position = (positions - vec2(0.5)) * 1.5;
+        gl_Position = vec4(position, 0, 1);
+      }
+    )";
 
-//     set_program(program, vertex_code, fragment_code, true);
-//   }
+    auto fragment_code = R"(
+      #version 330
+      out vec4 frag_color;
+      uniform vec3 color = vec3(1,1,1);
+      uniform float alpha = 1;
+      void main() {
+        frag_color = vec4(color, alpha);
+    })";
 
-//   if (texture->texture_id == 0 || size != texture->size) {
-//     set_texture(texture, size, 4, (float*)nullptr, true, true, false, false);
-//   }
+    set_program(program, vertex_code, fragment_code, true);
+  }
 
-//   static ogl_framebuffer* framebuffer = nullptr;
-//   if (!framebuffer) {
-//     framebuffer = new ogl_framebuffer{};
-//     set_framebuffer(framebuffer, size);
-//     set_framebuffer_texture(framebuffer, texture, 0);
-//   }
+  if (texture->texture_id == 0 || size != texture->size) {
+    set_texture(texture, size, 4, (float*)nullptr, true, true, false, false);
+  }
 
-//   bind_framebuffer(framebuffer);
-//   set_ogl_viewport(size);
-//   clear_ogl_framebuffer({0, 0, 0.1, 1}, true);
-//   set_ogl_depth_test(ogl_depth_test::always);
+  static ogl_framebuffer* framebuffer = nullptr;
+  if (!framebuffer) {
+    framebuffer = new ogl_framebuffer{};
+    set_framebuffer(framebuffer, size);
+    set_framebuffer_texture(framebuffer, texture, 0);
+  }
 
-//   bind_program(program);
-//   set_uniform(program, "alpha", 1.0f);
-//   set_uniform(program, "color", vec3f{1, 1, 1});
-//   draw_shape(edges);
+  bind_framebuffer(framebuffer);
+  set_ogl_viewport(size);
+  clear_ogl_framebuffer({0, 0, 0.1, 1}, true);
+  set_ogl_depth_test(ogl_depth_test::always);
 
-//   set_uniform(program, "color", vec3f{1, 0, 0});
-//   draw_shape(points);
+  bind_program(program);
+  set_uniform(program, "alpha", 1.0f);
+  set_uniform(program, "color", vec3f{1, 1, 1});
+  draw_shape(edges);
 
-//   set_uniform(program, "alpha", 0.5f);
-//   set_uniform(program, "color", vec3f{0.5, 0.5, 0.5});
-//   draw_shape(faces);
+  set_uniform(program, "color", vec3f{1, 0, 0});
+  draw_shape(points);
 
-//   auto text_size = 0.0004;
-//   for (int i = 0; i < positions.size(); i++) {
-//     auto text   = to_string(i);
-//     auto coords = (positions[i] - vec2f{0.5f, 0.5f}) * 1.5f;
-//     draw_text(font, text, coords.x, coords.y, text_size, {0.8, 0.4, 0.1});
-//   }
+  set_uniform(program, "alpha", 0.5f);
+  set_uniform(program, "color", vec3f{0.5, 0.5, 0.5});
+  draw_shape(faces);
 
-//   {
-//     auto lines = vector<string>{};
-//     auto color = vec3f{0.8, 0.4, 0.1};
+  auto text_size = 0.04;
+  for (int i = 0; i < positions.size(); i++) {
+    auto text   = to_string(i);
+    auto coords = (positions[i] - vec2f{0.5f, 0.5f}) * 1.5f;
+    draw_text(font, text, coords.x, coords.y, text_size, {0.8, 0.4, 0.1});
+  }
 
-//     lines += "face: "s + to_string(face);
-//     lines += ""s;
-//     lines += "triangles"s;
-//     for (int i = 0; i < triangles.size(); i++) {
-//       auto [a, b, c] = triangles[i];
-//       auto text      = "(" + to_string(a) + ", " + to_string(b) + ", " +
-//                   to_string(c) + ")";
-//       lines += text;
-//     }
-//     lines += ""s;
+  {
+    auto lines = vector<string>{};
+    auto color = vec3f{0.8, 0.4, 0.1};
 
-//     lines += "positions"s;
-//     for (int i = 0; i < positions.size(); i++) {
-//       auto [a, b] = positions[i];
-//       auto text   = "[" + to_string(indices[i]) + "] ";
-//       text += to_string(i) + ": (" + to_string(a) + ", " + to_string(b) +
-//       ")"; lines += text;
-//     }
+    lines += "face: "s + to_string(face);
+    lines += ""s;
+    lines += "triangles"s;
+    for (int i = 0; i < triangles.size(); i++) {
+      auto [a, b, c] = triangles[i];
+      auto text      = "(" + to_string(a) + ", " + to_string(b) + ", " +
+                  to_string(c) + ")";
+      lines += text;
+    }
+    lines += ""s;
 
-//     draw_text(font, lines, 0.1, 0.9, text_size, color);
-//   }
+    lines += "positions"s;
+    for (int i = 0; i < positions.size(); i++) {
+      auto [a, b] = positions[i];
+      auto text   = "[" + to_string(indices[i]) + "] ";
+      text += to_string(i) + ": (" + to_string(a) + ", " + to_string(b) + ")";
+      lines += text;
+    }
 
-//   unbind_framebuffer();
-// }
+    draw_text(font, lines, 0.1, 0.9, text_size, color);
+  }
 
-// inline void save_triangulation(const string& filename, int face) {
-//   auto texture = new ogl_texture{};
-//   draw_triangulation(texture, face);
-//   auto img = get_texture(texture);
+  unbind_framebuffer();
+}
 
-//   // flip verticllay
-//   for (int y = 0; y < img.imsize().y / 2; y++)
-//     for (int x = 0; x < img.imsize().x; x++)
-//       std::swap(img[{x, y}], img[{x, img.imsize().y - y - 1}]);
+inline void save_triangulation(const string& filename, int face) {
+  auto texture = new ogl_texture{};
+  draw_triangulation(texture, face);
+  auto img = get_texture(texture);
 
-//   auto error = ""s;
-//   if (!save_image(filename, img, error)) {
-//     printf("%s: %s\n", __FUNCTION__, error.c_str());
-//   }
-// }
+  // flip verticllay
+  for (int y = 0; y < img.height / 2; y++)
+    for (int x = 0; x < img.width; x++)
+      std::swap(img[{x, y}], img[{x, img.height - y - 1}]);
+
+  auto error = ""s;
+  if (!save_image(filename, img, error)) {
+    printf("%s: %s\n", __FUNCTION__, error.c_str());
+  }
+}
+
+#endif
 
 [[nodiscard]] shade_instance* draw_segment(shade_scene* scene,
     const bool_mesh& mesh, shade_material* material, const vec3f& start,

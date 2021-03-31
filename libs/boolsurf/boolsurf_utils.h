@@ -236,13 +236,13 @@ inline bool contains(const vector<T>& vec, const T& x) {
 }
 
 #ifdef MY_DEBUG
-static auto debug_triangles = hash_map<int, vector<vec3i>>{};
-static auto debug_edges     = hash_map<int, vector<vec2i>>{};
-static auto debug_nodes     = hash_map<int, vector<vec2f>>{};
-static auto debug_indices   = hash_map<int, vector<int>>{};
+hash_map<int, vector<vec3i>>& debug_triangles();
+hash_map<int, vector<vec2i>>& debug_edges();
+hash_map<int, vector<vec2f>>& debug_nodes();
+hash_map<int, vector<int>>&   debug_indices();
 
-static auto debug_result  = vector<int>();
-static auto debug_visited = vector<bool>{};
-static auto debug_stack   = vector<int>{};
-static auto debug_restart = true;
+vector<int>&  debug_result();
+vector<bool>& debug_visited();
+vector<int>&  debug_stack();
+bool&         debug_restart();
 #endif

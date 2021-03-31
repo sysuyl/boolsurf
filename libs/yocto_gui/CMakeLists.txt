@@ -27,7 +27,7 @@ if(YOCTO_OPENGL)
 
   target_link_directories(yocto_gui PRIVATE /usr/local/lib)
   target_include_directories(yocto_gui PRIVATE .)
-  #target_include_directories(yocto_gui PRIVATE ${FREETYPE_INCLUDE_DIRS})
+  target_include_directories(yocto_gui PRIVATE ${FREETYPE_INCLUDE_DIRS})
   target_include_directories(yocto_gui PUBLIC ${CMAKE_SOURCE_DIR}/libs)
   target_compile_definitions(yocto_gui PRIVATE -DIMGUI_IMPL_OPENGL_LOADER_GLAD)
   set_target_properties(yocto_gui PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES)

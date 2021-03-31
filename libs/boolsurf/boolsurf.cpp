@@ -958,9 +958,9 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
     }
 
 #ifdef MY_DEBUG
-    debug_nodes[face]     = info.nodes;
-    debug_indices[face]   = info.indices;
-    debug_triangles[face] = triangles;
+    debug_nodes()[face]     = info.nodes;
+    debug_indices()[face]   = info.indices;
+    debug_triangles()[face] = triangles;
 #endif
 
     // Calcoliamo l'adiacenza locale e la trasformiamo in globale
@@ -1401,4 +1401,37 @@ vec3f get_cell_color(const bool_state& state, int cell_id, bool color_shapes) {
     }
     return color;
   }
+}
+
+hash_map<int, vector<vec3i>>& debug_triangles() {
+  static hash_map<int, vector<vec3i>> result = {};
+  return result;
+}
+hash_map<int, vector<vec2i>>& debug_edges() {
+  static hash_map<int, vector<vec2i>> result = {};
+  return result;
+}
+hash_map<int, vector<vec2f>>& debug_nodes() {
+  static hash_map<int, vector<vec2f>> result = {};
+  return result;
+}
+hash_map<int, vector<int>>& debug_indices() {
+  static hash_map<int, vector<int>> result = {};
+  return result;
+}
+vector<int>& debug_result() {
+  static vector<int> result = {};
+  return result;
+}
+vector<bool>& debug_visited() {
+  static vector<bool> result = {};
+  return result;
+}
+vector<int>& debug_stack() {
+  static vector<int> result = {};
+  return result;
+}
+bool& debug_restart() {
+  static bool result = {};
+  return result;
 }

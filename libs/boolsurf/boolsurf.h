@@ -246,22 +246,22 @@ static void flood_fill_debug(
     const bool_mesh& mesh, const vector<int>& start, F&& check) {
 #ifdef MY_DEBUG
   int face = -1;
-  if (debug_stack.empty()) {
-    debug_restart = true;
+  if (debug_stack().empty()) {
+    debug_restart() = true;
     return;
   }
-  while (!debug_stack.empty()) {
-    auto f = debug_stack.back();
-    debug_stack.pop_back();
-    if (debug_visited[f]) continue;
+  while (!debug_stack().empty()) {
+    auto f = debug_stack().back();
+    debug_stack().pop_back();
+    if (debug_visited()[f]) continue;
     face = f;
     break;
   }
   if (face == -1) return;
 
-  debug_visited[face] = true;
+  debug_visited()[face] = true;
 
-  debug_result.push_back(face);
+  debug_result().push_back(face);
 
   auto tag = mesh.border_tags[face];
   auto adj = mesh.adjacencies[face];
@@ -269,11 +269,11 @@ static void flood_fill_debug(
       tag[2], adj[0], adj[1], adj[2]);
 
   for (auto neighbor : mesh.adjacencies[face]) {
-    if (neighbor < 0 || debug_visited[neighbor]) continue;
+    if (neighbor < 0 || debug_visited()[neighbor]) continue;
     auto tag = mesh.border_tags[neighbor];
     auto adj = mesh.adjacencies[neighbor];
     if (check(face, neighbor)) {
-      debug_stack.push_back(neighbor);
+      debug_stack().push_back(neighbor);
       printf("ok   %d: tag(%d %d %d) adj(%d %d %d)\n", neighbor, tag[0], tag[1],
           tag[2], adj[0], adj[1], adj[2]);
     }
