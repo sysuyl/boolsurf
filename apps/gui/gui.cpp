@@ -89,13 +89,15 @@ void draw_widgets(app_state* app, const gui_input& input) {
   if (view_triangulation) {
     static ogl_texture* texture = new ogl_texture{};
     ImGui::Begin("Triangulation viewer");
-    auto [x, y] = ImGui::GetWindowSize();
+    //    auto [x, y] = ImGui::GetWindowSize();
     // auto size   = yocto::min(yocto::min(x, y), 1024);
 
     // ImGui::Text("pointer = %p", texture);
     auto face = app->last_clicked_point.face;
-    draw_triangulation(texture, face);
-    ImGui::Image((void*)texture->texture_id, {800, 800}, {0, 1}, {1, 0});
+    auto size = vec2i{1200, 800};
+    draw_triangulation(texture, face, size * 4);
+    ImGui::Image((void*)texture->texture_id, {float(size.x), float(size.y)},
+        {0, 1}, {1, 0});
     ImGui::End();
   }
 

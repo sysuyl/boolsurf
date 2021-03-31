@@ -99,6 +99,8 @@ inline void draw_triangulation(
   auto& indices   = debug_indices()[face];
   if (positions.empty()) return;
 
+  auto aspect = float(size.x) / size.y;
+
   static opengl_font* font = nullptr;
   if (!font) {
     font = new opengl_font{};
@@ -141,9 +143,13 @@ inline void draw_triangulation(
     auto vertex_code = R"(
       #version 330
       layout(location = 0) in vec2 positions;
-
+      uniform float  aspect = 1.0;
       void main() {
-        vec2 position = (positions - vec2(0.5)) * 1.5;
+        vec2 position = (positions - vec2(0.5)) * 2;
+        position *= 0.75;
+        position.x -= 0.6;
+        position.y += 0.1;
+        position.x /= aspect;
         gl_Position = vec4(position, 0, 1);
       }
     )";
@@ -179,6 +185,7 @@ inline void draw_triangulation(
   bind_program(program);
   set_uniform(program, "alpha", 1.0f);
   set_uniform(program, "color", vec3f{1, 1, 1});
+  set_uniform(program, "aspect", aspect);
   draw_shape(edges);
 
   set_uniform(program, "color", vec3f{1, 0, 0});
@@ -190,9 +197,13 @@ inline void draw_triangulation(
 
   auto text_size = 0.04;
   for (int i = 0; i < positions.size(); i++) {
-    auto text   = to_string(i);
-    auto coords = (positions[i] - vec2f{0.5f, 0.5f}) * 1.5f;
-    draw_text(font, text, coords.x, coords.y, text_size, {0.8, 0.4, 0.1});
+    auto text     = to_string(i);
+    auto position = (positions[i] - vec2f{0.5f, 0.5f}) * 2;
+    position *= 0.75;
+    position.x -= 0.6;
+    position.y += 0.1;
+    position.x /= aspect;
+    draw_text(font, text, position.x, position.y, text_size, {0.8, 0.4, 0.1});
   }
 
   {
@@ -208,7 +219,9 @@ inline void draw_triangulation(
                   to_string(c) + ")";
       lines += text;
     }
-    lines += ""s;
+    draw_text(font, lines, 0.1, 0.9, text_size, color);
+
+    lines.clear();
 
     lines += "positions"s;
     for (int i = 0; i < positions.size(); i++) {
@@ -217,8 +230,7 @@ inline void draw_triangulation(
       text += to_string(i) + ": (" + to_string(a) + ", " + to_string(b) + ")";
       lines += text;
     }
-
-    draw_text(font, lines, 0.1, 0.9, text_size, color);
+    draw_text(font, lines, 0.3, 0.9, text_size, color);
   }
 
   unbind_framebuffer();
