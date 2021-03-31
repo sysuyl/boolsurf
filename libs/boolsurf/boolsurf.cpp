@@ -193,7 +193,7 @@ static mesh_hashgrid compute_hashgrid(
     // La polilinea della prima faccia del poligono viene processata alla fine
     // (perché si trova tra il primo e l'ultimo edge)
     int  first_face = polygon.edges[0][0].face;
-    auto indices    = vec2i{-1, -1};
+    auto indices    = vec2i{-1, -1};  // edge_id, segment_id
 
     int  last_face = -1;
     auto idx       = 0;
@@ -581,7 +581,7 @@ static void compute_intersections(bool_state& state,
       for (int s0 = 0; s0 < poly.points.size() - 2; s0++) {
         auto& start0 = poly.points[s0];
         auto& end0   = poly.points[(s0 + 1) % poly.points.size()];
-        for (int s1 = s0 + 2; s1 < poly.points.size(); s1++) {
+        for (int s1 = s0 + 2; s1 < poly.points.size() - 1; s1++) {
           auto& start1 = poly.points[s1];
           auto& end1   = poly.points[(s1 + 1) % poly.points.size()];
 
@@ -661,6 +661,8 @@ void compute_triangulation_constraints(const bool_mesh& mesh,
 
       // Aggiungiamo un nuovo vertice se non è già presente nella
       // lista dei nodi
+      //      assert(vertex < 2962);
+      assert(vertex < mesh.positions.size());
       auto local_vertex = find_idx(info.indices, vertex);
       if (local_vertex == -1) {
         info.indices.push_back(vertex);
@@ -934,6 +936,12 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
   for (auto& [face, polylines] : hashgrid) {
     auto [a, b, c] = mesh.triangles[face];
 
+    // TODO(giacomo): Cleanup.
+    for (auto& polyline : polylines) {
+      for (auto& v : polyline.vertices) {
+        assert(v < mesh.positions.size());
+      }
+    }
     auto info    = triangulation_info{};
     info.face    = face;
     info.nodes   = vector<vec2f>{{0, 0}, {1, 0}, {0, 1}};
@@ -941,6 +949,11 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
 
     compute_triangulation_constraints(
         mesh, polylines, info, triangulated_faces);
+
+#ifdef MY_DEBUG
+    debug_nodes()[face]   = info.nodes;
+    debug_indices()[face] = info.indices;
+#endif
 
     // Se nel triangolo non ho più di tre nodi allora non serve la
     // triangolazione
@@ -958,8 +971,7 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
     }
 
 #ifdef MY_DEBUG
-    debug_nodes()[face]     = info.nodes;
-    debug_indices()[face]   = info.indices;
+    debug_edges()[face]     = info.edges;
     debug_triangles()[face] = triangles;
 #endif
 
