@@ -287,6 +287,8 @@ static vector<vector<int>> add_vertices(
 
     for (auto e = 0; e < edges.size(); e++) {
       auto& segments = edges[e];
+      
+      if(segments.empty()) continue; // TODO(giacomo): What?
 
       // Aggiungiamo tutti i vertici tranne l'ultimo, perché dobbiamo
       // individuare e salvare i control points separatamente
@@ -579,11 +581,11 @@ static void compute_intersections(bool_state& state,
 
       int num_added = 0;
       for (int s0 = 0; s0 < poly.points.size() - 2; s0++) {
-        auto& start0 = poly.points[s0];
-        auto& end0   = poly.points[(s0 + 1) % poly.points.size()];
+        auto start0 = poly.points[s0];
+        auto end0   = poly.points[(s0 + 1) % poly.points.size()];
         for (int s1 = s0 + 2; s1 < poly.points.size() - 1; s1++) {
-          auto& start1 = poly.points[s1];
-          auto& end1   = poly.points[(s1 + 1) % poly.points.size()];
+          auto start1 = poly.points[s1];
+          auto end1   = poly.points[(s1 + 1) % poly.points.size()];
 
           auto l = intersect_segments(start0, end0, start1, end1);
           if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) {
@@ -616,11 +618,11 @@ static void compute_intersections(bool_state& state,
         auto& poly1     = polylines[p1];
         int   num_added = 0;
         for (int s0 = 0; s0 < poly0.points.size() - 1; s0++) {
-          auto& start0 = poly0.points[s0];
-          auto& end0   = poly0.points[(s0 + 1)];
+          auto start0 = poly0.points[s0];
+          auto end0   = poly0.points[(s0 + 1)];
           for (int s1 = 0; s1 < poly1.points.size() - 1; s1++) {
-            auto& start1 = poly1.points[s1];
-            auto& end1   = poly1.points[(s1 + 1)];
+            auto start1 = poly1.points[s1];
+            auto end1   = poly1.points[(s1 + 1)];
             auto  l      = intersect_segments(start0, end0, start1, end1);
             if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) {
               continue;

@@ -104,7 +104,7 @@ def create_json(infile, outfile):
                     bezier_points += element
 
                     assert(len(bezier_points) == 4)
-                    bpoints = bezier(bezier_points, 2)
+                    bpoints = bezier(bezier_points, 6)
 
                     final_points += bpoints
 
@@ -114,7 +114,7 @@ def create_json(infile, outfile):
             final_points = final_points[:-1]
             result.append(final_points)
 
-        draw_points(result[0])
+        # draw_points(result[0])
         return result
 
     for element in root:
