@@ -79,8 +79,8 @@ def parse_path_string(path_string, num_subdivisions):
 
         result_paths.append(points[:-1])
 
-    for path in result_paths:
-        draw_points(path)
+    # for path in result_paths:
+    #     draw_points(path)
 
     return result_paths
 
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     infile = sys.argv[1]
     outfile = sys.argv[2]
     num_subdivisions = 2
-    if len(sys.argv) > 2:
+    if len(sys.argv) > 3:
         num_subdivisions = int(sys.argv[3])
 
     create_json(infile, outfile, num_subdivisions)

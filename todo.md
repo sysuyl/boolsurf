@@ -16,7 +16,7 @@
 - [ ] Provare border_tags rappresentato in maniera sparsa invece che densa, ossia con `hash_map<int, vec3i>` invece che `vector<vec3i>`
 
 # Misc
-- [ ] Script svg parser con suddivisioni da cli
+- [x] Script svg parser con suddivisioni da cli
 - [ ] Chiamare svg_parser.py da c++ per convertire .svg come cli 
 - [ ] Triangolatore di Cino 
 - [ ] Fare immagini belle

@@ -613,6 +613,8 @@ int main(int argc, const char* argv[]) {
   add_option(cli, "model", model_filename, "Input model filename.");
   // add_option(cli, "msaa", window->msaa, "Multisample anti-aliasing.");
   add_option(cli, "svg", app->svg_filename, "Svg filename.");
+  add_option(cli, "svg-subdivs", app->svg_subdivs, "Svg subdivisiona.");
+
   // add_option(cli, "svg-size", app->svg_size, "Svg size.");
   add_option(cli, "drawing-size", app->svg_size, "Size of mapped drawing.");
   add_option(cli, "color-shapes", app->color_shapes, "Color shapes.");
@@ -623,7 +625,16 @@ int main(int argc, const char* argv[]) {
   window->user_data = app;
 
   auto extension = path_extension(input);
-  if (extension == ".json") {
+  if (extension == ".svg") {
+    // TODO (marzia): Check if this works on ubuntu too
+    auto script_path = normalize_path("scripts/svg_parser.py"s);
+    auto output      = normalize_path("data/tests/tmp.json"s);
+    auto cmd = "python3 "s + script_path + " "s + input + " "s + output + " "s +
+               to_string(app->svg_subdivs);
+    system(cmd.c_str());
+    app->test_filename = output;
+    load_test(app->test, output);
+  } else if (extension == ".json") {
     app->test_filename = input;
     load_test(app->test, input);
     app->model_filename = app->test.model;
