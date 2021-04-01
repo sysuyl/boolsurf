@@ -4,7 +4,6 @@ import sys
 import json
 import numpy as np
 import matplotlib.pyplot as plt
-from xml.dom import minidom
 import xml.etree.ElementTree as ET
 
 
@@ -23,7 +22,7 @@ def subdivide_bezier(points):
         return [Q0, R0, S, R1, Q2, polygon[3]]
 
     for i in range(0, len(points)-3, 3):
-        print(f'len {len(points)}: {i}, {i+4}')
+        # print(f'len {len(points)}: {i}, {i+4}')
         polygon = points[i:i+4]
         result += subdivide_polygon(polygon)
 
@@ -45,115 +44,86 @@ def draw_points(points):
     plt.show()
 
 
-def parse(infile, outfile):
-    doc = minidom.parse(infile)
-    path_strings = [path.getAttribute('d') for path
-                    in doc.getElementsByTagName('path')]
-
-    with open(outfile, "wb") as out:
-        out.write(len(path_strings).to_bytes(8, "little"))
-        for path in path_strings:
-            points = path[1:-2].lower().split("l")
-
-            points = [point.split(",") for point in points]
-            points = [(float(x), float(y)) for x, y in points]
-            points = points[:-1]
-
-            out.write(len(points).to_bytes(8, "little"))
-            np_points = np.array(points, 'float32').flatten()
-            np_points.tofile(out)
-
-    doc.unlink()
+def parse_points(points):
+    points = [point.split(",") for point in points]
+    points = [(float(x), float(y)) for x, y in points]
+    return points
 
 
-def create_json(infile, outfile):
+def parse_path_string(path_string, num_subdivisions):
+    paths = path_string[1:-1].lower()
+    paths = paths.split("zm")
+    result_paths = []
+
+    for path in paths:
+        points = []
+        tokens = path.split("l")
+        for t in tokens:
+            if "c" in t:
+                chains = t.split("c")
+                for c in chains:
+                    if " " in c:
+                        # Parsing bezier chain points
+                        bezier_points = [points[-1]]
+                        bezier_points += parse_points(c.split(" "))
+
+                        assert(len(bezier_points) == 4)
+                        bezier_points = bezier(bezier_points, num_subdivisions)
+                        points += bezier_points
+                    else:
+                        # Parsing simple point
+                        points += parse_points([c])
+            else:
+                # Parsing simple line point
+                points += parse_points([t])
+
+        result_paths.append(points[:-1])
+
+    for path in result_paths:
+        draw_points(path)
+
+    return result_paths
+
+
+def create_json(infile, outfile, num_subdivisions):
     root = ET.parse(infile).getroot()
     data = {'screenspace': True, 'polygons': []}
-
-    def parse_path(path_string):
-        paths = path_string[1:-1].lower()
-        paths = paths.split("zm")
-        result = []
-
-        for path in paths:
-            final_points = []
-            elements = []
-            segments = path.split("l")
-
-            for s in segments:
-                if "c" in s:
-                    points = s.split("c")
-                    for p in points:
-                        if " " in p:
-                            p = p.split(" ")
-                            elements.append(p)
-                        else:
-                            elements.append([p])
-                else:
-                    elements.append([s])
-
-            for element in elements:
-                element = [point.split(",") for point in element]
-                element = [(float(x), float(y)) for x, y in element]
-
-                if len(element) == 1:
-                    final_points.append(element[0])
-
-                elif len(element) == 3:
-                    bezier_points = [final_points[-1]]
-                    bezier_points += element
-
-                    assert(len(bezier_points) == 4)
-                    bpoints = bezier(bezier_points, 6)
-
-                    final_points += bpoints
-
-                else:
-                    print("Boh")
-
-            final_points = final_points[:-1]
-            result.append(final_points)
-
-        # draw_points(result[0])
-        return result
 
     for element in root:
         if element.tag == "{http://www.w3.org/2000/svg}g":
 
+            # Parsing translation matrix
             transform = element.attrib['transform'][7:-1].split(',')[-2:]
             translation = (float(transform[0]), float(transform[1]))
 
             for child in element:
-                path_points = parse_path(child.attrib['d'])
+                path_points = parse_path_string(
+                    child.attrib['d'], num_subdivisions)
                 for path in path_points:
-                    polygon = []
-                    for point in path:
-                        point = (point[0] + translation[0],
-                                 point[1] + translation[1])
-                        polygon.append(point)
-
-                    data['polygons'].append(polygon)
+                    for p in range(len(path)):
+                        path[p] = (path[p][0] + translation[0],
+                                   path[p][1] + translation[1])
+                    data['polygons'].append(path)
 
         elif element.tag == "{http://www.w3.org/2000/svg}path":
-            path_points = parse_path(element.attrib['d'])
-
+            path_points = parse_path_string(
+                element.attrib['d'], num_subdivisions)
             for path in path_points:
-                polygon = []
-                for point in path:
-                    polygon.append(point)
-                data['polygons'].append(polygon)
+                data['polygons'].append(path)
 
     with open(outfile, "w") as out:
         json.dump(data, out, indent=2)
 
-    # print(data)
+
+def main(infile, outfile, num_subdivisions):
+    create_json(infile, outfile, num_subdivisions)
 
 
 if __name__ == "__main__":
-    # points = [(0,0), (0,1), (0.5, 0), (1, 0)]
-    # p = bezier(points, 8)
-    # draw_points(p)
-
     infile = sys.argv[1]
     outfile = sys.argv[2]
-    create_json(infile, outfile)
+    num_subdivisions = 2
+    if len(sys.argv) > 2:
+        num_subdivisions = int(sys.argv[3])
+
+    create_json(infile, outfile, num_subdivisions)
