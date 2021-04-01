@@ -493,8 +493,7 @@ void save_test(
 
 void init_from_test(app_state* app) {
   app->state.polygons.clear();
-  auto& points = app->state.points;
-  points       = app->test.points;
+  app->state.points = app->test.points;
 
   if (app->test.has_camera) {
     app->glcamera->frame    = app->test.camera.frame;
@@ -505,7 +504,7 @@ void init_from_test(app_state* app) {
     app->glcamera->focus    = app->test.camera.focus;
   }
 
-  app->state = state_from_test(app->mesh, app->test);
+  app->state = state_from_test(app->mesh, app->test, app->svg_size);
   for (int i = 0; i < app->state.polygons.size(); i++) {
     auto& polygon = app->state.polygons[i];
     add_polygon_shape(app, polygon, i);

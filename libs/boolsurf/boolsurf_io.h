@@ -87,7 +87,8 @@ struct bool_test {
 bool save_test(const bool_test& test, const string& filename);
 bool load_test(bool_test& test, const string& filename);
 
-bool_state state_from_test(const bool_mesh& mesh, const bool_test& test);
+bool_state state_from_test(
+    const bool_mesh& mesh, const bool_test& test, float drawing_size);
 
 string tree_to_string(const bool_state& state, bool color_shapes);
 
@@ -106,7 +107,7 @@ void init_from_svg(bool_state& state, const bool_mesh& mesh,
     const mesh_point& center, const vector<Svg_Shape>& svg, float svg_size);
 
 inline bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
-    const shape_bvh& bvh, const scene_camera& camera, float svg_size) {
+    const shape_bvh& bvh, const scene_camera& camera, float drawing_size) {
   auto state    = bool_state{};
   auto polygons = test.polygons_screenspace;
 
@@ -161,7 +162,7 @@ inline bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
     for (auto uv : polygon) {
       uv.x /= camera.film;                    // input.window_size.x;
       uv.y /= (camera.film / camera.aspect);  // input.window_size.y;
-      uv *= svg_size;
+      uv *= drawing_size;
       uv.x = -uv.x;
 
       auto path     = straightest_path(mesh, center, uv);

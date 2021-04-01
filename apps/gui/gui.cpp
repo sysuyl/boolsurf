@@ -14,14 +14,8 @@ using namespace yocto;
 #endif
 
 #ifdef MY_DEBUG
-void debug_draw(app_state* app, int face, const vector<vec2i>& edges,
-    const string& header = "") {
+void debug_draw(app_state* app, int face, const string& header = "") {
   static int count = 0;
-
-  auto& is = debug_indices()[face];
-
-  //  auto       e     = vec2i{find_idx(is, edge_key.x), find_idx(is,
-  //  edge_key.y)};
 
   auto base = app->test_filename;
   if (base == "") base = "data/tests/no-name.json";
@@ -29,12 +23,6 @@ void debug_draw(app_state* app, int face, const vector<vec2i>& edges,
   if (header.size()) {
     ext0 = "-" + header + ext0;
   }
-  //  auto edges = vector<vec2i>{};
-  //  for (auto& s : segments) {
-  //    auto e = vec2i{find_idx(is, s.start_vertex), find_idx(is,
-  //    s.end_vertex)}; edges.push_back({e.x, e.y});
-  //  }
-  debug_edges()[face] = edges;
 
   // save_triangulation(replace_extension(base, ext0), face);
 
@@ -603,7 +591,8 @@ int main(int argc, const char* argv[]) {
   add_option(cli, "model", model_filename, "Input model filename.");
   // add_option(cli, "msaa", window->msaa, "Multisample anti-aliasing.");
   add_option(cli, "svg", app->svg_filename, "Svg filename.");
-  add_option(cli, "svg-size", app->svg_size, "Svg size.");
+  // add_option(cli, "svg-size", app->svg_size, "Svg size.");
+  add_option(cli, "drawing-size", app->svg_size, "Size of mapped drawing.");
   add_option(cli, "color-shapes", app->color_shapes, "Color shapes.");
   parse_cli(cli, argc, argv);
 

@@ -15,14 +15,18 @@ int main(int num_args, const char* args[]) {
   auto model_filename  = ""s;
   auto svg_filename    = ""s;
   auto color_shapes    = false;
+  auto spp             = 4;
+  auto drawing_size    = 0.005f;
 
   // parse command line
   auto cli = make_cli("test", "test boolsurf algorithms");
   add_argument(
       cli, "input", test_filename, "Input test filename (.json).", {}, false);
   add_option(cli, "output", output_filename, "Output image filename (.png).");
+  add_option(cli, "spp", spp, "Samples per pixel.");
   add_option(cli, "model", model_filename, "Input model filename.");
   add_option(cli, "svg", svg_filename, "Input svg filename.");
+  add_option(cli, "drawing-size", drawing_size, "Size of mapped drawing.");
 
   add_option(cli, "color-shapes", color_shapes, "Color shapes.");
   parse_cli(cli, num_args, args);
@@ -54,14 +58,9 @@ int main(int num_args, const char* args[]) {
 
   if (test.screenspace) {
     camera = make_camera(mesh);
-    state  = make_test_state(test, mesh, bvh, camera, 0.005);
-    // test.operations.push_back({1, 2, bool_operation::Type::op_difference});
-    // test.operations.push_back({3, 4, bool_operation::Type::op_difference});
-    // test.operations.push_back({8, 5, bool_operation::Type::op_difference});
-    // test.operations.push_back(
-    //     {6, 9, bool_operation::Type::op_symmetrical_difference});
+    state  = make_test_state(test, mesh, bvh, camera, drawing_size);
   } else {
-    state  = state_from_test(mesh, test);
+    state  = state_from_test(mesh, test, 0.005);
     camera = test.camera;
   }
 
@@ -127,7 +126,7 @@ int main(int num_args, const char* args[]) {
 #endif
   auto params    = trace_params{};
   params.sampler = trace_sampler_type::eyelight;
-  params.samples = 1;
+  params.samples = spp;
   auto image     = trace_image(scene, params);
   save_image(output_filename, image, error);
 }
