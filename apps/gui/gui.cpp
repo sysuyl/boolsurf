@@ -328,20 +328,42 @@ void key_input(app_state* app, const gui_input& input) {
     auto button = input.key_buttons[idx];
     if (button.state != gui_button::state::pressing) continue;
 
+    if (input.modifier_shift) {
+      float dir = 0;
+      if (idx == (int)gui_key::up) dir = 0.75f;
+      if (idx == (int)gui_key::down) dir = 1.5f;
+      if (dir != 0) {
+        auto point = app->last_clicked_point;
+        if (point.face == -1) {
+          point = intersect_mesh(app->mesh, app->camera, {0.5, 0.5});
+        }
+        if (point.face != -1) {
+          auto pos      = eval_position(app->mesh, point);
+          auto eye      = app->glcamera->frame.o;
+          auto forward  = normalize(pos - eye);
+          auto distance = length(eye - pos);
+          distance *= dir;
+          distance += app->glcamera->near;
+          eye = pos - forward * distance;
+
+          app->glcamera->frame = lookat_frame(eye, pos, {0, 1, 0});
+          app->glcamera->focus = length(eye - pos);
+          app->camera.frame    = app->glcamera->frame;
+          app->camera.lens     = app->glcamera->lens;
+          app->camera.film     = app->glcamera->film;
+          app->camera.aspect   = app->glcamera->aspect;
+          app->camera.aperture = app->glcamera->aperture;
+          app->camera.focus    = app->glcamera->focus;
+        }
+      }
+    }
+
     switch (idx) {
       case (int)gui_key::up: {
-        if (input.modifier_shift) {
-          app->glcamera->frame.o -= app->glcamera->frame.z * 0.001;
-        } else {
-          app->glcamera->frame.o += app->glcamera->frame.y * 0.001;
-        }
+        app->glcamera->frame.o += app->glcamera->frame.y * 0.001;
       } break;
       case (int)gui_key::down: {
-        if (input.modifier_shift) {
-          app->glcamera->frame.o += app->glcamera->frame.z * 0.001;
-        } else {
-          app->glcamera->frame.o -= app->glcamera->frame.y * 0.001;
-        }
+        app->glcamera->frame.o -= app->glcamera->frame.y * 0.001;
       } break;
       case (int)gui_key::left: {
         app->glcamera->frame.o -= app->glcamera->frame.x * 0.001;
