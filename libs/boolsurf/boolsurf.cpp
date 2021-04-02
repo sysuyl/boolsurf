@@ -172,7 +172,7 @@ void recompute_polygon_segments(const bool_mesh& mesh, const bool_state& state,
     polygon.length += segments.size();
   }
 
-  polygon.contained_in_single_face = faces.size() == 1;
+  polygon.contained_in_single_face = (faces.size() == 1);
 }
 
 struct hashgrid_polyline {
@@ -252,7 +252,6 @@ static mesh_hashgrid compute_hashgrid(
           auto& polyline   = entry.emplace_back();
           polyline.polygon = polygon_id;
 
-          polyline.contained_in_single_face = polygon.contained_in_single_face;
           polyline.vertices.push_back(vertices[polygon_id][start]);
           polyline.points.push_back(segment.start);
 
@@ -265,14 +264,27 @@ static mesh_hashgrid compute_hashgrid(
           polyline.vertices.push_back(vertices[polygon_id][end]);
         }
 
-        auto& polyline = entry.back();
-        if (polyline.points.size() >= 2) {
-          assert(polyline.points.back() != polyline.points.end()[-2]);
-        }
-
         last_face = segment.face;
       }
     }
+
+    if (indices == vec2i{-1, -1}) {
+      auto& entry                       = hashgrid[first_face];
+      auto& polyline                    = entry.emplace_back();
+      polyline.polygon                  = polygon_id;
+      polyline.contained_in_single_face = true;
+
+      int index = 0;
+      for (auto e = 0; e < polygon.edges.size(); e++) {
+        auto& edge = polygon.edges[e];
+        for (int s = 0; s < edge.size(); s++) {
+          auto& segment = edge[s];
+          polyline.vertices.push_back(vertices[polygon_id][index]);
+          polyline.points.push_back(segment.start);
+          index += 1;
+        }
+      }
+    };
 
     // Ripetiamo parte del ciclo (fino a indices) perché il primo tratto di
     // polilinea non è stato inserito nell'hashgrid
@@ -693,61 +705,65 @@ void compute_triangulation_constraints(const bool_mesh& mesh,
     for (auto i = 0; i < num_segments(polyline); i++) {
       auto [uv_start, uv]         = get_segment(polyline, i);
       auto [vertex_start, vertex] = get_segment_vertices(polyline, i);
+      assert(vertex < mesh.positions.size());
+      assert(vertex_start < mesh.positions.size());
 
       auto local_vertex_start = -7;
       auto local_vertex       = -8;
 
       // TODO (marzia): questo forse si può semplificare usando i metodi di
       // CDT
-      if (i == 0 && !polyline.contained_in_single_face) {
-        local_vertex_start = find_idx(info.indices, vertex_start);
-        if (local_vertex_start == -1) {
-          info.indices.push_back(vertex_start);
-          info.nodes.push_back(uv_start);
-          local_vertex_start = (int)info.indices.size() - 1;
-        }
+      // if (i == 0 && !polyline.contained_in_single_face)
+
+      // Aggiungiamo sempre primo vertice del segmento alle info.
+
+      local_vertex_start = find_idx(info.indices, vertex_start);
+      if (local_vertex_start == -1) {
+        info.indices.push_back(vertex_start);
+        info.nodes.push_back(uv_start);
+        local_vertex_start = (int)info.indices.size() - 1;
       }
+      assert(local_vertex_start >= 0);
 
       // Aggiungiamo un nuovo vertice se non è già presente nella
       // lista dei nodi
-      assert(vertex < mesh.positions.size());
       local_vertex = find_idx(info.indices, vertex);
       if (local_vertex == -1) {
         info.indices.push_back(vertex);
         info.nodes.push_back(uv);
         local_vertex = (int)info.indices.size() - 1;
       }
+      assert(local_vertex >= 0);
+
+      // if (!polyline.contained_in_single_face &&
+      //     i == num_segments(polyline) - 1) {
+      // }
 
       // Se non stiamo processando il primo nodo allora consideriamo anche
       // il nodo precedente e creiamo gli archi
-      // if (i != 0)
-      {
-        // auto vertex_start       = polyline.vertices[i - 1];
-        // auto uv_start           = polyline.points[i - 1];
-        local_vertex_start = find_idx(info.indices, vertex_start);
+      // local_vertex_start = find_idx(info.indices, vertex_start);
 
-        // Se i nodi sono su un lato k != -1 di un triangolo allora li
-        // salviamo nella edgemap
-        auto [k, l] = get_edge_lerp_from_uv(uv_start);
-        if (k != -1) {
-          info.edgemap[k].push_back({local_vertex_start, l});
-        }
-
-        tie(k, l) = get_edge_lerp_from_uv(uv);
-        if (k != -1) {
-          info.edgemap[k].push_back({local_vertex, l});
-        }
-
-        // Se l'arco che ho trovato è un arco originale della mesh allora
-        // salviamo la faccia corrispondente nel mapping da facce originale
-        // a facce triangolate.
-        if (vertex_start < mesh.num_positions && vertex < mesh.num_positions) {
-          triangulated_faces[info.face] = {info.face};
-        }
-
-        // Aggiungiamo l'edge ai vincoli
-        info.edges.push_back({local_vertex_start, local_vertex});
+      // Se i nodi sono su un lato k != -1 di un triangolo allora li
+      // salviamo nella edgemap
+      auto [k, l] = get_edge_lerp_from_uv(uv_start);
+      if (k != -1) {
+        info.edgemap[k].push_back({local_vertex_start, l});
       }
+
+      tie(k, l) = get_edge_lerp_from_uv(uv);
+      if (k != -1) {
+        info.edgemap[k].push_back({local_vertex, l});
+      }
+
+      // Se l'arco che ho trovato è un arco originale della mesh allora
+      // salviamo la faccia corrispondente nel mapping da facce originale
+      // a facce triangolate.
+      if (vertex_start < mesh.num_positions && vertex < mesh.num_positions) {
+        triangulated_faces[info.face] = {info.face};
+      }
+
+      // Aggiungiamo l'edge ai vincoli
+      info.edges.push_back({local_vertex_start, local_vertex});
     }
   }
 }
