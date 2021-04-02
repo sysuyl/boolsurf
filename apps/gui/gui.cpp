@@ -613,7 +613,7 @@ int main(int argc, const char* argv[]) {
   add_option(cli, "model", model_filename, "Input model filename.");
   // add_option(cli, "msaa", window->msaa, "Multisample anti-aliasing.");
   add_option(cli, "svg", app->svg_filename, "Svg filename.");
-  add_option(cli, "svg-subdivs", app->svg_subdivs, "Svg subdivisiona.");
+  add_option(cli, "svg-subdivs", app->svg_subdivs, "Svg subdivisions.");
 
   // add_option(cli, "svg-size", app->svg_size, "Svg size.");
   add_option(cli, "drawing-size", app->svg_size, "Size of mapped drawing.");
@@ -631,7 +631,9 @@ int main(int argc, const char* argv[]) {
     auto output      = normalize_path("data/tests/tmp.json"s);
     auto cmd = "python3 "s + script_path + " "s + input + " "s + output + " "s +
                to_string(app->svg_subdivs);
-    system(cmd.c_str());
+
+    auto ret_value = system(cmd.c_str());
+    if (ret_value != 0) print_fatal("Svg conversion failed " + input);
     app->test_filename = output;
     load_test(app->test, output);
   } else if (extension == ".json") {

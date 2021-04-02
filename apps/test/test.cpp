@@ -12,11 +12,12 @@ using namespace yocto;
 int main(int num_args, const char* args[]) {
   auto test_filename   = ""s;
   auto output_filename = "data/render.png"s;
+  auto spp             = 4;
   auto model_filename  = ""s;
   auto svg_filename    = ""s;
-  auto color_shapes    = false;
-  auto spp             = 4;
+  auto svg_subdivs     = 2;
   auto drawing_size    = 0.005f;
+  auto color_shapes    = false;
 
   // parse command line
   auto cli = make_cli("test", "test boolsurf algorithms");
@@ -26,13 +27,27 @@ int main(int num_args, const char* args[]) {
   add_option(cli, "spp", spp, "Samples per pixel.");
   add_option(cli, "model", model_filename, "Input model filename.");
   add_option(cli, "svg", svg_filename, "Input svg filename.");
+  add_option(cli, "svg-subdivs", svg_subdivs, "Svg subdivisions.");
   add_option(cli, "drawing-size", drawing_size, "Size of mapped drawing.");
-
   add_option(cli, "color-shapes", color_shapes, "Color shapes.");
   parse_cli(cli, num_args, args);
 
-  auto test = bool_test{};
-  if (test_filename.size() && !load_test(test, test_filename)) {
+  if (!test_filename.size()) print_fatal("No input filename");
+
+  auto test      = bool_test{};
+  auto extension = path_extension(test_filename);
+  if (extension == ".svg") {
+    auto script_path = normalize_path("scripts/svg_parser.py"s);
+    auto output      = normalize_path("data/tests/tmp.json"s);
+    auto cmd         = "python3 "s + script_path + " "s + test_filename + " "s +
+               output + " "s + to_string(svg_subdivs);
+    auto ret_value = system(cmd.c_str());
+    if (ret_value != 0) print_fatal("Svg conversion failed " + test_filename);
+
+    test_filename = output;
+  }
+
+  if (!load_test(test, test_filename)) {
     print_fatal("Error loading test " + test_filename);
   }
 
