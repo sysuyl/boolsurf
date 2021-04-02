@@ -17,7 +17,7 @@
 
 # Misc
 - [x] Script svg parser con suddivisioni da cli
-- [ ] Chiamare svg_parser.py da c++ per convertire .svg come cli 
+- [x] Chiamare svg_parser.py da c++ per convertire .svg come cli 
 - [ ] Triangolatore di Cino 
 - [ ] Fare immagini belle
 - [ ] Runnare test 
