@@ -612,12 +612,17 @@ static void compute_intersections(bool_state& state,
       auto& poly = polylines[p0];
 
       int num_added = 0;
-      for (int s0 = 0; s0 < poly.points.size() - 2; s0++) {
-        auto start0 = poly.points[s0];
-        auto end0   = poly.points[(s0 + 1) % poly.points.size()];
-        for (int s1 = s0 + 2; s1 < poly.points.size() - 1; s1++) {
-          auto start1 = poly.points[s1];
-          auto end1   = poly.points[(s1 + 1) % poly.points.size()];
+      for (int s0 = 0; s0 < num_segments(poly) - 1; s0++) {
+        auto [start0, end0] = get_segment(poly, s0);
+        for (int s1 = s0 + 1; s1 < num_segments(poly); s1++) {
+          // Skip adjacent segments.
+          if (poly.contained_in_single_face) {
+            if (yocto::abs(s0 - s1) % num_segments(poly) <= 1) continue;
+          } else {
+            if (yocto::abs(s0 - s1) <= 1) continue;
+          }
+
+          auto [start1, end1] = get_segment(poly, s1);
 
           auto l = intersect_segments(start0, end0, start1, end1);
           if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) {
@@ -649,13 +654,11 @@ static void compute_intersections(bool_state& state,
         auto& poly0     = polylines[p0];
         auto& poly1     = polylines[p1];
         int   num_added = 0;
-        for (int s0 = 0; s0 < poly0.points.size() - 1; s0++) {
-          auto start0 = poly0.points[s0];
-          auto end0   = poly0.points[(s0 + 1)];
-          for (int s1 = 0; s1 < poly1.points.size() - 1; s1++) {
-            auto start1 = poly1.points[s1];
-            auto end1   = poly1.points[(s1 + 1)];
-            auto l      = intersect_segments(start0, end0, start1, end1);
+        for (int s0 = 0; s0 < num_segments(poly0); s0++) {
+          auto [start0, end0] = get_segment(poly0, s0);
+          for (int s1 = 0; s1 < num_segments(poly1); s1++) {
+            auto [start1, end1] = get_segment(poly1, s1);
+            auto l = intersect_segments(start0, end0, start1, end1);
             if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) {
               continue;
             }
