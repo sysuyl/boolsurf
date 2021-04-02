@@ -183,13 +183,37 @@ struct hashgrid_polyline {
   bool contained_in_single_face = false;
 };
 
+inline int num_segments(const hashgrid_polyline& polyline) {
+  if (polyline.contained_in_single_face) return (int)polyline.points.size();
+  return (int)polyline.points.size() - 1;
+}
+
+inline pair<vec2f, vec2f> get_segment(
+    const hashgrid_polyline& polyline, int i) {
+  if (polyline.contained_in_single_face) {
+    return {
+        polyline.points[i], polyline.points[(i + 1) % polyline.points.size()]};
+  } else {
+    return {polyline.points[i], polyline.points[i + 1]};
+  }
+}
+
+inline vec2i get_segment_vertices(const hashgrid_polyline& polyline, int i) {
+  if (polyline.contained_in_single_face) {
+    return {polyline.vertices[i],
+        polyline.vertices[(i + 1) % polyline.vertices.size()]};
+  } else {
+    return {polyline.vertices[i], polyline.vertices[i + 1]};
+  }
+}
+
 using mesh_hashgrid = hash_map<int, vector<hashgrid_polyline>>;
 
 static mesh_hashgrid compute_hashgrid(
     const vector<mesh_polygon>& polygons, const vector<vector<int>>& vertices) {
-  // La hashgrid creata conterrà delle polilinee (invece dei segmenti semplici)
-  // Ogni polilinea è definita da una sequenza uv - vertici della mesh
-  // corrispondenti e dal poligono di cui fa parte.
+  // La hashgrid creata conterrà delle polilinee (invece dei segmenti
+  // semplici) Ogni polilinea è definita da una sequenza uv - vertici della
+  // mesh corrispondenti e dal poligono di cui fa parte.
   auto hashgrid = hash_map<int, vector<hashgrid_polyline>>{};
 
   for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
@@ -214,8 +238,8 @@ static mesh_hashgrid compute_hashgrid(
         idx += 1;
 
         // Iniziamo a riempire l'hashgrid a partire da quando troviamo una
-        // faccia diversa da quella iniziale del poligono (il primo tratto verrà
-        // aggiunto a posteriori per evitare inconsistenza)
+        // faccia diversa da quella iniziale del poligono (il primo tratto
+        // verrà aggiunto a posteriori per evitare inconsistenza)
         if (segment.face == first_face && indices == vec2i{-1, -1}) continue;
         if (indices == vec2i{-1, -1}) indices = {e, s};
 
@@ -523,8 +547,8 @@ template <typename Skip>
 static void compute_cell_labels(vector<mesh_cell>& cells, vector<bool>& visited,
     const vector<int>& start, Skip&& skip_edge) {
   // Calcoliamo le label delle celle visitando il grafo di adiacenza a partire
-  // da una cella ambiente e incrementanto/decrementanto l'indice corrispondente
-  // al poligono
+  // da una cella ambiente e incrementanto/decrementanto l'indice
+  // corrispondente al poligono
 
   auto stack = start;
   while (!stack.empty()) {
@@ -537,7 +561,8 @@ static void compute_cell_labels(vector<mesh_cell>& cells, vector<bool>& visited,
       if (skip_edge(cell_id, polygon, neighbor)) continue;
 
       // Se il nodo è già stato visitato e la nuova etichetta è diversa da
-      // quella già calcolata allora prendo il massimo valore in ogni componente
+      // quella già calcolata allora prendo il massimo valore in ogni
+      // componente
       if (visited[neighbor]) {
         auto& neighbor_labels = cells[neighbor].labels;
         auto  cell_labels     = cell.labels;
@@ -666,7 +691,8 @@ void compute_triangulation_constraints(const bool_mesh& mesh,
       auto uv     = polyline.points[i];
       auto vertex = polyline.vertices[i];
 
-      // TODO (marzia): questo forse si può semplificare usando i metodi di CDT
+      // TODO (marzia): questo forse si può semplificare usando i metodi di
+      // CDT
 
       // Aggiungiamo un nuovo vertice se non è già presente nella
       // lista dei nodi
@@ -758,8 +784,8 @@ static vector<vec3i> single_split_triangulation(
 
   auto triangles = vector<vec3i>();
   if (edge.x < 3) {
-    // Se il segmento ha come inizio un punto in un lato e come fine il vertice
-    // del triangolo opposto
+    // Se il segmento ha come inizio un punto in un lato e come fine il
+    // vertice del triangolo opposto
     triangles.push_back({edge.x, end_edge.x, edge.y});
     triangles.push_back({edge.x, edge.y, end_edge.y});
   } else if (edge.y < 3) {
@@ -1176,8 +1202,8 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
 
   // Second backward pass. Se sono rimasti altri nodi non coperti dalla visita
   // precedente allora visitiamo nuovamente il grafo partendo dalle celle di
-  // "frontiera" (quelle che hanno almeno un vicino non visitato) e utilizziamo
-  // solamente gli archi negativi
+  // "frontiera" (quelle che hanno almeno un vicino non visitato) e
+  // utilizziamo solamente gli archi negativi
   {
     auto skip = [&](int cell_id, int polygon, int neighbor) -> bool {
       return visited[neighbor] || polygon > 0 ||
@@ -1185,8 +1211,8 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     };
 
     // Calcoliamo i nuovi nodi di partenza come i nodi vicini (già visitati!)
-    // dei nodi non visitati del grafo. Se tutti i nodi sono già stati visitati
-    // dal forward pass allora questa visita non viene eseguita
+    // dei nodi non visitati del grafo. Se tutti i nodi sono già stati
+    // visitati dal forward pass allora questa visita non viene eseguita
     start.clear();
     for (int i = 0; i < visited.size(); i++) {
       if (visited[i]) continue;
