@@ -154,10 +154,12 @@ void recompute_polygon_segments(const bool_mesh& mesh, const bool_state& state,
     polygon.edges.pop_back();
   }
 
+  auto faces = hash_set<int>();
   for (int i = index; i < polygon.points.size(); i++) {
     auto start = polygon.points[i];
-    auto end   = polygon.points[(i + 1) % polygon.points.size()];
-    auto path  = compute_geodesic_path(
+    faces.insert(state.points[start].face);
+    auto end  = polygon.points[(i + 1) % polygon.points.size()];
+    auto path = compute_geodesic_path(
         mesh, state.points[start], state.points[end]);
     auto threshold = 0.001f;
     for (auto& l : path.lerps) {
@@ -169,12 +171,16 @@ void recompute_polygon_segments(const bool_mesh& mesh, const bool_state& state,
     polygon.edges.push_back(segments);
     polygon.length += segments.size();
   }
+
+  polygon.contained_in_single_face = faces.size() == 1;
 }
 
 struct hashgrid_polyline {
   int           polygon  = -1;
   vector<vec2f> points   = {};
   vector<int>   vertices = {};
+
+  bool contained_in_single_face = false;
 };
 
 using mesh_hashgrid = hash_map<int, vector<hashgrid_polyline>>;
@@ -222,6 +228,7 @@ static mesh_hashgrid compute_hashgrid(
           auto& polyline   = entry.emplace_back();
           polyline.polygon = polygon_id;
 
+          polyline.contained_in_single_face = polygon.contained_in_single_face;
           polyline.vertices.push_back(vertices[polygon_id][start]);
           polyline.points.push_back(segment.start);
 
@@ -287,8 +294,8 @@ static vector<vector<int>> add_vertices(
 
     for (auto e = 0; e < edges.size(); e++) {
       auto& segments = edges[e];
-      
-      if(segments.empty()) continue; // TODO(giacomo): What?
+
+      if (segments.empty()) continue;  // TODO(giacomo): What?
 
       // Aggiungiamo tutti i vertici tranne l'ultimo, perché dobbiamo
       // individuare e salvare i control points separatamente
@@ -623,7 +630,7 @@ static void compute_intersections(bool_state& state,
           for (int s1 = 0; s1 < poly1.points.size() - 1; s1++) {
             auto start1 = poly1.points[s1];
             auto end1   = poly1.points[(s1 + 1)];
-            auto  l      = intersect_segments(start0, end0, start1, end1);
+            auto l      = intersect_segments(start0, end0, start1, end1);
             if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) {
               continue;
             }
@@ -1018,10 +1025,15 @@ static vector<vec3i> face_tags(const bool_mesh& mesh,
 
   for (auto& [face, polylines] : hashgrid) {
     for (auto& polyline : polylines) {
-      // TODO(giacomo): gestire caso in cui polyline sia chiusa...
-      for (auto i = 0; i < polyline.vertices.size() - 1; i++) {
-        auto polygon  = polyline.polygon;
-        auto edge     = vec2i{polyline.vertices[i], polyline.vertices[i + 1]};
+      // TODO(giacomo): cleanup
+
+      auto polygon = polyline.polygon;
+      auto end_idx = polyline.vertices.size() - 1;
+      if (polyline.contained_in_single_face) end_idx += 1;
+
+      for (auto i = 0; i < end_idx; i++) {
+        auto edge     = vec2i{polyline.vertices[i],
+            polyline.vertices[(i + 1) % polyline.vertices.size()]};
         auto edge_key = make_edge_key(edge);
 
         auto faces = vec2i{-1, -1};

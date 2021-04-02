@@ -28,12 +28,13 @@ struct shade_instance;
 }
 
 struct mesh_polygon {
-  vector<int>                  points = {};
-  vector<vector<mesh_segment>> edges  = {};
-  int                          length = 0;
+  vector<int>                  points                   = {};
+  vector<vector<mesh_segment>> edges                    = {};
+  int                          length                   = 0;
+  bool                         contained_in_single_face = false;
 
-  vector<int> inner_faces = {};
-  vector<int> outer_faces = {};
+  // vector<int> inner_faces = {};
+  // vector<int> outer_faces = {};
 
   // TODO(giacomo): Put them in app.
   // shade_instance* inner_shape    = nullptr;
