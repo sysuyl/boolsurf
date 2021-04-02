@@ -687,18 +687,28 @@ void compute_triangulation_constraints(const bool_mesh& mesh,
     hash_map<int, vector<int>>& triangulated_faces) {
   // Scorriamo su tutti i nodi che compongono le polilinee
   for (auto& polyline : polylines) {
-    for (auto i = 0; i < polyline.points.size(); i++) {
-      auto uv     = polyline.points[i];
-      auto vertex = polyline.vertices[i];
+    for (auto i = 0; i < num_segments(polyline); i++) {
+      auto [uv_start, uv]         = get_segment(polyline, i);
+      auto [vertex_start, vertex] = get_segment_vertices(polyline, i);
+
+      auto local_vertex_start = -7;
+      auto local_vertex       = -8;
 
       // TODO (marzia): questo forse si può semplificare usando i metodi di
       // CDT
+      if (i == 0 && !polyline.contained_in_single_face) {
+        local_vertex_start = find_idx(info.indices, vertex_start);
+        if (local_vertex_start == -1) {
+          info.indices.push_back(vertex_start);
+          info.nodes.push_back(uv_start);
+          local_vertex_start = (int)info.indices.size() - 1;
+        }
+      }
 
       // Aggiungiamo un nuovo vertice se non è già presente nella
       // lista dei nodi
-      //      assert(vertex < 2962);
       assert(vertex < mesh.positions.size());
-      auto local_vertex = find_idx(info.indices, vertex);
+      local_vertex = find_idx(info.indices, vertex);
       if (local_vertex == -1) {
         info.indices.push_back(vertex);
         info.nodes.push_back(uv);
@@ -707,10 +717,11 @@ void compute_triangulation_constraints(const bool_mesh& mesh,
 
       // Se non stiamo processando il primo nodo allora consideriamo anche
       // il nodo precedente e creiamo gli archi
-      if (i != 0) {
-        auto vertex_start       = polyline.vertices[i - 1];
-        auto uv_start           = polyline.points[i - 1];
-        auto local_vertex_start = find_idx(info.indices, vertex_start);
+      // if (i != 0)
+      {
+        // auto vertex_start       = polyline.vertices[i - 1];
+        // auto uv_start           = polyline.points[i - 1];
+        local_vertex_start = find_idx(info.indices, vertex_start);
 
         // Se i nodi sono su un lato k != -1 di un triangolo allora li
         // salviamo nella edgemap
