@@ -81,7 +81,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     // auto size   = yocto::min(yocto::min(x, y), 1024);
 
     // ImGui::Text("pointer = %p", texture);
-    auto face = app->last_clicked_point.face;
+    auto face = app->last_clicked_point_original.face;
     auto size = vec2i{1200, 800};
     draw_triangulation(texture, face, size * 4);
     ImGui::Image((void*)texture->texture_id, {float(size.x), float(size.y)},
