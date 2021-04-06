@@ -290,7 +290,7 @@ static mesh_hashgrid compute_hashgrid(
         for (int s = 0; s < edge.size(); s++) {
           auto& segment = edge[s];
           polyline.vertices.push_back(vertices[polygon_id][index]);
-          polyline.points.push_back(segment.start);
+          polyline.points.push_back(segment.end);
           index += 1;
         }
       }
@@ -448,7 +448,8 @@ static vector<mesh_cell> flood_fill_new(
 
 inline vector<mesh_cell> make_mesh_cells(
     const vector<vec3i>& adjacencies, const vector<vec3i>& border_tags) {
-  auto starts = vector<int>{0};
+  // Iniziamo dall'ultima faccia che sicuramente non e' stata distrutta.
+  auto starts = vector<int>{(int)adjacencies.size() - 1};
   auto result = flood_fill_new(starts, adjacencies, border_tags);
   return result;
 }
