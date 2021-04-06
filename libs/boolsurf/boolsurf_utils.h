@@ -203,6 +203,13 @@ void print(const string& name, const vector<T>& vec, int max_elements = 100) {
   printf("\n");
 }
 
+namespace yocto {
+struct ogl_texture;
+}
+
+void draw_triangulation(
+    ogl_texture* texture, int face, vec2i size = {2048, 2048});
+
 #if 0
 #include "ext/robin_hood.h"
 template <typename Key, typename Value>

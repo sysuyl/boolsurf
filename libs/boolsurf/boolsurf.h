@@ -28,17 +28,11 @@ struct shade_instance;
 }
 
 struct mesh_polygon {
-  vector<int>                  points                   = {};
-  vector<vector<mesh_segment>> edges                    = {};
-  int                          length                   = 0;
-  bool                         contained_in_single_face = false;
+  vector<int>                  points = {};
+  vector<vector<mesh_segment>> edges  = {};
+  int                          length = 0;
 
-  // vector<int> inner_faces = {};
-  // vector<int> outer_faces = {};
-
-  // TODO(giacomo): Put them in app.
-  // shade_instance* inner_shape    = nullptr;
-  // shade_instance* outer_shape    = nullptr;
+  bool is_contained_in_single_face = false;
 };
 
 // Informazioni per la triangolazione di una faccia della mesh

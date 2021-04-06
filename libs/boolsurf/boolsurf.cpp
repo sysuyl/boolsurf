@@ -4,6 +4,8 @@
 
 #include "ext/CDT/CDT/include/CDT.h"
 
+constexpr auto adjacent_to_nothing = -2;
+
 // Build adjacencies between faces (sorted counter-clockwise)
 static vector<vec3i> face_adjacencies_fast(const vector<vec3i>& triangles) {
   auto get_edge = [](const vec3i& triangle, int i) -> vec2i {
@@ -67,11 +69,20 @@ void reset_mesh(bool_mesh& mesh) {
   mesh.positions.resize(mesh.num_positions);
   mesh.adjacencies.resize(mesh.num_triangles);
   mesh.dual_solver.graph.resize(mesh.num_triangles);
+  mesh.triangulated_faces.clear();
 
-  auto get_triangle_center = [&](int face) {
-    return (1.0f / 3) * (mesh.positions[mesh.triangles[face].x] +
-                            mesh.positions[mesh.triangles[face].y] +
-                            mesh.positions[mesh.triangles[face].z]);
+  auto get_triangle_center = [](const vector<vec3i>&  triangles,
+                                 const vector<vec3f>& positions,
+                                 int                  face) -> vec3f {
+    vec3f pos[3] = {positions[triangles[face].x], positions[triangles[face].y],
+        positions[triangles[face].z]};
+    auto  l0     = length(pos[0] - pos[1]);
+    auto  p0     = (pos[0] + pos[1]) / 2;
+    auto  l1     = length(pos[1] - pos[2]);
+    auto  p1     = (pos[1] + pos[2]) / 2;
+    auto  l2     = length(pos[2] - pos[0]);
+    auto  p2     = (pos[2] + pos[0]) / 2;
+    return (l0 * p0 + l1 * p1 + l2 * p2) / (l0 + l1 + l2);
   };
 
   for (auto& [face, _] : mesh.triangulated_faces) {
@@ -80,17 +91,15 @@ void reset_mesh(bool_mesh& mesh) {
       if (neighbor == -1) continue;
       auto kk = find_adjacent_triangle(
           mesh.triangles[neighbor], mesh.triangles[face]);
-      mesh.adjacencies[neighbor][kk] = face;
 
+      // Fix adjacencies and dual_solver.
+      mesh.adjacencies[neighbor][kk]              = face;
       mesh.dual_solver.graph[neighbor][kk].node   = face;
       mesh.dual_solver.graph[neighbor][kk].length = length(
-          get_triangle_center(neighbor) - get_triangle_center(face));
+          get_triangle_center(mesh.triangles, mesh.positions, neighbor) -
+          get_triangle_center(mesh.triangles, mesh.positions, face));
     }
   }
-
-  // TODO(giacomo): This is still expensive.
-  // mesh.dual_solver = make_dual_geodesic_solver(
-  // mesh.triangles, mesh.positions, mesh.adjacencies);
 }
 
 geodesic_path compute_geodesic_path(
@@ -172,7 +181,7 @@ void recompute_polygon_segments(const bool_mesh& mesh, const bool_state& state,
     polygon.length += segments.size();
   }
 
-  polygon.contained_in_single_face = (faces.size() == 1);
+  polygon.is_contained_in_single_face = (faces.size() == 1);
 }
 
 struct hashgrid_polyline {
@@ -180,17 +189,17 @@ struct hashgrid_polyline {
   vector<vec2f> points   = {};
   vector<int>   vertices = {};
 
-  bool contained_in_single_face = false;
+  bool is_closed = false;
 };
 
 inline int num_segments(const hashgrid_polyline& polyline) {
-  if (polyline.contained_in_single_face) return (int)polyline.points.size();
+  if (polyline.is_closed) return (int)polyline.points.size();
   return (int)polyline.points.size() - 1;
 }
 
 inline pair<vec2f, vec2f> get_segment(
     const hashgrid_polyline& polyline, int i) {
-  if (polyline.contained_in_single_face) {
+  if (polyline.is_closed) {
     return {
         polyline.points[i], polyline.points[(i + 1) % polyline.points.size()]};
   } else {
@@ -199,7 +208,7 @@ inline pair<vec2f, vec2f> get_segment(
 }
 
 inline vec2i get_segment_vertices(const hashgrid_polyline& polyline, int i) {
-  if (polyline.contained_in_single_face) {
+  if (polyline.is_closed) {
     return {polyline.vertices[i],
         polyline.vertices[(i + 1) % polyline.vertices.size()]};
   } else {
@@ -211,9 +220,10 @@ using mesh_hashgrid = hash_map<int, vector<hashgrid_polyline>>;
 
 static mesh_hashgrid compute_hashgrid(
     const vector<mesh_polygon>& polygons, const vector<vector<int>>& vertices) {
-  // La hashgrid creata conterrà delle polilinee (invece dei segmenti
-  // semplici) Ogni polilinea è definita da una sequenza uv - vertici della
-  // mesh corrispondenti e dal poligono di cui fa parte.
+  // La hashgrid associa ad ogni faccia una lista di polilinee.
+  // Ogni polilinea è definita da una sequenza punti in coordinate
+  // baricentriche, ognuno di essi assiociato al corrispondente vertice della
+  // mesh.
   auto hashgrid = hash_map<int, vector<hashgrid_polyline>>{};
 
   for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
@@ -269,10 +279,10 @@ static mesh_hashgrid compute_hashgrid(
     }
 
     if (indices == vec2i{-1, -1}) {
-      auto& entry                       = hashgrid[first_face];
-      auto& polyline                    = entry.emplace_back();
-      polyline.polygon                  = polygon_id;
-      polyline.contained_in_single_face = true;
+      auto& entry        = hashgrid[first_face];
+      auto& polyline     = entry.emplace_back();
+      polyline.polygon   = polygon_id;
+      polyline.is_closed = true;
 
       int index = 0;
       for (auto e = 0; e < polygon.edges.size(); e++) {
@@ -351,6 +361,8 @@ static vector<vector<int>> add_vertices(
         duplicates[control_point] = vertex;
       }
 
+      // TODO(giacomo,marzia): Sarebbe bello se potessimo fare questo altorve,
+      // in modo tale da non dover passare lo state a questa funzione.
       state.border_vertices[vertex] = control_point;
       vertices[i].push_back(vertex);
     }
@@ -358,20 +370,24 @@ static vector<vector<int>> add_vertices(
   return vertices;
 }
 
-static void flood_fill_new(vector<mesh_cell>& result,
-    vector<mesh_cell>& cell_stack, vector<int>& starts, const bool_mesh& mesh) {
-  auto cell_tags = vector<int>(mesh.triangles.size(), -1);
+static vector<mesh_cell> flood_fill_new(
+    vector<int>& starts, const vector<vec3i>& adjacencies, const vector<vec3i>& border_tags) {
+  auto result    = vector<mesh_cell>{};
+  auto cell_tags = vector<int>(adjacencies.size(), -1);
 
   // consume task stack
-  while (cell_stack.size()) {
+  while (starts.size()) {
     // pop element from task stack
-    auto cell = cell_stack.back();
-    cell_stack.pop_back();
-
-    auto face_stack = vector<int>{starts.back()};
+    auto first_face = starts.back();
     starts.pop_back();
 
-    auto cell_id = (int)result.size();
+    if (cell_tags[first_face] >= 0) {
+      continue;
+    }
+
+    auto  cell_id    = (int)result.size();
+    auto& cell       = result.emplace_back();
+    auto  face_stack = vector<int>{first_face};
 
     while (!face_stack.empty()) {
       auto face = face_stack.back();
@@ -383,16 +399,16 @@ static void flood_fill_new(vector<mesh_cell>& result,
       cell.faces.push_back(face);
 
       for (int k = 0; k < 3; k++) {
-        auto neighbor = mesh.adjacencies[face][k];
+        auto neighbor = adjacencies[face][k];
         if (neighbor < 0) continue;
-        auto p = mesh.border_tags[face][k];
+        auto p = border_tags[face][k];
 
         auto neighbor_cell = cell_tags[neighbor];
         if (neighbor_cell >= 0 && p != 0) {
           // La faccia neighbor e' gia' stata visitata.
           if (neighbor_cell == cell_id) {
             // Sto visitando la stessa cella.
-            if (find_in_vec(mesh.border_tags[neighbor], -p) != -1) {
+            if (find_in_vec(border_tags[neighbor], -p) != -1) {
               // Sto attraversando il bordo di un poligono, quindi
               // connetto la cella a se stessa.
               cell.adjacency.insert({cell_id, +p});
@@ -420,25 +436,20 @@ static void flood_fill_new(vector<mesh_cell>& result,
             face_stack.push_back(neighbor);
           } else {
             // Sto attraversando il bordo del poligono p.
-            cell_stack.push_back({});
             starts.push_back(neighbor);
           }
         }
       }
-    }  // End of while
+    }  // end of while
+  }    // end of while
 
-    if (cell.faces.size()) {
-      result.push_back(cell);
-    }
-  }
+  return result;
 }
 
 inline vector<mesh_cell> make_mesh_cells(
-    const bool_mesh& mesh, const vector<vec3i>& tags) {
-  auto cell_stack = vector<mesh_cell>{{}};
-  auto starts     = vector<int>{0};
-  auto result     = vector<mesh_cell>{};
-  flood_fill_new(result, cell_stack, starts, mesh);
+    const vector<vec3i>& adjacencies, const vector<vec3i>& border_tags) {
+  auto starts = vector<int>{0};
+  auto result = flood_fill_new(starts, adjacencies, border_tags);
   return result;
 }
 
@@ -556,8 +567,8 @@ inline vector<vector<int>> compute_components(
 }
 
 template <typename Skip>
-static void compute_cell_labels(vector<mesh_cell>& cells, vector<bool>& visited,
-    const vector<int>& start, Skip&& skip_edge) {
+static void propagate_cell_labels(vector<mesh_cell>& cells,
+    vector<bool>& visited, const vector<int>& start, Skip&& skip_edge) {
   // Calcoliamo le label delle celle visitando il grafo di adiacenza a partire
   // da una cella ambiente e incrementanto/decrementanto l'indice
   // corrispondente al poligono
@@ -613,7 +624,7 @@ void update_label_propagation(vector<mesh_cell>& cells, int label_size) {
   }
 }
 
-static void compute_intersections(bool_state& state,
+static void add_polygon_intersection_points(bool_state& state,
     hash_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
   // Calcoliamo sia le intersezioni che le self-intersections, aggiungendo i
   // vertici nuovi alla mesh.
@@ -628,7 +639,7 @@ static void compute_intersections(bool_state& state,
         auto [start0, end0] = get_segment(poly, s0);
         for (int s1 = s0 + 1; s1 < num_segments(poly); s1++) {
           // Skip adjacent segments.
-          if (poly.contained_in_single_face) {
+          if (poly.is_closed) {
             if (yocto::abs(s0 - s1) % num_segments(poly) <= 1) continue;
           } else {
             if (yocto::abs(s0 - s1) <= 1) continue;
@@ -697,110 +708,78 @@ static void compute_intersections(bool_state& state,
   }
 }
 
-void compute_triangulation_constraints(const bool_mesh& mesh,
-    const vector<hashgrid_polyline>& polylines, triangulation_info& info,
-    hash_map<int, vector<int>>& triangulated_faces) {
-  // Scorriamo su tutti i nodi che compongono le polilinee
+triangulation_info compute_triangulation_constraints(const bool_mesh& mesh,
+    int face, const vector<hashgrid_polyline>& polylines) {
+  auto info    = triangulation_info{};
+  info.face    = face;
+  info.nodes   = vector<vec2f>{{0, 0}, {1, 0}, {0, 1}};
+  info.indices = vector<int>(
+      &mesh.triangles[face][0], &mesh.triangles[face][3]);
+
   for (auto& polyline : polylines) {
+    // Per ogni segmento della polyline, aggiorniamo triangulation_info,
+    // aggiungendo nodi, indici, e edge constraints.
     for (auto i = 0; i < num_segments(polyline); i++) {
-      auto [uv_start, uv]         = get_segment(polyline, i);
-      auto [vertex_start, vertex] = get_segment_vertices(polyline, i);
-      assert(vertex < mesh.positions.size());
-      assert(vertex_start < mesh.positions.size());
+      vec2f uvs[2];
+      tie(uvs[0], uvs[1]) = get_segment(polyline, i);
+      auto vertices       = get_segment_vertices(polyline, i);
+      assert(vertices[0] < mesh.positions.size());
+      assert(vertices[1] < mesh.positions.size());
 
-      auto local_vertex_start = -7;
-      auto local_vertex       = -8;
-
-      // TODO (marzia): questo forse si può semplificare usando i metodi di
-      // CDT
-      // if (i == 0 && !polyline.contained_in_single_face)
-
-      // Aggiungiamo sempre primo vertice del segmento alle info.
-
-      local_vertex_start = find_idx(info.indices, vertex_start);
-      if (local_vertex_start == -1) {
-        info.indices.push_back(vertex_start);
-        info.nodes.push_back(uv_start);
-        local_vertex_start = (int)info.indices.size() - 1;
-      }
-      assert(local_vertex_start >= 0);
-
-      // Aggiungiamo un nuovo vertice se non è già presente nella
-      // lista dei nodi
-      local_vertex = find_idx(info.indices, vertex);
-      if (local_vertex == -1) {
-        info.indices.push_back(vertex);
-        info.nodes.push_back(uv);
-        local_vertex = (int)info.indices.size() - 1;
-      }
-      assert(local_vertex >= 0);
-
-      // if (!polyline.contained_in_single_face &&
-      //     i == num_segments(polyline) - 1) {
-      // }
-
-      // Se non stiamo processando il primo nodo allora consideriamo anche
-      // il nodo precedente e creiamo gli archi
-      // local_vertex_start = find_idx(info.indices, vertex_start);
-
-      // Se i nodi sono su un lato k != -1 di un triangolo allora li
-      // salviamo nella edgemap
-      auto [k, l] = get_edge_lerp_from_uv(uv_start);
-      if (k != -1) {
-        info.edgemap[k].push_back({local_vertex_start, l});
+      // TODO(giacomo): Set to -1 or 'invalid'.
+      auto local_vertices = vec2i{-7, -8};
+      for (int k = 0; k < 2; k++) {
+        local_vertices[k] = find_idx(info.indices, vertices[k]);
+        if (local_vertices[k] == -1) {
+          info.indices.push_back(vertices[k]);
+          info.nodes.push_back(uvs[k]);
+          local_vertices[k] = (int)info.indices.size() - 1;
+        }
       }
 
-      tie(k, l) = get_edge_lerp_from_uv(uv);
-      if (k != -1) {
-        info.edgemap[k].push_back({local_vertex, l});
-      }
+      // Aggiungiamo l'edge ai constraints della triangolazione.
+      info.edges.push_back({local_vertices[0], local_vertices[1]});
 
-      // Se l'arco che ho trovato è un arco originale della mesh allora
-      // salviamo la faccia corrispondente nel mapping da facce originale
-      // a facce triangolate.
-      if (vertex_start < mesh.num_positions && vertex < mesh.num_positions) {
-        triangulated_faces[info.face] = {info.face};
+      // Extra: Se i nodi sono su un lato k != -1 di un triangolo allora li
+      // salviamo nella edgemap.
+      for (int j = 0; j < 2; j++) {
+        auto [k, lerp] = get_edge_lerp_from_uv(uvs[j]);
+        if (k != -1) {
+          info.edgemap[k].push_back({local_vertices[j], lerp});
+        }
       }
-
-      // Aggiungiamo l'edge ai vincoli
-      info.edges.push_back({local_vertex_start, local_vertex});
     }
   }
+  return info;
 }
 
-void update_edge_constraints(
+void add_boundary_edge_constraints(
     array<vector<pair<int, float>>, 3>& edgemap, vector<vec2i>& edges) {
-  // Aggiungiamo gli edge di vincolo per i lati del triangolo
+  // Aggiungiamo gli edge di vincolo per i lati del triangolo.
   for (int k = 0; k < 3; k++) {
-    auto  tri_edge = get_triangle_edge_from_index(k);
-    auto& points   = edgemap[k];
+    auto  edge        = get_triangle_edge_from_index(k);
+    auto& edge_points = edgemap[k];
 
-    // Se sul lato non ci sono altri punti allora aggiungiamo il lato stesso
-    // ai vincoli
-    if (points.size() == 0) {
-      edges.push_back(tri_edge);
+    // Se sul lato non ci sono punti aggiuntivi, allora lo aggiungiamo ai
+    // vincoli cosi' come e'.
+    if (edge_points.empty()) {
+      edges.push_back(edge);
       continue;
     }
 
-    // Se ci sono punti allora li ordiniamo per lerp crescente e creiamo i
-    // vari vincoli
-    if (points.size() > 1) {
-      sort(points.begin(), points.end(), [](auto& a, auto& b) {
-        auto& [node_a, l_a] = a;
-        auto& [node_b, l_b] = b;
-        return l_a < l_b;
-      });
+    // Ordiniamo i punti che giacciono sul lato per lerp crescente.
+    if (edge_points.size() > 1) {
+      sort(edge_points.begin(), edge_points.end(),
+          [](auto& a, auto& b) { return a.second < b.second; });
     }
 
-    auto& [first, l] = points.front();
-    auto& [last, l1] = points.back();
-    edges.push_back({tri_edge.x, first});
-    edges.push_back({last, tri_edge.y});
+    // Creiamo primo e ultimo vincolo di questo lato.
+    edges.push_back({edge.x, edge_points[0].first});
+    edges.push_back({edge.y, edge_points.back().first});
 
-    for (auto i = 0; i < points.size() - 1; i++) {
-      auto& [start, l] = points[i];
-      auto& [end, l1]  = points[i + 1];
-      edges.push_back({start, end});
+    // Creiamo i rimanenti vincoli contenuti nel lato.
+    for (auto i = 0; i < edge_points.size() - 1; i++) {
+      edges.push_back({edge_points[i].first, edge_points[i + 1].first});
     }
   }
 }
@@ -812,35 +791,36 @@ static vector<vec3i> single_split_triangulation(
   auto start_edge = get_edge_from_uv(nodes[edge.x]);
   auto end_edge   = get_edge_from_uv(nodes[edge.y]);
 
-  auto triangles = vector<vec3i>();
+  auto triangles = vector<vec3i>(3);
   if (edge.x < 3) {
     // Se il segmento ha come inizio un punto in un lato e come fine il
     // vertice del triangolo opposto
-    triangles.push_back({edge.x, end_edge.x, edge.y});
-    triangles.push_back({edge.x, edge.y, end_edge.y});
+    triangles[0] = {edge.x, end_edge.x, edge.y};
+    triangles[1] = {edge.x, edge.y, end_edge.y};
+    triangles.resize(2);
+
   } else if (edge.y < 3) {
     // Se il segmento ha come inizio un vertice di un triangolo e come fine un
     // punto punto nel lato opposto
-    triangles.push_back({edge.y, start_edge.x, edge.x});
-    triangles.push_back({edge.y, edge.x, start_edge.y});
+    triangles[0] = {edge.y, start_edge.x, edge.x};
+    triangles[1] = {edge.y, edge.x, start_edge.y};
+    triangles.resize(2);
+
   } else {
     // Se il segmento ha inizio e fine su due lati del triangolo
-    auto x = start_edge.x;
-    auto y = start_edge.y;
-
+    auto [x, y] = start_edge;
     if (start_edge.y == end_edge.x) {
-      auto z = end_edge.y;
-
-      triangles.push_back({x, edge.x, z});
-      triangles.push_back({edge.x, edge.y, z});
-      triangles.push_back({edge.x, y, edge.y});
+      auto z       = end_edge.y;
+      triangles[0] = {x, edge.x, z};
+      triangles[1] = {edge.x, edge.y, z};
+      triangles[2] = {edge.x, y, edge.y};
 
     } else if (start_edge.x == end_edge.y) {
-      auto z = end_edge.x;
+      auto z       = end_edge.x;
+      triangles[0] = {x, edge.x, edge.y};
+      triangles[1] = {edge.x, z, edge.y};
+      triangles[2] = {edge.x, y, z};
 
-      triangles.push_back({x, edge.x, edge.y});
-      triangles.push_back({edge.x, z, edge.y});
-      triangles.push_back({edge.x, y, z});
     } else {
       assert(0);
     }
@@ -856,13 +836,16 @@ static vector<vec3i> constrained_triangulation(
   for (auto& n : nodes) n *= 1e9;
 
   // (marzia): qui usiamo float, ma si possono usare anche i double
-  auto cdt = CDT::Triangulation<float>(CDT::FindingClosestPoint::ClosestRandom);
+  using Float = float;
+  auto cdt = CDT::Triangulation<Float>(CDT::FindingClosestPoint::ClosestRandom);
   cdt.insertVertices(
-      nodes.begin(), nodes.end(), [](const vec2f& point) { return point.x; },
-      [](const vec2f& point) { return point.y; });
+      nodes.begin(), nodes.end(),
+      [](const vec2f& point) -> Float { return point.x; },
+      [](const vec2f& point) -> Float { return point.y; });
   cdt.insertEdges(
-      edges.begin(), edges.end(), [](const vec2i& edge) { return edge.x; },
-      [](const vec2i& edge) { return edge.y; });
+      edges.begin(), edges.end(),
+      [](const vec2i& edge) -> int { return edge.x; },
+      [](const vec2i& edge) -> int { return edge.y; });
 
   cdt.eraseOuterTriangles();
   auto triangles = vector<vec3i>();
@@ -887,30 +870,29 @@ static vector<vec3i> constrained_triangulation(
   return triangles;
 }
 
-static void update_face_adjacencies(
-    bool_mesh& mesh, const hash_map<int, vector<int>>& triangulated_faces) {
+static void update_face_adjacencies(bool_mesh& mesh) {
   // Aggiorniamo le adiacenze per i triangoli che sono stati processati
   auto border_edgemap = hash_map<vec2i, int>{};
-  border_edgemap.reserve(triangulated_faces.size() * 6);
+  border_edgemap.reserve(mesh.triangulated_faces.size() * 6);
 
   // Per ogni triangolo processato elaboro tutti i suoi sottotriangoli
-  for (auto& [face, triangles] : triangulated_faces) {
-    // Converto il triangolo in triplette di vertici
-    auto triangles_vec3i = vector<vec3i>(triangles.size());
-    for (int i = 0; i < triangles.size(); i++) {
-      triangles_vec3i[i] = mesh.triangles[triangles[i]];
+  for (auto& [face, faces] : mesh.triangulated_faces) {
+    // Converto il triangolo in triplette di vertici globali.
+    auto triangles = vector<vec3i>(faces.size());
+    for (int i = 0; i < faces.size(); i++) {
+      triangles[i] = mesh.triangles[faces[i]];
     }
 
-    for (int i = 0; i < triangles.size(); i++) {
+    for (int i = 0; i < faces.size(); i++) {
       // Guardo se nell'adiacenza ci sono dei triangoli mancanti
-      // (segnati con -2 per non confonderli con dei -1 già presenti nella
-      // mesh originale)
-      auto& adj = mesh.adjacencies[triangles[i]];
+      // (segnati con adjacent_to_nothing per non confonderli i -1 già
+      // presenti nell'adiacenza della mesh originale).
+      auto& adj = mesh.adjacencies[faces[i]];
       for (int k = 0; k < 3; k++) {
-        if (adj[k] != -2) continue;
+        if (adj[k] != adjacent_to_nothing) continue;
 
-        // Prendo l'edge di bordo corrispondente ad un -2
-        auto edge = get_mesh_edge_from_index(triangles_vec3i[i], k);
+        // Prendo l'edge di bordo corrispondente ad un adjacent_to_nothing
+        auto edge = get_mesh_edge_from_index(triangles[i], k);
 
         // Se è un arco della mesh originale lo processo subito
         if (edge.x < mesh.num_positions && edge.y < mesh.num_positions) {
@@ -923,10 +905,10 @@ static void update_face_adjacencies(
               auto neighbor = mesh.adjacencies[face][kk];
               if (neighbor == -1) continue;
 
-              mesh.adjacencies[triangles[i]][k] = neighbor;
+              mesh.adjacencies[faces[i]][k] = neighbor;
 
               auto it = find_in_vec(mesh.adjacencies[neighbor], face);
-              mesh.adjacencies[neighbor][it] = triangles[i];
+              mesh.adjacencies[neighbor][it] = faces[i];
             }
           }
           continue;
@@ -936,20 +918,20 @@ static void update_face_adjacencies(
         auto edge_key = make_edge_key(edge);
         auto it       = border_edgemap.find(edge_key);
 
-        // Se non l'ho mai incontrato salvo in una mappa l'edge ed il
-        // triangolo corrispondente Se l'ho già incontrato ricostruisco
-        // l'adiacenza tra il triangolo corrente e il neighbor già trovato
+        // Se non l'ho mai incontrato salvo in una mappa l'edge e la
+        // faccia corrispondente. Se l'ho già incontrato ricostruisco
+        // l'adiacenza tra il triangolo corrente e il neighbor già trovato.
         if (it == border_edgemap.end()) {
-          //          border_edgemap.insert(it, {edge_key, triangles[i]});
-          border_edgemap[edge_key] = triangles[i];
+          // border_edgemap.insert(it, {edge_key, faces[i]});
+          border_edgemap[edge_key] = faces[i];
         } else {
-          auto neighbor                     = it->second;
-          mesh.adjacencies[triangles[i]][k] = neighbor;
+          auto neighbor                 = it->second;
+          mesh.adjacencies[faces[i]][k] = neighbor;
           for (int kk = 0; kk < 3; ++kk) {
             auto edge2 = get_mesh_edge_from_index(mesh.triangles[neighbor], kk);
             edge2      = make_edge_key(edge2);
             if (edge2 == edge_key) {
-              mesh.adjacencies[neighbor][kk] = triangles[i];
+              mesh.adjacencies[neighbor][kk] = faces[i];
               break;
             }
           }
@@ -959,21 +941,12 @@ static void update_face_adjacencies(
   }
 }
 
-inline void update_face_edgemap(
-    hash_map<vec2i, vec2i>& face_edgemap, const vec2i& edge, const int face) {
-  auto key = make_edge_key(edge);
-  auto it  = face_edgemap.find(key);
-  if (it == face_edgemap.end()) {
-    face_edgemap[key] = {face, -1};
-  } else {
-    it->second.y = face;
-  }
-}
-
 inline bool check_tags(
-    const bool_mesh& mesh, const hash_map<int, vector<int>>& faces) {
+    const bool_mesh& mesh, const vector<vec3i>& border_tags) {
   for (int i = 0; i < mesh.triangles.size(); i++) {
-    if (faces.find(i) != faces.end()) continue;
+    if (mesh.triangulated_faces.find(i) != mesh.triangulated_faces.end()) {
+      continue;
+    }
     auto face = i;
     auto tr   = mesh.triangles[face];
     if (tr == vec3i{0, 0, 0}) continue;
@@ -985,8 +958,8 @@ inline bool check_tags(
       auto kk = find_in_vec(mesh.adjacencies[neighbor], face);
       assert(kk != -1);
 
-      auto tags0 = mesh.border_tags[face];
-      auto tags1 = mesh.border_tags[neighbor];
+      auto tags0 = border_tags[face];
+      auto tags1 = border_tags[neighbor];
       auto tag0  = tags0[k];
       auto tag1  = tags1[kk];
       assert(tag0 == -tag1);
@@ -995,34 +968,22 @@ inline bool check_tags(
   return true;
 }
 
-static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
-    hash_map<int, vector<int>>& triangulated_faces,
-    const mesh_hashgrid&        hashgrid) {
+static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
   for (auto& [face, polylines] : hashgrid) {
-    auto [a, b, c] = mesh.triangles[face];
-
-    // TODO(giacomo): Cleanup.
-    for (auto& polyline : polylines) {
-      for (auto& v : polyline.vertices) {
-        assert(v < mesh.positions.size());
-      }
-    }
-    auto info    = triangulation_info{};
-    info.face    = face;
-    info.nodes   = vector<vec2f>{{0, 0}, {1, 0}, {0, 1}};
-    info.indices = vector<int>{a, b, c};
-
-    compute_triangulation_constraints(
-        mesh, polylines, info, triangulated_faces);
+    // Calcola le info per la triangolazione, i.e. (nodi ed edge constraints).
+    auto info = compute_triangulation_constraints(mesh, face, polylines);
 
 #ifdef MY_DEBUG
     debug_nodes()[face]   = info.nodes;
     debug_indices()[face] = info.indices;
 #endif
 
-    // Se nel triangolo non ho più di tre nodi allora non serve la
-    // triangolazione
-    if (info.nodes.size() == 3) continue;
+    // Se la faccia contiene solo segmenti corrispondenti ad edge del triangolo
+    // stesso, non serve nessuna triangolazione.
+    if (info.nodes.size() == 3) {
+      mesh.triangulated_faces[info.face] = {info.face};
+      continue;
+    }
 
     auto triangles = vector<vec3i>();
 
@@ -1031,7 +992,7 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
     if (info.edges.size() == 1) {
       triangles = single_split_triangulation(info.nodes, info.edges[0]);
     } else {
-      update_edge_constraints(info.edgemap, info.edges);
+      add_boundary_edge_constraints(info.edgemap, info.edges);
       triangles = constrained_triangulation(info.nodes, info.edges);
     }
 
@@ -1040,113 +1001,66 @@ static void triangulate(bool_mesh& mesh, hash_map<vec2i, vec2i>& face_edgemap,
     debug_triangles()[face] = triangles;
 #endif
 
-    // Calcoliamo l'adiacenza locale e la trasformiamo in globale
+    // Calcoliamo l'adiacenza locale e la trasformiamo in globale.
     auto adjacency = face_adjacencies_fast(triangles);
     for (auto& adj : adjacency) {
       for (auto& x : adj) {
-        if (x == -1)
-          x = -2;
-        else
+        if (x == -1) {
+          x = adjacent_to_nothing;
+        } else {
           x += mesh.triangles.size();
+        }
       }
     }
-
     mesh.adjacencies += adjacency;
 
-    // Aggiungiamo i nuovi triangoli alla mesh e aggiorniamo la face_edgemap
-    // corrispondente
-    triangulated_faces[face].clear();
-    for (auto i = 0; i < triangles.size(); i++) {
-      auto& [x, y, z] = triangles[i];
-      auto v0         = info.indices[x];
-      auto v1         = info.indices[y];
-      auto v2         = info.indices[z];
-
-      auto triangle_idx = (int)mesh.triangles.size();
-      mesh.triangles.push_back({v0, v1, v2});
-
-      update_face_edgemap(face_edgemap, {v0, v1}, triangle_idx);
-      update_face_edgemap(face_edgemap, {v1, v2}, triangle_idx);
-      update_face_edgemap(face_edgemap, {v2, v0}, triangle_idx);
-
-      triangulated_faces[face].push_back(triangle_idx);
+    // Converti triangli locali in globali.
+    for (int i = 0; i < triangles.size(); i++) {
+      auto& tr = triangles[i];
+      tr       = {info.indices[tr.x], info.indices[tr.y], info.indices[tr.z]};
+      mesh.triangulated_faces[face].push_back((int)mesh.triangles.size() + i);
     }
+    mesh.triangles += triangles;
   }
 }
 
-static vector<vec3i> face_tags(const bool_mesh& mesh,
-    const mesh_hashgrid& hashgrid, const hash_map<vec2i, vec2i>& face_edgemap,
-    const hash_map<int, vector<int>>& triangulated_faces) {
+static vector<vec3i> border_tags(
+    const bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
   auto tags = vector<vec3i>(mesh.triangles.size(), zero3i);
 
+  // Fill border_map.
+  auto border_map = hash_map<vec2i, int>{};
   for (auto& [face, polylines] : hashgrid) {
     for (auto& polyline : polylines) {
-      // TODO(giacomo): cleanup
+      auto polygon_id = polyline.polygon;
+      for (auto i = 0; i < num_segments(polyline); i++) {
+        auto edge        = get_segment_vertices(polyline, i);
+        border_map[edge] = polygon_id;
+      }
+    }
+  }
 
-      auto polygon = polyline.polygon;
-      auto end_idx = polyline.vertices.size() - 1;
-      if (polyline.contained_in_single_face) end_idx += 1;
-
-      for (auto i = 0; i < end_idx; i++) {
-        auto edge     = vec2i{polyline.vertices[i],
-            polyline.vertices[(i + 1) % polyline.vertices.size()]};
-        auto edge_key = make_edge_key(edge);
-
-        auto faces = vec2i{-1, -1};
-        auto it    = face_edgemap.find(edge_key);
-        if (it == face_edgemap.end()) {
-          auto& t_faces = triangulated_faces.at(face);
-          for (auto f : t_faces) {
-            auto& tr = mesh.triangles[f];
-            for (auto k = 0; k < 3; k++) {
-              auto e = make_edge_key(get_mesh_edge_from_index(tr, k));
-              if (edge_key == e) {
-                auto neigh = mesh.adjacencies[f][k];
-                faces      = {f, neigh};
-                goto update;
-              }
-            }
-          }
-        } else {
-          faces = it->second;
+  for (auto& [_, faces] : mesh.triangulated_faces) {
+    for (auto& face : faces) {
+      for (int k = 0; k < 3; k++) {
+        auto edge = get_mesh_edge_from_index(mesh.triangles[face], k);
+        auto it   = border_map.find(edge);
+        if (it != border_map.end()) {
+          tags[face][k] = -it->second;
+          continue;
         }
-
-      update:
-        if (faces.x == -1 || faces.y == -1) {
-          auto qualcosa = hashgrid.at(face);
-          // debug_draw(app, face, segments);
-          auto ff = mesh.adjacencies[face][1];
-          // debug_draw(app, ff, segments, "other");
-          assert(0);
-        }
-
-        // Il triangolo di sinistra ha lo stesso orientamento del poligono.
-        auto& [a, b, c] = mesh.triangles[faces.x];
-
-        auto [inner, outer] = faces;
-        auto k              = find_in_vec(mesh.adjacencies[inner], outer);
-        assert(k != -1);
-        tags[inner][k] = -polygon;
-
-        auto kk = find_in_vec(mesh.adjacencies[outer], inner);
-        assert(kk != -1);
-        tags[outer][kk] = +polygon;
-
-        // Controlliamo che l'edge si nello stesso verso del poligono. Se non
-        // e' cosi, invertiamo.
-        if ((edge == vec2i{b, a}) || (edge == vec2i{c, b}) ||
-            (edge == vec2i{a, c})) {
-          tags[inner][k] *= -1;
-          tags[outer][kk] *= -1;
-          swap(faces.x, faces.y);  // if DRAW_BORDER_FACES
+        it = border_map.find({edge.y, edge.x});
+        if (it != border_map.end()) {
+          tags[face][k] = it->second;
         }
       }
     }
   }
+  check_tags(mesh, tags);
   return tags;
 }
 
-void compute_cells(bool_mesh& mesh, bool_state& state) {
+static void slice_mesh(bool_mesh& mesh, bool_state& state) {
   auto& polygons = state.polygons;
 
   // Calcoliamo i vertici nuovi della mesh
@@ -1156,31 +1070,20 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   // Calcoliamo hashgrid e intersezioni tra poligoni,
   // aggiungendo ulteriori vertici nuovi alla mesh
   auto hashgrid = compute_hashgrid(polygons, vertices);
-  compute_intersections(state, hashgrid, mesh);
-
-  // Mappa a ogni edge generato le due facce generate adiacenti.
-  auto  face_edgemap       = hash_map<vec2i, vec2i>{};
-  auto& triangulated_faces = mesh.triangulated_faces;
-  triangulated_faces       = hash_map<int, vector<int>>{};
+  add_polygon_intersection_points(state, hashgrid, mesh);
 
   // Triangolazione e aggiornamento dell'adiacenza
-  triangulate(mesh, face_edgemap, triangulated_faces, hashgrid);
-  update_face_adjacencies(mesh, triangulated_faces);
+  triangulate(mesh, hashgrid);
+  update_face_adjacencies(mesh);
 
-  // Calcola i tags per ogni faccia
-  mesh.border_tags = face_tags(
-      mesh, hashgrid, face_edgemap, triangulated_faces);
+  // Calcola i border_tags per le facce triangolata.
+  mesh.border_tags = border_tags(mesh, hashgrid);
+}
 
-  check_tags(mesh, triangulated_faces);
-
-  // Trova l'adiacenza fra celle tramite il flood-fill
-  state.cells = make_mesh_cells(mesh, mesh.border_tags);
-
-  //  save_tree_png(app, "0");
-
+static void compute_cell_labels(vector<mesh_cell>& cells, int num_polygons) {
   // Calcoliamo possibili cicli all'interno del grafo delle adiacenze della
   // mesh. In modo da eliminare gli archi corrispondenti.
-  auto cycles = compute_graph_cycles(state.cells);
+  auto cycles = compute_graph_cycles(cells);
 
   // (marzia) Sicuro si può fare meglio
   auto skip_polygons = vector<int>();
@@ -1194,11 +1097,9 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
 
   // Calcoliamo il labelling definitivo per effettuare le booleane tra
   // poligoni
-  auto& cells      = state.cells;
-  auto  label_size = polygons.size();
 
   // Inizializziamo le label delle celle a 0
-  for (auto& cell : cells) cell.labels = vector<int>(label_size, 0);
+  for (auto& cell : cells) cell.labels = vector<int>(num_polygons, 0);
 
   // Se erano presenti cicli li risolviamo settando la label in base alle
   // informazioni estratte prima
@@ -1214,7 +1115,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     start = cycle_nodes;
   } else {
     // Trova le celle ambiente nel grafo dell'adiacenza delle celle
-    start = {find_ambient_cells(state.cells, skip_polygons).front()};
+    start = {find_ambient_cells(cells, skip_polygons).front()};
   }
 
   auto visited = vector<bool>(cells.size(), false);
@@ -1227,7 +1128,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
       return polygon < 0 || contains(skip_polygons, yocto::abs(polygon));
     };
 
-    compute_cell_labels(cells, visited, start, skip);
+    propagate_cell_labels(cells, visited, start, skip);
   }
 
   // Second backward pass. Se sono rimasti altri nodi non coperti dalla visita
@@ -1246,29 +1147,40 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     start.clear();
     for (int i = 0; i < visited.size(); i++) {
       if (visited[i]) continue;
-      for (auto& [neighbor, polygon] : state.cells[i].adjacency) {
+      for (auto& [neighbor, polygon] : cells[i].adjacency) {
         if (visited[neighbor]) start.push_back(neighbor);
       }
     }
 
     if (start.size()) {
-      compute_cell_labels(cells, visited, start, skip);
+      propagate_cell_labels(cells, visited, start, skip);
     }
   }
 
   // Se la partenza avviene da una cella senza archi entranti che non è una
   // cella ambiente effettiva allora troviamo delle etichette negative. In
   // questo caso calcoliamo l'offset e lo propaghiamo su tutti il grafo
-  update_label_propagation(cells, label_size);
+  update_label_propagation(cells, num_polygons);
 
   // Applichiamo la even-odd rule nel caso in cui le label > 1 (Nelle self
   // intersections posso entrare in un poligono più volte senza esserne prima
   // uscito)
-  for (auto& cell : state.cells) {
+  for (auto& cell : cells) {
     for (auto& label : cell.labels) {
       if (label > 1) label = label % 2;
     }
   }
+}
+
+void compute_cells(bool_mesh& mesh, bool_state& state) {
+  // Triangola mesh in modo da embeddare tutti i poligoni come mesh-edges.
+  slice_mesh(mesh, state);
+
+  // Trova celle e loro adiacenza via flood-fill.
+  state.cells = make_mesh_cells(mesh.adjacencies, mesh.border_tags);
+
+  // Calcola i label delle celle con una visita sulla loro adiacenza.
+  compute_cell_labels(state.cells, (int)state.polygons.size());
 }
 
 void compute_shapes(bool_state& state) {
@@ -1459,7 +1371,7 @@ vec3f get_cell_color(const bool_state& state, int cell_id, bool color_shapes) {
     auto shape_id = 0;
     for (int s = (int)state.shapes.size() - 1; s >= 0; s--) {
       if (state.shapes[s].cells.count(cell_id) && state.shapes[s].is_root) {
-        shape_id = s;
+        shape_id = state.shapes[s].polygon;
         break;
       }
     }
@@ -1477,7 +1389,6 @@ vec3f get_cell_color(const bool_state& state, int cell_id, bool color_shapes) {
     }
     if (count > 0) {
       color /= count;
-      // color += vec3f{1, 1, 1} * 0.1f * yocto::sin(float(cell_id));
     } else {
       color = {0.9, 0.9, 0.9};
     }

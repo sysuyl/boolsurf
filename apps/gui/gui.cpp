@@ -89,19 +89,28 @@ void draw_widgets(app_state* app, const gui_input& input) {
     ImGui::End();
   }
 
-  if (begin_header(widgets, "view")) {
+  // if (begin_header(widgets, "view"))
+  {
     auto  glmaterial = app->mesh_material;
     auto& params     = app->drawgl_prms;
-    draw_checkbox(widgets, "lines", app->glscene->instances[1]->hidden, true);
+    draw_checkbox(widgets, "edges", app->glscene->instances[1]->hidden, true);
+    continue_line(widgets);
     draw_checkbox(widgets, "points", app->glscene->instances[2]->hidden, true);
-    draw_coloredit(widgets, "color", glmaterial->color);
-    draw_slider(widgets, "resolution", params.resolution, 0, 4096);
-    draw_combobox(
-        widgets, "lighting", (int&)params.lighting, shade_lighting_names);
+
+    if (!app->glscene->instances[1]->hidden) {
+      draw_coloredit(widgets, "edges color", app->edges_material->color);
+    }
+    if (!app->glscene->instances[2]->hidden) {
+      draw_coloredit(widgets, "points color", app->points_material->color);
+    }
+    draw_coloredit(widgets, "mesh color", glmaterial->color);
+    // draw_slider(widgets, "resolution", params.resolution, 0, 4096);
+    // draw_combobox(
+    //     widgets, "lighting", (int&)params.lighting, shade_lighting_names);
     draw_checkbox(widgets, "wireframe", params.wireframe);
     continue_line(widgets);
     draw_checkbox(widgets, "double sided", params.double_sided);
-    end_header(widgets);
+    // end_header(widgets);
   }
 
   if (begin_header(widgets, "mesh info")) {
@@ -176,8 +185,6 @@ void draw_widgets(app_state* app, const gui_input& input) {
       if (shape_id >= 2) {
         swap(app->state.shapes[shape_id], app->state.shapes[shape_id - 1]);
         shape_id -= 1;
-        // update_shapes(app);  // TODO(giacomo): fix
-        // set_default_shapes(app);
         update_cell_colors(app);
       }
     }
@@ -561,10 +568,9 @@ void key_input(app_state* app, const gui_input& input) {
 
       case (int)gui_key('C'): {
         auto old_camera = app->glcamera;
-        app->state.points.clear();
-        app->state.polygons.clear();
-        app->state.polygons.push_back(mesh_polygon{});
-        load_shape(app, app->model_filename);
+        app->state      = {};
+        app->state.polygons.push_back({});
+        reset_mesh(app->mesh);
         clear_scene(app->glscene);
         init_glscene(app, app->glscene, app->mesh);
         app->glcamera = old_camera;

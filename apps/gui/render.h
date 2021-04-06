@@ -93,8 +93,7 @@ inline void set_border_shape(shade_scene* scene, const bool_state& state,
   set_instances(shape.borders_shape->shape, {}, {});
 }
 
-inline void draw_triangulation(
-    ogl_texture* texture, int face, vec2i size = {2048, 2048}) {
+void draw_triangulation(ogl_texture* texture, int face, vec2i size) {
 #ifndef _WIN32
   auto& triangles = debug_triangles()[face];
   auto& positions = debug_nodes()[face];

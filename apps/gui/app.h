@@ -5,12 +5,9 @@
 #include <boolsurf/boolsurf_io.h>
 #include <yocto/yocto_geometry.h>
 #include <yocto/yocto_image.h>
-#include <yocto/yocto_math.h>
 #include <yocto/yocto_mesh.h>
 #include <yocto/yocto_sceneio.h>
-#include <yocto/yocto_shape.h>
 #include <yocto_gui/yocto_imgui.h>
-#include <yocto_gui/yocto_shade.h>
 #include <yocto_gui/yocto_window.h>
 
 #include <unordered_map>
@@ -380,97 +377,18 @@ shade_instance* add_polygon_shape(
 
 inline void update_cell_shapes(app_state* app) {
   for (int i = 0; i < app->state.cells.size(); i++) {
-    auto& cell = app->state.cells[i];
-    // auto  s     = front_polygon_containing_this_cell(app, i);
-    // auto  color = vec3f{};
-    // if (s == -1) {
-    //   color = {.9, .9, .9};
-    // } else {
-    //   // color = get_polygon_color(app, app->state.shapes[s].polygon);
-    //   color = app->state.shapes[s].color;
-    // }
-    // app->cell_patches.push_back((int)app->glscene->instances.size());
-    set_patch_shape(app->cell_shapes[i]->shape, app->mesh, cell.faces);
-    // app->cell_shapes[i]->material->color = color;
-    // print_cell_info(cell, i);
+      auto& cell = app->state.cells[i];
+      set_patch_shape(
+        app->cell_shapes[i]->shape, app->mesh, cell.faces);
   }
 }
-
-// inline void init_shapes(app_state* app) {
-//   // Start with one shape for each polygon.
-//   auto& shapes = app->state.shapes;
-//   shapes.resize(app->state.polygons.size());
-//   for (auto& shape : shapes) {
-//     shape.cells.clear();
-//   }
-
-//   // Assign a polygon and a color to each shape.
-//   for (int p = 0; p < app->state.polygons.size(); p++) {
-//     if (shapes[p].polygon == -1) {
-//       shapes[p].polygon = p;
-//     }
-//     if (shapes[p].color == vec3f{0, 0, 0}) {
-//       shapes[p].color = get_color(p);
-//     }
-//   }
-// }
-
-// inline void set_default_shapes(app_state* app) {
-//   // init_shapes(app);
-//   for (auto& shape : app->state.shapes) {
-//     shape.cells.clear();
-//   }
-//   app->state.shapes[0].cells = {app->state.ambient_cell};
-
-//   // Distribute cells to shapes
-//   for (int cell = 0; cell < app->state.cells.size(); cell++) {
-//     auto p = front_polygon_containing_this_cell(app, cell);
-//     if (p > 0) {
-//       app->state.shapes[p].cells.push_back(cell);
-//     }
-//   }
-// }
 
 inline void update_cell_colors(app_state* app) {
   auto& state = app->state;
   for (int i = 0; i < state.cells.size(); i++) {
-    auto shape_id = 0;
-    for (int s = (int)state.shapes.size() - 1; s >= 0; s--) {
-      if (state.shapes[s].cells.count(i)) {
-        shape_id = s;
-        break;
-      }
-    }
-    // app->cell_shapes[i]->material->color = get_color(shape_id);
     app->cell_shapes[i]->material->color = get_cell_color(
         state, i, app->color_shapes);
   }
-
-  // instance->material->color     = get_cell_color(cell.labels, i);
-
-  // auto get_cell_color = [](const mesh_cell& cell, int cell_id) {
-  //   auto color = vec3f{0, 0, 0};
-  //   int  count = 0;
-  //   for (int p = 0; p < cell.labels.size(); p++) {
-  //     auto label = cell.labels[p];
-  //     if (label > 0) {
-  //       color += get_color(p);
-  //       count += 1;
-  //     }
-  //   }
-  //   if (count > 0) {
-  //     color /= count;
-  //     color += vec3f{1, 1, 1} * 0.1f * yocto::sin(cell_id);
-  //   } else {
-  //     color = {0.9, 0.9, 0.9};
-  //   }
-  //   return color;
-  // };
-
-  // for (int i = 0; i < app->state.cells.size(); ++i) {
-  //   app->cell_shapes[i]->material->color = get_cell_color(
-  //       app->state.cells[i], i);
-  // }
 }
 
 void save_test(
