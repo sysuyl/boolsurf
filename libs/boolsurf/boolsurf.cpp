@@ -791,14 +791,15 @@ void add_boundary_edge_constraints(
   }
 }
 
-static vector<vec3i> single_split_triangulation(
+static pair<vector<vec3i>, vector<vec3i>> single_split_triangulation(
     const vector<vec2f>& nodes, const vec2i& edge) {
   // Calcoliamo la triangolazione con un singolo segmento all'interno del
   // triangolo.
   auto start_edge = get_edge_from_uv(nodes[edge.x]);
   auto end_edge   = get_edge_from_uv(nodes[edge.y]);
 
-  auto triangles = vector<vec3i>(3);
+  auto triangles   = vector<vec3i>(3);
+  auto adjacencies = vector<vec3i>(3);
   if (edge.x < 3) {
     // Se il segmento ha come inizio un punto in un lato e come fine il
     // vertice del triangolo opposto
@@ -806,12 +807,20 @@ static vector<vec3i> single_split_triangulation(
     triangles[1] = {edge.x, edge.y, end_edge.y};
     triangles.resize(2);
 
+    adjacencies[0] = {adjacent_to_nothing, adjacent_to_nothing, 1};
+    adjacencies[1] = {0, adjacent_to_nothing, adjacent_to_nothing};
+    adjacencies.resize(2);
+
   } else if (edge.y < 3) {
     // Se il segmento ha come inizio un vertice di un triangolo e come fine un
     // punto punto nel lato opposto
     triangles[0] = {edge.y, start_edge.x, edge.x};
     triangles[1] = {edge.y, edge.x, start_edge.y};
     triangles.resize(2);
+
+    adjacencies[0] = {adjacent_to_nothing, adjacent_to_nothing, 1};
+    adjacencies[1] = {0, adjacent_to_nothing, adjacent_to_nothing};
+    adjacencies.resize(2);
 
   } else {
     // Se il segmento ha inizio e fine su due lati del triangolo
@@ -822,22 +831,30 @@ static vector<vec3i> single_split_triangulation(
       triangles[1] = {edge.x, edge.y, z};
       triangles[2] = {edge.x, y, edge.y};
 
+      adjacencies[0] = {adjacent_to_nothing, 1, adjacent_to_nothing};
+      adjacencies[1] = {2, adjacent_to_nothing, 0};
+      adjacencies[2] = {adjacent_to_nothing, adjacent_to_nothing, 1};
+
     } else if (start_edge.x == end_edge.y) {
       auto z       = end_edge.x;
       triangles[0] = {x, edge.x, edge.y};
       triangles[1] = {edge.x, z, edge.y};
       triangles[2] = {edge.x, y, z};
 
+      adjacencies[0] = {adjacent_to_nothing, 1, adjacent_to_nothing};
+      adjacencies[1] = {2, adjacent_to_nothing, 0};
+      adjacencies[2] = {adjacent_to_nothing, adjacent_to_nothing, 1};
+
     } else {
       assert(0);
     }
   }
 
-  return triangles;
+  return {triangles, adjacencies};
 }
 
 // Constrained Delaunay Triangulation
-static vector<vec3i> constrained_triangulation(
+static pair<vector<vec3i>, vector<vec3i>> constrained_triangulation(
     vector<vec2f>& nodes, const vector<vec2i>& edges) {
   // Questo purtroppo serve.
   for (auto& n : nodes) n *= 1e9;
@@ -855,12 +872,24 @@ static vector<vec3i> constrained_triangulation(
       [](const vec2i& edge) -> int { return edge.y; });
 
   cdt.eraseOuterTriangles();
+  auto adjacencies = vector<vec3i>();
+  adjacencies.reserve(cdt.triangles.size());
+
   auto triangles = vector<vec3i>();
   triangles.reserve(cdt.triangles.size());
 
   for (auto& tri : cdt.triangles) {
     auto verts = vec3i{
         (int)tri.vertices[0], (int)tri.vertices[1], (int)tri.vertices[2]};
+
+    auto adjacency = vec3i{};
+    for (auto k = 0; k < 3; k++) {
+      auto neigh = tri.neighbors[k];
+      if (neigh == CDT::noNeighbor)
+        adjacency[k] = adjacent_to_nothing;
+      else
+        adjacency[k] = (int)neigh;
+    }
 
     // TODO: serve? (marzia): Forse no!
     auto& a           = nodes[verts.x];
@@ -873,8 +902,9 @@ static vector<vec3i> constrained_triangulation(
     }
 
     triangles.push_back(verts);
+    adjacencies.push_back(adjacency);
   }
-  return triangles;
+  return {triangles, adjacencies};
 }
 
 static void update_face_adjacencies(bool_mesh& mesh) {
@@ -993,14 +1023,17 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
     }
 
     auto triangles = vector<vec3i>();
+    auto adjacency = vector<vec3i>();
 
     // Se il triangolo ha al suo interno un solo segmento allora chiamiamo la
     // funzione di triangolazione più semplice, altrimenti chiamiamo CDT
     if (info.edges.size() == 1) {
-      triangles = single_split_triangulation(info.nodes, info.edges[0]);
+      tie(triangles, adjacency) = single_split_triangulation(
+          info.nodes, info.edges[0]);
     } else {
       add_boundary_edge_constraints(info.edgemap, info.edges);
-      triangles = constrained_triangulation(info.nodes, info.edges);
+      tie(triangles, adjacency) = constrained_triangulation(
+          info.nodes, info.edges);
     }
 
 #ifdef MY_DEBUG
@@ -1009,14 +1042,10 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
 #endif
 
     // Calcoliamo l'adiacenza locale e la trasformiamo in globale.
-    auto adjacency = face_adjacencies_fast(triangles);
+    // auto adjacency = face_adjacencies_fast(triangles);
     for (auto& adj : adjacency) {
       for (auto& x : adj) {
-        if (x == -1) {
-          x = adjacent_to_nothing;
-        } else {
-          x += mesh.triangles.size();
-        }
+        if (x != adjacent_to_nothing) x += mesh.triangles.size();
       }
     }
     mesh.adjacencies += adjacency;
