@@ -243,8 +243,10 @@ static mesh_hashgrid compute_hashgrid(
       for (auto s = 0; s < edge.size(); s++) {
         auto& segment = edge[s];
 
-        auto end   = idx;
-        auto start = (idx - 1);
+        // auto end   = idx;
+        // auto start = (idx - 1);
+        auto start = idx;
+        auto end   = (idx + 1) % vertices[polygon_id].size();
         idx += 1;
 
         // Iniziamo a riempire l'hashgrid a partire da quando troviamo una
@@ -290,7 +292,7 @@ static mesh_hashgrid compute_hashgrid(
         for (int s = 0; s < edge.size(); s++) {
           auto& segment = edge[s];
           polyline.vertices.push_back(vertices[polygon_id][index]);
-          polyline.points.push_back(segment.end);
+          polyline.points.push_back(segment.start);
           index += 1;
         }
       }
@@ -298,7 +300,7 @@ static mesh_hashgrid compute_hashgrid(
 
     // Ripetiamo parte del ciclo (fino a indices) perché il primo tratto di
     // polilinea non è stato inserito nell'hashgrid
-    idx = 0;
+    idx = 1;
     for (auto e = 0; e <= indices.x; e++) {
       auto end_idx = (e < indices.x) ? polygon.edges[e].size() : indices.y;
       for (auto s = 0; s < end_idx; s++) {
@@ -340,28 +342,29 @@ static vector<vector<int>> add_vertices(
 
     for (auto e = 0; e < edges.size(); e++) {
       auto& segments = edges[e];
-
       if (segments.empty()) continue;  // TODO(giacomo): What?
 
       // Aggiungiamo tutti i vertici tranne l'ultimo, perché dobbiamo
       // individuare e salvare i control points separatamente
       for (auto s = 0; s < segments.size() - 1; s++) {
-        auto vertex = add_vertex(mesh, {segments[s].face, segments[s].end});
+        auto vertex = add_vertex(mesh, {segments[s].face, segments[s].start});
         vertices[i].push_back(vertex);
       }
 
-      // L'ultimo vertice di un edge è un control point. Se è già stato
-      // incontrato riutilizziamo l'indice già calcolato
-      auto control_point = polygons[i].points[(e + 1) % edges.size()];
+      // // L'ultimo vertice di un edge è un control point. Se è già stato
+      // // incontrato riutilizziamo l'indice già calcolato
+      auto control_point = polygons[i].points[e];
       auto vertex        = -1;
       if (contains(duplicates, control_point)) {
         vertex = duplicates[control_point];
       } else {
-        vertex = add_vertex(mesh, {segments.back().face, segments.back().end});
+        vertex = add_vertex(
+            mesh, {segments.back().face, segments.back().start});
         duplicates[control_point] = vertex;
       }
 
-      // TODO(giacomo,marzia): Sarebbe bello se potessimo fare questo altorve,
+      // TODO(giacomo,marzia): Sarebbe bello se potessimo fare questo
+      // altorve,
       // in modo tale da non dover passare lo state a questa funzione.
       state.border_vertices[vertex] = control_point;
       vertices[i].push_back(vertex);
@@ -370,8 +373,8 @@ static vector<vector<int>> add_vertices(
   return vertices;
 }
 
-static vector<mesh_cell> flood_fill_new(
-    vector<int>& starts, const vector<vec3i>& adjacencies, const vector<vec3i>& border_tags) {
+static vector<mesh_cell> flood_fill_new(vector<int>& starts,
+    const vector<vec3i>& adjacencies, const vector<vec3i>& border_tags) {
   auto result    = vector<mesh_cell>{};
   auto cell_tags = vector<int>(adjacencies.size(), -1);
 
