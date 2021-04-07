@@ -95,6 +95,12 @@ inline void set_border_shape(shade_scene* scene, const bool_state& state,
 
 void draw_triangulation(ogl_texture* texture, int face, vec2i size) {
 #ifndef _WIN32
+  static int last_drawn_face = -1;
+  if (face == last_drawn_face) {
+    return;
+  }
+  last_drawn_face = face;
+
   auto& triangles = debug_triangles()[face];
   auto& positions = debug_nodes()[face];
   auto& indices   = debug_indices()[face];
@@ -107,6 +113,7 @@ void draw_triangulation(ogl_texture* texture, int face, vec2i size) {
     font = new opengl_font{};
     init_font(font, "data/Menlo-Regular.ttf", 100);
   }
+  auto text_size = 0.04f;
 
   static ogl_shape* faces = nullptr;
   if (!faces) {
@@ -196,7 +203,6 @@ void draw_triangulation(ogl_texture* texture, int face, vec2i size) {
   set_uniform(program, "color", vec3f{0.5, 0.5, 0.5});
   draw_shape(faces);
 
-  auto text_size = 0.04;
   for (int i = 0; i < positions.size(); i++) {
     auto text     = to_string(i);
     auto position = (positions[i] - vec2f{0.5f, 0.5f}) * 2;
@@ -212,26 +218,40 @@ void draw_triangulation(ogl_texture* texture, int face, vec2i size) {
     auto color = vec3f{0.8, 0.4, 0.1};
 
     lines += "face: "s + to_string(face);
-    lines += ""s;
+    draw_text(font, lines, -0.35, 0.9, text_size, color);
+
+    lines.clear();
     lines += "triangles"s;
     for (int i = 0; i < triangles.size(); i++) {
       auto [a, b, c] = triangles[i];
       auto text      = "(" + to_string(a) + ", " + to_string(b) + ", " +
                   to_string(c) + ")";
       lines += text;
+      // if (i > 16) {
+      //   lines += "..."s;
+      //   break;
+      // }
     }
-    draw_text(font, lines, 0.1, 0.9, text_size, color);
+    draw_text(font, lines, 0.7, 0.9, text_size, color);
 
     lines.clear();
+    lines += "indices"s;
+    for (int i = 0; i < indices.size(); i++) {
+      auto text = to_string(i) + ": "s;
+      text += to_string(indices[i]);
+      lines += text;
+    }
+    draw_text(font, lines, -0.1, 0.9, text_size, color);
 
+    lines.clear();
     lines += "positions"s;
     for (int i = 0; i < positions.size(); i++) {
       auto [a, b] = positions[i];
-      auto text   = "[" + to_string(indices[i]) + "] ";
-      text += to_string(i) + ": (" + to_string(a) + ", " + to_string(b) + ")";
+      auto text   = to_string(i) + ": (" + to_string(a) + ", " + to_string(b) +
+                  ")";
       lines += text;
     }
-    draw_text(font, lines, 0.3, 0.9, text_size, color);
+    draw_text(font, lines, 0.15, 0.9, text_size, color);
   }
 
   unbind_framebuffer();

@@ -800,6 +800,8 @@ static pair<vector<vec3i>, vector<vec3i>> single_split_triangulation(
 
   auto triangles   = vector<vec3i>(3);
   auto adjacencies = vector<vec3i>(3);
+
+  // image: libs/boolsurf/notes/sinlge-split-adjacency.jpg
   if (edge.x < 3) {
     // Se il segmento ha come inizio un punto in un lato e come fine il
     // vertice del triangolo opposto

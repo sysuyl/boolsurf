@@ -1,5 +1,3 @@
-#define MY_DEBUG
-
 #include "app.h"
 
 using namespace yocto;
@@ -7,11 +5,6 @@ using namespace yocto;
 #include <deque>
 
 #include "../../libs/yocto_gui/ext/imgui/imgui.h"
-
-#ifdef _WIN32
-#undef near
-#undef far
-#endif
 
 #ifdef MY_DEBUG
 void debug_draw(app_state* app, int face, const string& header = "") {

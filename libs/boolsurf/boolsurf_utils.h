@@ -1,11 +1,19 @@
 #pragma once
 
+#ifdef _WIN32
+#undef near
+#undef far
+#endif
+
 #include <yocto/yocto_mesh.h>
 #include <yocto/yocto_scene.h>
 #include <yocto/yocto_shape.h>  // hashing vec2i
 
 #include <cassert>
 using namespace yocto;
+
+// TODO(giacomo): Define only in debug!
+#define MY_DEBUG
 
 inline int mod3(int i) { return (i > 2) ? i - 3 : i; }
 
