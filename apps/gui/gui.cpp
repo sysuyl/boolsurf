@@ -468,13 +468,13 @@ void key_input(app_state* app, const gui_input& input) {
           for (auto& border : shape.border_points) {
             auto& polygon = state.polygons.emplace_back();
             for (auto v : border) {
-              auto id = app->state.border_vertices.at(v);
+              auto id = app->state.control_points.at(v);
               polygon.points.push_back(id);
             }
           }
         }
 
-        save_test(app, state, "data/tests/tmp.json");
+        save_test(app, state, "data/tests/border_tmp.json");
         return;
 
         app->mesh = app->mesh_original;

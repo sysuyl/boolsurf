@@ -73,7 +73,7 @@ struct bool_state {
   vector<mesh_point>   points   = {};
 
   int                  num_original_points = 0;
-  hash_map<int, int>   border_vertices     = {};
+  hash_map<int, int>   control_points      = {};
   hash_map<int, vec2i> isecs_generators    = {};
 
   int                ambient_cell = -1;

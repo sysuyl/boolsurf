@@ -327,7 +327,7 @@ inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
 }
 
 static vector<vector<vector<int>>> add_vertices(
-    bool_state& state, bool_mesh& mesh, const vector<mesh_polygon>& polygons) {
+    bool_mesh& mesh, const vector<mesh_polygon>& polygons) {
   auto vertices   = vector<vector<vector<int>>>(polygons.size());
   auto duplicates = hash_map<int, int>();
 
@@ -338,36 +338,42 @@ static vector<vector<vector<int>>> add_vertices(
 
     for (auto e = 0; e < edges.size(); e++) {
       auto& segments = edges[e];
-      // if (segments.empty()) continue;  // TODO(giacomo): What?
       vertices[p][e].resize(segments.size());
+
+      // TODO(marzia): Move somewhere else
+      // L'ultimo vertice di un edge è un control point. Se è già stato
+      // incontrato riutilizziamo l'indice già calcolato
+      auto control_point = polygons[p].points[e];
+      if (contains(duplicates, control_point)) {
+        vertices[p][e][0] = duplicates[control_point];
+      } else {
+        vertices[p][e][0] = add_vertex(
+            mesh, {segments[0].face, segments[0].start});
+        duplicates[control_point] = vertices[p][e][0];
+      }
 
       // Aggiungiamo tutti i vertici tranne l'ultimo, perché dobbiamo
       // individuare e salvare i control points separatamente
-      for (auto s = 0; s < segments.size() - 1; s++) {
+      for (auto s = 1; s < segments.size(); s++) {
         auto vertex = add_vertex(mesh, {segments[s].face, segments[s].start});
         vertices[p][e][s] = vertex;
       }
-
-      // // L'ultimo vertice di un edge è un control point. Se è già stato
-      // // incontrato riutilizziamo l'indice già calcolato
-      auto control_point = polygons[p].points[e];
-      auto vertex        = -1;
-      if (contains(duplicates, control_point)) {
-        vertex = duplicates[control_point];
-      } else {
-        vertex = add_vertex(
-            mesh, {segments.back().face, segments.back().start});
-        duplicates[control_point] = vertex;
-      }
-
-      // TODO(giacomo,marzia): Sarebbe bello se potessimo fare questo
-      // altorve,
-      // in modo tale da non dover passare lo state a questa funzione.
-      state.border_vertices[vertex]            = control_point;
-      vertices[p][e][(int)segments.size() - 1] = vertex;
     }
   }
   return vertices;
+}
+
+static hash_map<int, int> compute_control_points(vector<mesh_polygon>& polygons,
+    const vector<vector<vector<int>>> vertices) {
+  auto control_points = hash_map<int, int>();
+  for (auto p = 0; p < vertices.size(); p++) {
+    for (auto e = 0; e < vertices[p].size(); e++) {
+      auto control_point_idx            = vertices[p][e][0];
+      auto mesh_point_idx               = polygons[p].points[e];
+      control_points[control_point_idx] = mesh_point_idx;
+    }
+  }
+  return control_points;
 }
 
 static vector<mesh_cell> flood_fill_new(vector<int>& starts,
@@ -656,7 +662,7 @@ static void add_polygon_intersection_points(bool_state& state,
           auto uv                        = lerp(start1, end1, l.y);
           auto point                     = mesh_point{face, uv};
           auto vertex                    = add_vertex(mesh, point);
-          state.border_vertices[vertex]  = state.points.size();
+          state.control_points[vertex]   = state.points.size();
           state.isecs_generators[vertex] = {poly.polygon, poly.polygon};
 
           state.points.push_back(point);
@@ -690,7 +696,7 @@ static void add_polygon_intersection_points(bool_state& state,
             auto uv                        = lerp(start1, end1, l.y);
             auto point                     = mesh_point{face, uv};
             auto vertex                    = add_vertex(mesh, point);
-            state.border_vertices[vertex]  = state.points.size();
+            state.control_points[vertex]   = state.points.size();
             state.isecs_generators[vertex] = {poly0.polygon, poly1.polygon};
 
             state.points.push_back(point);
@@ -1065,8 +1071,9 @@ static void slice_mesh(bool_mesh& mesh, bool_state& state) {
   auto& polygons = state.polygons;
 
   // Calcoliamo i vertici nuovi della mesh
-  auto vertices             = add_vertices(state, mesh, polygons);
+  auto vertices             = add_vertices(mesh, polygons);
   state.num_original_points = (int)state.points.size();
+  state.control_points      = compute_control_points(polygons, vertices);
 
   // Calcoliamo hashgrid e intersezioni tra poligoni,
   // aggiungendo ulteriori vertici nuovi alla mesh
@@ -1298,7 +1305,7 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
 
           // Se il vertice corrente è un punto di controllo lo aggiungo al
           // bordo
-          if (contains(state.border_vertices, current)) {
+          if (contains(state.control_points, current)) {
             // Se è un punto di intersezione controlliamo che i poligoni che
             // lo hanno generato siano entrambi compresi nei poligoni che
             // hanno generato anche la shape.
