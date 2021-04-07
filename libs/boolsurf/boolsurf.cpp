@@ -218,8 +218,8 @@ inline vec2i get_segment_vertices(const hashgrid_polyline& polyline, int i) {
 
 using mesh_hashgrid = hash_map<int, vector<hashgrid_polyline>>;
 
-static mesh_hashgrid compute_hashgrid(
-    const vector<mesh_polygon>& polygons, const vector<vector<int>>& vertices) {
+static mesh_hashgrid compute_hashgrid(const vector<mesh_polygon>& polygons,
+    const vector<vector<vector<int>>>&                            vertices) {
   // La hashgrid associa ad ogni faccia una lista di polilinee.
   // Ogni polilinea è definita da una sequenza punti in coordinate
   // baricentriche, ognuno di essi assiociato al corrispondente vertice della
@@ -235,19 +235,12 @@ static mesh_hashgrid compute_hashgrid(
     int  first_face = polygon.edges[0][0].face;
     auto indices    = vec2i{-1, -1};  // edge_id, segment_id
 
-    int  last_face = -1;
-    auto idx       = 0;
+    int last_face = -1;
     for (auto e = 0; e < polygon.edges.size(); e++) {
       auto& edge = polygon.edges[e];
 
       for (auto s = 0; s < edge.size(); s++) {
         auto& segment = edge[s];
-
-        // auto end   = idx;
-        // auto start = (idx - 1);
-        auto start = idx;
-        auto end   = (idx + 1) % vertices[polygon_id].size();
-        idx += 1;
 
         // Iniziamo a riempire l'hashgrid a partire da quando troviamo una
         // faccia diversa da quella iniziale del poligono (il primo tratto
@@ -256,6 +249,9 @@ static mesh_hashgrid compute_hashgrid(
         if (indices == vec2i{-1, -1}) indices = {e, s};
 
         auto& entry = hashgrid[segment.face];
+        auto  ids   = vec2i{e, s};
+        ids.y       = (s + 1) % edge.size();
+        ids.x       = ids.y > s ? e : (e + 1) % polygon.edges.size();
 
         // Se la faccia del segmento che stiamo processando è diversa
         // dall'ultima salvata allora creiamo una nuova polilinea, altrimenti
@@ -264,16 +260,16 @@ static mesh_hashgrid compute_hashgrid(
           auto& polyline   = entry.emplace_back();
           polyline.polygon = polygon_id;
 
-          polyline.vertices.push_back(vertices[polygon_id][start]);
+          polyline.vertices.push_back(vertices[polygon_id][e][s]);
           polyline.points.push_back(segment.start);
 
-          polyline.vertices.push_back(vertices[polygon_id][end]);
+          polyline.vertices.push_back(vertices[polygon_id][ids.x][ids.y]);
           polyline.points.push_back(segment.end);
         } else {
           auto& polyline = entry.back();
           assert(segment.end != polyline.points.back());
           polyline.points.push_back(segment.end);
-          polyline.vertices.push_back(vertices[polygon_id][end]);
+          polyline.vertices.push_back(vertices[polygon_id][ids.x][ids.y]);
         }
 
         last_face = segment.face;
@@ -286,31 +282,31 @@ static mesh_hashgrid compute_hashgrid(
       polyline.polygon   = polygon_id;
       polyline.is_closed = true;
 
-      int index = 0;
       for (auto e = 0; e < polygon.edges.size(); e++) {
         auto& edge = polygon.edges[e];
         for (int s = 0; s < edge.size(); s++) {
           auto& segment = edge[s];
-          polyline.vertices.push_back(vertices[polygon_id][index]);
+          polyline.vertices.push_back(vertices[polygon_id][e][s]);
           polyline.points.push_back(segment.start);
-          index += 1;
         }
       }
     };
 
     // Ripetiamo parte del ciclo (fino a indices) perché il primo tratto di
     // polilinea non è stato inserito nell'hashgrid
-    idx = 1;
     for (auto e = 0; e <= indices.x; e++) {
       auto end_idx = (e < indices.x) ? polygon.edges[e].size() : indices.y;
       for (auto s = 0; s < end_idx; s++) {
+        auto ids = vec2i{e, s};
+        ids.y    = (s + 1) % polygon.edges[e].size();
+        ids.x    = ids.y > s ? e : e + 1;
+
         auto& segment  = polygon.edges[e][s];
         auto& entry    = hashgrid[segment.face];
         auto& polyline = entry.back();
         assert(segment.face == last_face);
         polyline.points.push_back(segment.end);
-        polyline.vertices.push_back(vertices[polygon_id][idx]);
-        idx += 1;
+        polyline.vertices.push_back(vertices[polygon_id][ids.x][ids.y]);
       }
     }
   }
@@ -330,30 +326,31 @@ inline int add_vertex(bool_mesh& mesh, const mesh_point& point) {
   return vertex;
 }
 
-static vector<vector<int>> add_vertices(
+static vector<vector<vector<int>>> add_vertices(
     bool_state& state, bool_mesh& mesh, const vector<mesh_polygon>& polygons) {
-  auto vertices   = vector<vector<int>>(polygons.size());
+  auto vertices   = vector<vector<vector<int>>>(polygons.size());
   auto duplicates = hash_map<int, int>();
 
-  for (int i = 0; i < polygons.size(); i++) {
-    if (polygons[i].length == 0) continue;
-    auto& edges = polygons[i].edges;
-    vertices[i].reserve(polygons[i].length);
+  for (int p = 0; p < polygons.size(); p++) {
+    if (polygons[p].length == 0) continue;
+    auto& edges = polygons[p].edges;
+    vertices[p].resize(edges.size());
 
     for (auto e = 0; e < edges.size(); e++) {
       auto& segments = edges[e];
-      if (segments.empty()) continue;  // TODO(giacomo): What?
+      // if (segments.empty()) continue;  // TODO(giacomo): What?
+      vertices[p][e].resize(segments.size());
 
       // Aggiungiamo tutti i vertici tranne l'ultimo, perché dobbiamo
       // individuare e salvare i control points separatamente
       for (auto s = 0; s < segments.size() - 1; s++) {
         auto vertex = add_vertex(mesh, {segments[s].face, segments[s].start});
-        vertices[i].push_back(vertex);
+        vertices[p][e][s] = vertex;
       }
 
       // // L'ultimo vertice di un edge è un control point. Se è già stato
       // // incontrato riutilizziamo l'indice già calcolato
-      auto control_point = polygons[i].points[e];
+      auto control_point = polygons[p].points[e];
       auto vertex        = -1;
       if (contains(duplicates, control_point)) {
         vertex = duplicates[control_point];
@@ -366,8 +363,8 @@ static vector<vector<int>> add_vertices(
       // TODO(giacomo,marzia): Sarebbe bello se potessimo fare questo
       // altorve,
       // in modo tale da non dover passare lo state a questa funzione.
-      state.border_vertices[vertex] = control_point;
-      vertices[i].push_back(vertex);
+      state.border_vertices[vertex]            = control_point;
+      vertices[p][e][(int)segments.size() - 1] = vertex;
     }
   }
   return vertices;
