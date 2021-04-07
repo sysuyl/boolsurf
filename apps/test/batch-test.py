@@ -6,7 +6,8 @@ import os
 import subprocess
 import json
 
-def trace_meshes(dirname, output):
+
+def trace_meshes(bin, dirname, output):
     mesh_names = glob.glob(f'{dirname}/meshes/*')
     mesh_num = len(mesh_names)
 
@@ -36,10 +37,11 @@ def trace_meshes(dirname, output):
         msg = f'[{mesh_id}/{mesh_num}] {mesh_name}'
         print(msg + ' ' * max(0, 78-len(msg)))
 
-        cmd = f'./bin/test --model {mesh_name} --output {images_dir}/{name}.png data/svgs/abc.json'
+        cmd = f'{bin} --model {mesh_name} --output {images_dir}/{name}.png data/svgs/abc.json'
         print(cmd)
-        if append == '': append = '--append-timings'
-        
+        if append == '':
+            append = '--append-timings'
+
         try:
             retcode = subprocess.run(cmd, timeout=60, shell=True).returncode
             if retcode < 0:
@@ -61,13 +63,11 @@ def trace_meshes(dirname, output):
             result['num_errors'] += 1
             result['errors'] += [mesh_name]
 
-    
     with open(f'{output}/trace-result.json', 'wt') as f:
         json.dump(result, f, indent=2)
 
 
-
-def trace_jsons(dirname, output):
+def trace_jsons(bin, dirname, output):
     jsons_names = glob.glob(f'{dirname}/tests/*.json')
     jsons_num = len(jsons_names)
 
@@ -95,10 +95,11 @@ def trace_jsons(dirname, output):
         msg = f'[{json_id}/{jsons_num}] {json_name}'
         print(msg + ' ' * max(0, 78-len(msg)))
 
-        cmd = f'./bin/test {json_name} --output {images_dir}/{name}.png'
+        cmd = f'{bin} {json_name} --output {images_dir}/{name}.png'
         print(cmd)
-        if append == '': append = '--append-timings'
-        
+        if append == '':
+            append = '--append-timings'
+
         try:
             retcode = subprocess.run(cmd, timeout=60, shell=True).returncode
             if retcode < 0:
@@ -124,12 +125,13 @@ def trace_jsons(dirname, output):
         json.dump(result, f, indent=2)
 
 
-
 if __name__ == '__main__':
     dir = sys.argv[1]
-    task = ''    
+    task = ''
     if len(sys.argv) >= 3:
         task = sys.argv[2]
+
+    bin = sys.argv[3]
 
     output = f'{dir}/output'
     try:
@@ -138,9 +140,6 @@ if __name__ == '__main__':
         pass
 
     if(task == 'jsons'):
-        trace_jsons(dir, output)
+        trace_jsons(bin, dir, output)
     else:
-        trace_meshes(dir, output)
-
-
-
+        trace_meshes(bin, dir, output)
