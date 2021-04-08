@@ -641,9 +641,10 @@ static void add_polygon_intersection_points(bool_state& state,
     for (auto p0 = 0; p0 < polylines.size(); p0++) {
       auto& poly = polylines[p0];
 
-      int num_added = 0;
       for (int s0 = 0; s0 < num_segments(poly) - 1; s0++) {
         auto [start0, end0] = get_segment(poly, s0);
+        int num_added       = 0;
+
         for (int s1 = s0 + 1; s1 < num_segments(poly); s1++) {
           // Skip adjacent segments.
           if (poly.is_closed) {
@@ -681,13 +682,15 @@ static void add_polygon_intersection_points(bool_state& state,
     // Check for intersections between different polylines
     for (auto p0 = 0; p0 < polylines.size() - 1; p0++) {
       for (auto p1 = p0 + 1; p1 < polylines.size(); p1++) {
-        auto& poly0     = polylines[p0];
-        auto& poly1     = polylines[p1];
-        int   num_added = 0;
+        auto& poly0 = polylines[p0];
+        auto& poly1 = polylines[p1];
         for (int s0 = 0; s0 < num_segments(poly0); s0++) {
           auto [start0, end0] = get_segment(poly0, s0);
+          int num_added       = 0;
+
           for (int s1 = 0; s1 < num_segments(poly1); s1++) {
             auto [start1, end1] = get_segment(poly1, s1);
+
             auto l = intersect_segments(start0, end0, start1, end1);
             if (l.x <= 0.0f || l.x >= 1.0f || l.y <= 0.0f || l.y >= 1.0f) {
               continue;
