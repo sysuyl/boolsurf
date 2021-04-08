@@ -308,8 +308,6 @@ inline void save_triangulation(const string& filename, int face) {
   return draw_segment(scene, mesh, material, pos_start, pos_end, radius / 2);
 }
 
-#if 0
-
 [[nodiscard]] shade_instance* draw_sphere(shade_scene* scene,
     const bool_mesh& mesh, shade_material* material, const vector<vec3f>& pos,
     float dim) {
@@ -327,6 +325,8 @@ inline void save_triangulation(const string& filename, int face) {
   auto pos = eval_position(mesh.triangles, mesh.positions, point);
   return draw_sphere(scene, mesh, material, {pos}, dim);
 }
+
+#if 0
 
 void update_path_shape(shade_shape* shape, const bool_mesh& mesh,
     const geodesic_path& path, float radius, float offset = 0,

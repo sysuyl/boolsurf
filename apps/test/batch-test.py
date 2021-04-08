@@ -1,5 +1,6 @@
 #! /usr/bin/env python3 -B
 
+import click
 import sys
 import glob
 import os
@@ -7,22 +8,30 @@ import subprocess
 import json
 
 
-def trace_meshes(bin, dirname, output):
-    mesh_names = glob.glob(f'{dirname}/meshes/*')
+@click.group()
+def cli():
+    pass
+
+
+@cli.command()
+@click.argument('bin')
+@click.argument('dirname')
+def svg(bin, dirname):
+    mesh_names = glob.glob(f'{dirname}/meshes/*.ply')
     mesh_num = len(mesh_names)
 
+    output = f'{dirname}/output'
     images_dir = f'{output}/images'
     try:
+        os.mkdir(output)
         os.mkdir(images_dir)
     except:
         pass
 
     result = {}
     result['num_tests'] = 0
-
     result['num_errors'] = 0
     result['errors'] = []
-
     result['num_ok'] = 0
     result['ok'] = []
 
@@ -30,10 +39,6 @@ def trace_meshes(bin, dirname, output):
     for mesh_id, mesh_name in enumerate(mesh_names):
         result['num_tests'] += 1
         name = os.path.basename(mesh_name).split('.')[0]
-        # stats_name = f'{output}/stats/{name}.json'
-        # scene_name = f'{output}/scenes/{name}/scene.json'
-        # curve_name = name.replace('meshes/', 'curves/') + '.json'
-        # scene_name = name.replace('meshes/', 'scenes/') + '.json'
         msg = f'[{mesh_id}/{mesh_num}] {mesh_name}'
         print(msg + ' ' * max(0, 78-len(msg)))
 
@@ -44,16 +49,12 @@ def trace_meshes(bin, dirname, output):
 
         try:
             retcode = subprocess.run(cmd, timeout=60, shell=True).returncode
-            if retcode < 0:
-                result['num_errors'] += 1
-                result['errors'] += [mesh_name]
-            elif retcode > 0:
-                result['num_errors'] += 1
-                result['errors'] += [mesh_name]
-
-            else:
+            if retcode == 0:
                 result['num_ok'] += 1
                 result['ok'] += [mesh_name]
+            elif retcode < 0:
+                result['num_errors'] += 1
+                result['errors'] += [mesh_name]
 
         except OSError:
             result['num_errors'] += 1
@@ -67,12 +68,17 @@ def trace_meshes(bin, dirname, output):
         json.dump(result, f, indent=2)
 
 
-def trace_jsons(bin, dirname, output):
+@cli.command()
+@click.argument('bin')
+@click.argument('dirname')
+def jsons(bin, dirname):
     jsons_names = glob.glob(f'{dirname}/tests/*.json')
     jsons_num = len(jsons_names)
 
+    output = f'{dirname}/output'
     images_dir = f'{output}/images'
     try:
+        os.mkdir(output)
         os.mkdir(images_dir)
     except:
         pass
@@ -88,10 +94,6 @@ def trace_jsons(bin, dirname, output):
     for json_id, json_name in enumerate(jsons_names):
         result['num_tests'] += 1
         name = os.path.basename(json_name).split('.')[0]
-        # stats_name = f'{output}/stats/{name}.json'
-        # scene_name = f'{output}/scenes/{name}/scene.json'
-        # curve_name = name.replace('jsones/', 'curves/') + '.json'
-        # scene_name = name.replace('jsones/', 'scenes/') + '.json'
         msg = f'[{json_id}/{jsons_num}] {json_name}'
         print(msg + ' ' * max(0, 78-len(msg)))
 
@@ -102,16 +104,12 @@ def trace_jsons(bin, dirname, output):
 
         try:
             retcode = subprocess.run(cmd, timeout=60, shell=True).returncode
-            if retcode < 0:
-                result['num_errors'] += 1
-                result['errors'] += [json_name]
-            elif retcode > 0:
-                result['num_errors'] += 1
-                result['errors'] += [json_name]
-
-            else:
+            if retcode == 0:
                 result['num_ok'] += 1
                 result['ok'] += [json_name]
+            elif retcode < 0:
+                result['num_errors'] += 1
+                result['errors'] += [json_name]
 
         except OSError:
             result['num_errors'] += 1
@@ -125,21 +123,4 @@ def trace_jsons(bin, dirname, output):
         json.dump(result, f, indent=2)
 
 
-if __name__ == '__main__':
-    dir = sys.argv[1]
-    task = ''
-    if len(sys.argv) >= 3:
-        task = sys.argv[2]
-
-    bin = sys.argv[3]
-
-    output = f'{dir}/output'
-    try:
-        os.mkdir(output)
-    except:
-        pass
-
-    if(task == 'jsons'):
-        trace_jsons(bin, dir, output)
-    else:
-        trace_meshes(bin, dir, output)
+cli()

@@ -625,7 +625,6 @@ int main(int argc, const char* argv[]) {
 
   auto extension = path_extension(input);
   if (extension == ".svg") {
-    // TODO (marzia): Check if this works on ubuntu too
     auto script_path = normalize_path("scripts/svg_parser.py"s);
     auto output      = normalize_path("data/tests/tmp.json"s);
     auto cmd = "python3 "s + script_path + " "s + input + " "s + output + " "s +
