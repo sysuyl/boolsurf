@@ -493,6 +493,13 @@ void key_input(app_state* app, const gui_input& input) {
         auto svg   = load_svg(app->svg_filename);
         init_from_svg(
             app->state, app->mesh, app->last_clicked_point, svg, app->svg_size);
+
+        for (auto p = 1; p < app->state.polygons.size(); p++) {
+          auto& polygon       = app->state.polygons[p];
+          auto  polygon_shape = add_polygon_shape(app, polygon, p + 1);
+          app->polygon_shapes.push_back(polygon_shape);
+        }
+
         update_polygons(app);
       } break;
 
