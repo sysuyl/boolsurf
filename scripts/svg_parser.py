@@ -69,13 +69,32 @@ def parse_path_string(path_string, num_subdivisions):
 
                         assert(len(bezier_points) == 4)
                         bezier_points = bezier(bezier_points, num_subdivisions)
-                        points += bezier_points
+
+                        # Removing possible duplicate points
+                        pts = [] if bezier_points[0] == points[-1] else [bezier_points[0]]
+                        for point in bezier_points[1:]:
+                            if len(pts) and point != pts[-1]:
+                                pts.append(point)
+
+                        points += pts
                     else:
-                        # Parsing simple point
-                        points += parse_points([c])
+                        # Parsing simple point and removing duplicate points
+                        pts = parse_points([c])
+                        if len(points) > 1 and pts[0] == points[-1]:
+                            continue
+
+                        points += pts
             else:
-                # Parsing simple line point
-                points += parse_points([t])
+                # Parsing simple line point and removing duplicate points
+                pts = parse_points([t])
+                if len(points) > 1 and pts[0] == points[-1]:
+                    continue
+
+                points += pts
+
+        for p in range(1, len(points)):
+            if points[p] == points[p-1]:
+                print(p, points[p])
 
         result_paths.append(points[:-1])
 
