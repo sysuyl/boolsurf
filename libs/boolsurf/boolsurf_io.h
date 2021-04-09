@@ -182,7 +182,7 @@ inline bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
     }
 
     if (state.polygons[polygon_id].points.size() <= 2) {
-      assert(0);
+      // assert(0);
       state.polygons[polygon_id].points.clear();
       continue;
     }

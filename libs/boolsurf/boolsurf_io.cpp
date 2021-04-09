@@ -155,7 +155,6 @@ vector<Svg_Shape> load_svg(const string& filename) {
   auto svg = vector<Svg_Shape>{};
   for (auto shape = image->shapes; shape != NULL; shape = shape->next) {
     auto& svg_shape = svg.emplace_back();
-    auto  area      = 0.0f;
 
     unsigned int c;
     if (shape->fill.type == NSVG_PAINT_COLOR) {
@@ -172,6 +171,8 @@ vector<Svg_Shape> load_svg(const string& filename) {
 
     for (auto path = shape->paths; path != NULL; path = path->next) {
       auto& svg_path = svg_shape.paths.emplace_back();
+      auto  area     = 0.0f;
+
       for (int i = 0; i < path->npts - 1; i += 3) {
         float* p     = &path->pts[i * 2];
         auto&  curve = svg_path.emplace_back();
@@ -187,17 +188,18 @@ vector<Svg_Shape> load_svg(const string& filename) {
         //     curve[1].x, curve[1].y, curve[2].x, curve[2].y, curve[3].x,
         //     curve[3].y);
       }
-    }
-    if (area < 0) {
-      std::reverse(svg_shape.paths.begin(), svg_shape.paths.end());
-      for (auto& path : svg_shape.paths) {
-        std::reverse(path.begin(), path.end());
-        for (auto& curve : path) {
+
+      if (area < 0.0f) {
+        // std::reverse(svg_shape.paths.begin(), svg_shape.paths.end());
+        // for (auto& path : svg_shape.paths) {
+        std::reverse(svg_path.begin(), svg_path.end());
+        for (auto& curve : svg_path) {
           curve = {curve[3], curve[2], curve[1], curve[0]};
         }
+        //}
       }
+      printf("area: %f\n", area);
     }
-    printf("area: %f\n", area);
   }
 
   nsvgDelete(image);
@@ -234,13 +236,14 @@ void init_from_svg(bool_state& state, const bool_mesh& mesh,
           control_points += line.end;
         }
       }
-      auto& segment = path.back();
-      // vec2f uv      = clamp(segment[3], 0.0f, 1.0f);
-      vec2f uv = segment[3];
-      uv -= vec2f{0.5, 0.5};
-      uv *= svg_size;
-      auto line = straightest_path(mesh, center, uv);
-      control_points += line.end;
+
+      // auto& segment = path.back();
+      // // vec2f uv      = clamp(segment[3], 0.0f, 1.0f);
+      // vec2f uv = segment[3];
+      // uv -= vec2f{0.5, 0.5};
+      // uv *= svg_size;
+      // auto line = straightest_path(mesh, center, uv);
+      // control_points += line.end;
 
       auto bezier = compute_bezier_path(mesh.dual_solver, mesh.triangles,
           mesh.positions, mesh.adjacencies, control_points, 2);
