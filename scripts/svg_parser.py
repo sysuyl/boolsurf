@@ -80,6 +80,7 @@ def parse_path_string(path_string, num_subdivisions):
                     else:
                         # Parsing simple point and removing duplicate points
                         pts = parse_points([c])
+
                         if len(points) > 1 and pts[0] == points[-1]:
                             continue
 
@@ -104,6 +105,15 @@ def parse_path_string(path_string, num_subdivisions):
     return result_paths
 
 
+def find_simple_paths(element, paths):
+    if element.tag == "{http://www.w3.org/2000/svg}path":
+        paths.append(element.attrib['d'])
+        return
+
+    for child in element:
+        find_simple_paths(child, paths)
+
+
 def create_json(infile, outfile, num_subdivisions):
     root = ET.parse(infile).getroot()
     data = {'screenspace': True, 'polygons': []}
@@ -112,17 +122,22 @@ def create_json(infile, outfile, num_subdivisions):
         if element.tag == "{http://www.w3.org/2000/svg}g":
 
             # Parsing translation matrix
-            transform = element.attrib['transform'][7:-1].split(',')[-2:]
-            translation = (float(transform[0]), float(transform[1]))
+            translation = (0, 0)
+            if 'transform' in element.attrib:
+                transform = element.attrib['transform'][7:-1].split(',')[-2:]
+                translation = (float(transform[0]), float(transform[1]))
 
-            for child in element:
+            paths = []
+            find_simple_paths(element, paths)
+
+            for path in paths:
                 path_points = parse_path_string(
-                    child.attrib['d'], num_subdivisions)
-                for path in path_points:
-                    for p in range(len(path)):
-                        path[p] = (path[p][0] + translation[0],
-                                   path[p][1] + translation[1])
-                    data['polygons'].append(path)
+                    path, num_subdivisions)
+                for points in path_points:
+                    for p in range(len(points)):
+                        points[p] = (points[p][0] + translation[0],
+                                     points[p][1] + translation[1])
+                    data['polygons'].append(points)
 
         elif element.tag == "{http://www.w3.org/2000/svg}path":
             path_points = parse_path_string(
