@@ -104,7 +104,8 @@ struct Svg_Shape {
 vector<Svg_Shape> load_svg(const string& filename);
 
 void init_from_svg(bool_state& state, const bool_mesh& mesh,
-    const mesh_point& center, const vector<Svg_Shape>& svg, float svg_size);
+    const mesh_point& center, const vector<Svg_Shape>& svg, float svg_size,
+    int svg_subdivs);
 
 inline bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
     const shape_bvh& bvh, const scene_camera& camera, float drawing_size) {

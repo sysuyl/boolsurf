@@ -490,13 +490,17 @@ void key_input(app_state* app, const gui_input& input) {
 
       case (int)gui_key('S'): {
         app->state = {};
-        auto svg   = load_svg(app->svg_filename);
-        init_from_svg(
-            app->state, app->mesh, app->last_clicked_point, svg, app->svg_size);
+        for (auto& shape : app->polygon_shapes) clear_shape(shape->shape);
+        app->polygon_shapes = {};
 
-        for (auto p = 1; p < app->state.polygons.size(); p++) {
+        auto svg = load_svg(app->svg_filename);
+
+        init_from_svg(app->state, app->mesh, app->last_clicked_point, svg,
+            app->svg_size, app->svg_subdivs);
+
+        for (auto p = 0; p < app->state.polygons.size(); p++) {
           auto& polygon       = app->state.polygons[p];
-          auto  polygon_shape = add_polygon_shape(app, polygon, p + 1);
+          auto  polygon_shape = add_polygon_shape(app, polygon, p);
           app->polygon_shapes.push_back(polygon_shape);
         }
 

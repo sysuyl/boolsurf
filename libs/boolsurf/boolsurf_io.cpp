@@ -207,7 +207,8 @@ vector<Svg_Shape> load_svg(const string& filename) {
 }
 
 void init_from_svg(bool_state& state, const bool_mesh& mesh,
-    const mesh_point& center, const vector<Svg_Shape>& svg, float svg_size) {
+    const mesh_point& center, const vector<Svg_Shape>& svg, float svg_size,
+    int svg_subdivs) {
   auto p0    = eval_position(mesh, {center.face, {0, 0}});
   auto p1    = eval_position(mesh, {center.face, {0, 1}});
   auto v     = normalize(p1 - p0);
@@ -246,7 +247,7 @@ void init_from_svg(bool_state& state, const bool_mesh& mesh,
       // control_points += line.end;
 
       auto bezier = compute_bezier_path(mesh.dual_solver, mesh.triangles,
-          mesh.positions, mesh.adjacencies, control_points, 2);
+          mesh.positions, mesh.adjacencies, control_points, svg_subdivs);
 
       for (int i = 0; i < bezier.size() - 1; i++) {
         if (i > 0 && bezier[i] == bezier[i - 1]) continue;
