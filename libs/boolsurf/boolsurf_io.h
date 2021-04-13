@@ -146,10 +146,8 @@ inline bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
   while (center.face == -1) {
     // || center.uv == zero2f || center.uv == vec2f{1, 0} ||
     //       center.uv == vec2f{0, 1}) {
-    ss = vec2f{0.5, 0.5} + (rand2f(rng) - vec2f{0.5, 0.5}) * size;
-    // print("ss", ss);
+    ss     = vec2f{0.5, 0.5} + (rand2f(rng) - vec2f{0.5, 0.5}) * size;
     center = intersect_mesh(mesh, camera, ss);
-    // print("center", center);
     size += 0.001;
   }
   assert(center.face != -1);
