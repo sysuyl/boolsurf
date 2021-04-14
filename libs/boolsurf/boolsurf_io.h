@@ -192,7 +192,39 @@ inline bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
     }
   }
 
-  map_polygons_onto_surface(state, mesh, polygons, camera, drawing_size);
+  // map_polygons_onto_surface(state, mesh, polygons, camera, drawing_size);
+
+  for (auto& polygon : polygons) {
+    state.polygons.push_back({});
+    auto polygon_id = (int)state.polygons.size() - 1;
+
+    for (auto uv : polygon) {
+      uv.x /= camera.film;                    // input.window_size.x;
+      uv.y /= (camera.film / camera.aspect);  // input.window_size.y;
+      uv *= drawing_size;
+      uv += vec2f{0.5, 0.5};
+
+      // auto path     = straightest_path(mesh, center, uv);
+      // path.end.uv.x = clamp(path.end.uv.x, 0.0f, 1.0f);
+      // path.end.uv.y = clamp(path.end.uv.y, 0.0f, 1.0f);
+      // check_point(path.end);
+      auto point = intersect_mesh(mesh, bvh, camera, uv);
+      if (point.face == -1) continue;
+
+      // Add point to state.
+      state.polygons[polygon_id].points.push_back((int)state.points.size());
+      state.points.push_back(point);
+    }
+
+    if (state.polygons[polygon_id].points.size() <= 2) {
+      assert(0);
+      state.polygons[polygon_id].points.clear();
+      continue;
+    }
+
+    recompute_polygon_segments(mesh, state, state.polygons[polygon_id]);
+  }
+
   return state;
 }
 

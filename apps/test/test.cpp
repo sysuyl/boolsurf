@@ -48,6 +48,40 @@ void save_image(const string& output_filename, const bool_mesh& mesh,
     shape.positions = mesh.positions;
     shape.triangles = mesh.triangles;
     shape.normals   = compute_normals(shape);
+
+    for (int i = 1; i < state.polygons.size(); i++) {
+      auto& polygon   = state.polygons[i];
+      auto  positions = vector<vec3f>();
+      positions.reserve(polygon.length + 1);
+
+      for (auto& edge : polygon.edges) {
+        for (auto& segment : edge) {
+          positions.push_back(
+              eval_position(mesh, {segment.face, segment.start}));
+        }
+      }
+
+      if (polygon.edges.size() && polygon.edges.back().size()) {
+        auto& segment = polygon.edges.back().back();
+        positions.push_back(eval_position(mesh, {segment.face, segment.end}));
+      }
+
+      auto lines = vector<vec2i>(positions.size() - 1);
+      for (int i = 0; i < lines.size(); i++) {
+        lines[i] = {i, i + 1};
+      }
+
+      auto& instance    = scene.instances.emplace_back();
+      instance.material = (int)scene.materials.size();
+      auto& material    = scene.materials.emplace_back();
+      material.emission = {1, 0, 0};
+      material.type     = scene_material_type::matte;
+      instance.shape    = (int)scene.shapes.size();
+      auto& shape       = scene.shapes.emplace_back();
+      shape.radius      = vector<float>(positions.size(), 0.001);
+      shape.positions   = positions;
+      shape.lines       = lines;
+    }
   }
 
   auto params    = trace_params{};
@@ -134,6 +168,16 @@ int main(int num_args, const char* args[]) {
 
       compute_cells(mesh, state);
       compute_shapes(state);
+
+      save_image(to_string(100 + seed) + output_filename, mesh, state,
+          test.camera, color_shapes, spp);
+
+      auto graph_dir      = path_dirname(output_filename);
+      auto graph_filename = path_basename(output_filename) +
+                            string("_graph.png");
+      auto graph_outfile = path_join(graph_dir, graph_filename);
+      save_tree_png(state, graph_outfile, to_string(seed), color_shapes);
+
       auto zero              = vector<int>(state.cells[0].labels.size(), 0);
       auto ambient_num_faces = 0;
       for (auto& cell : state.cells) {
@@ -151,7 +195,7 @@ int main(int num_args, const char* args[]) {
         }
       }
 
-      if (!repeat && seed > 3) break;
+      if (!repeat) break;
       mesh = mesh_original;
     }
   } else {
