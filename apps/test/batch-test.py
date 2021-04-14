@@ -55,14 +55,19 @@ def svg(bin, dirname):
             elif retcode < 0:
                 result['num_errors'] += 1
                 result['errors'] += [mesh_name]
-
-        except OSError:
+        except:
             result['num_errors'] += 1
             result['errors'] += [mesh_name]
+        
+        # except OSError:
+        #     result['num_errors'] += 1
+        #     result['errors'] += [mesh_name]
 
-        except subprocess.TimeoutExpired:
-            result['num_errors'] += 1
-            result['errors'] += [mesh_name]
+        # except subprocess.TimeoutExpired:
+        #     result['num_errors'] += 1
+        #     result['errors'] += [mesh_name]
+
+
 
     with open(f'{output}/trace-result.json', 'wt') as f:
         json.dump(result, f, indent=2)
