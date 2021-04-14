@@ -32,7 +32,30 @@ void save_image(const string& output_filename, const bool_mesh& mesh,
     for (auto face : cell.faces) {
       shape.triangles.push_back(mesh.triangles[face]);
     }
-    // shape.normals = compute_normals(shape);
+
+    {
+      auto& instance     = scene.instances.emplace_back();
+      instance.shape     = (int)scene.shapes.size();
+      instance.material  = (int)scene.materials.size();
+      auto& material     = scene.materials.emplace_back();
+      material.color     = {0, 0, 0};
+      material.type      = scene_material_type::glossy;
+      material.roughness = 0.5;
+      auto& edges        = scene.shapes.emplace_back();
+      for (auto& tr : mesh.triangles) {
+        for (int k = 0; k < 3; k++) {
+          auto a = tr[k];
+          auto b = tr[(k + 1) % 3];
+          if (a > b) continue;
+          auto index = (int)edges.positions.size();
+          edges.radius.push_back(0.001);
+          edges.radius.push_back(0.001);
+          edges.lines.push_back({index, index + 1});
+          edges.positions.push_back(mesh.positions[a]);
+          edges.positions.push_back(mesh.positions[b]);
+        }
+      }
+    }
   }
 
   if (scene.shapes.empty()) {
@@ -47,7 +70,6 @@ void save_image(const string& output_filename, const bool_mesh& mesh,
 
     shape.positions = mesh.positions;
     shape.triangles = mesh.triangles;
-    shape.normals   = compute_normals(shape);
 
     for (int i = 1; i < state.polygons.size(); i++) {
       auto& polygon   = state.polygons[i];
