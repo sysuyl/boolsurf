@@ -106,37 +106,9 @@ vector<Svg_Shape> load_svg(const string& filename);
 void init_from_svg(bool_state& state, const bool_mesh& mesh,
     const mesh_point& center, const vector<Svg_Shape>& svg, float svg_size);
 
-inline bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
-    const shape_bvh& bvh, const scene_camera& camera, float drawing_size) {
-  auto state    = bool_state{};
-  auto polygons = test.polygons_screenspace;
-
-  for (auto& polygon : polygons) {
-    auto area = 0.0f;
-    for (int p = 0; p < polygon.size(); p++) {
-      auto& point = polygon[p];
-      auto& next  = polygon[(p + 1) % polygon.size()];
-      area += cross(next, point);
-    }
-
-    if (area < 0) {
-      std::reverse(polygon.begin(), polygon.end());
-    }
-  }
-
-  auto bbox = bbox2f{};
-  for (auto& polygon : polygons) {
-    for (auto& p : polygon) {
-      bbox = merge(bbox, p);
-    }
-  }
-
-  for (auto& polygon : polygons) {
-    for (auto& p : polygon) {
-      p = (p - center(bbox)) / max(size(bbox));
-    }
-  }
-
+inline void map_polygons_onto_surface(bool_state& state, const bool_mesh& mesh,
+    const vector<vector<vec2f>>& polygons, const scene_camera& camera,
+    float drawing_size) {
   auto rng    = make_rng(0);
   auto ss     = vec2f{0.5, 0.5};
   auto size   = 0.1f;
@@ -187,7 +159,40 @@ inline bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
 
     recompute_polygon_segments(mesh, state, state.polygons[polygon_id]);
   }
+}
 
+inline bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
+    const shape_bvh& bvh, const scene_camera& camera, float drawing_size) {
+  auto state    = bool_state{};
+  auto polygons = test.polygons_screenspace;
+
+  for (auto& polygon : polygons) {
+    auto area = 0.0f;
+    for (int p = 0; p < polygon.size(); p++) {
+      auto& point = polygon[p];
+      auto& next  = polygon[(p + 1) % polygon.size()];
+      area += cross(next, point);
+    }
+
+    if (area < 0) {
+      std::reverse(polygon.begin(), polygon.end());
+    }
+  }
+
+  auto bbox = bbox2f{};
+  for (auto& polygon : polygons) {
+    for (auto& p : polygon) {
+      bbox = merge(bbox, p);
+    }
+  }
+
+  for (auto& polygon : polygons) {
+    for (auto& p : polygon) {
+      p = (p - center(bbox)) / max(size(bbox));
+    }
+  }
+
+  map_polygons_onto_surface(state, mesh, polygons, camera, drawing_size);
   return state;
 }
 
