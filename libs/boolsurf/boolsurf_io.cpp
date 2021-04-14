@@ -85,7 +85,8 @@ bool_state state_from_test(const bool_mesh& mesh, const bool_test& test,
 
   if (test.screenspace) {
     auto camera = make_camera(mesh);
-    return make_test_state(test, mesh, mesh.bvh, camera, drawing_size, use_projection);
+    return make_test_state(
+        test, mesh, mesh.bvh, camera, drawing_size, use_projection);
   }
 
   for (auto& polygon : test.polygons) {
@@ -143,6 +144,8 @@ void save_tree_png(const bool_state& state, string filename,
   auto image = replace_extension(filename, extra + ".png");
   auto cmd   = "dot -Tpng "s + graph + " > " + image;
   printf("%s\n", cmd.c_str());
+  system(cmd.c_str());
+  cmd = "rm "s + graph;
   system(cmd.c_str());
 }
 

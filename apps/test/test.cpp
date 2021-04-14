@@ -165,22 +165,22 @@ int main(int num_args, const char* args[]) {
           test, mesh, bvh, test.camera, drawing_size, use_projection);
       printf("%s\n", "make_test_state");
 
-      save_image(to_string(seed) + output_filename, mesh, state, test.camera,
-          color_shapes, spp);
+      // save_image(to_string(seed) + output_filename, mesh, state, test.camera,
+      // color_shapes, spp);
 
       try {
         compute_cells(mesh, state);
 
         compute_shapes(state);
 
-        save_image(to_string(100 + seed) + output_filename, mesh, state,
-            test.camera, color_shapes, spp);
+        save_image(
+            output_filename, mesh, state, test.camera, color_shapes, spp);
 
         auto graph_dir      = path_dirname(output_filename);
         auto graph_filename = path_basename(output_filename) +
                               string("_graph.png");
         auto graph_outfile = path_join(graph_dir, graph_filename);
-        save_tree_png(state, graph_outfile, to_string(seed), color_shapes);
+        save_tree_png(state, graph_outfile, "", color_shapes);
 
         auto zero              = vector<int>(state.cells[0].labels.size(), 0);
         auto ambient_num_faces = 0;
