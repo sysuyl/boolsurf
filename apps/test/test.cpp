@@ -32,7 +32,22 @@ void save_image(const string& output_filename, const bool_mesh& mesh,
     for (auto face : cell.faces) {
       shape.triangles.push_back(mesh.triangles[face]);
     }
-    shape.normals = compute_normals(shape);
+    // shape.normals = compute_normals(shape);
+  }
+
+  if (scene.shapes.empty()) {
+    auto& instance     = scene.instances.emplace_back();
+    instance.material  = (int)scene.materials.size();
+    auto& material     = scene.materials.emplace_back();
+    material.color     = {0.5, 0.5, 0.5};
+    material.type      = scene_material_type::glossy;
+    material.roughness = 0.5;
+    instance.shape     = (int)scene.shapes.size();
+    auto& shape        = scene.shapes.emplace_back();
+
+    shape.positions = mesh.positions;
+    shape.triangles = mesh.triangles;
+    shape.normals   = compute_normals(shape);
   }
 
   auto params    = trace_params{};
@@ -113,6 +128,10 @@ int main(int num_args, const char* args[]) {
       test.camera = make_camera(mesh, seed++);
       state       = make_test_state(test, mesh, bvh, test.camera, drawing_size);
       printf("%s\n", "make_test_state");
+
+      save_image(to_string(seed) + output_filename, mesh, state, test.camera,
+          color_shapes, spp);
+
       compute_cells(mesh, state);
       compute_shapes(state);
       auto zero              = vector<int>(state.cells[0].labels.size(), 0);
@@ -152,6 +171,4 @@ int main(int num_args, const char* args[]) {
       compute_bool_operation(state, operation);
     }
   }
-
-  save_image(output_filename, mesh, state, test.camera, color_shapes, spp);
 }
