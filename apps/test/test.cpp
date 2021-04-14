@@ -156,50 +156,60 @@ int main(int num_args, const char* args[]) {
   auto state = bool_state{};
 
   if (test.screenspace) {
-    int seed = 0;
+    int  seed           = 0;
+    bool use_projection = false;
     while (true) {
       bool repeat = false;
-      test.camera = make_camera(mesh, seed++);
-      state       = make_test_state(test, mesh, bvh, test.camera, drawing_size);
+      test.camera = make_camera(mesh, seed);
+      state       = make_test_state(
+          test, mesh, bvh, test.camera, drawing_size, use_projection);
       printf("%s\n", "make_test_state");
 
       save_image(to_string(seed) + output_filename, mesh, state, test.camera,
           color_shapes, spp);
 
-      compute_cells(mesh, state);
-      compute_shapes(state);
+      try {
+        compute_cells(mesh, state);
 
-      save_image(to_string(100 + seed) + output_filename, mesh, state,
-          test.camera, color_shapes, spp);
+        compute_shapes(state);
 
-      auto graph_dir      = path_dirname(output_filename);
-      auto graph_filename = path_basename(output_filename) +
-                            string("_graph.png");
-      auto graph_outfile = path_join(graph_dir, graph_filename);
-      save_tree_png(state, graph_outfile, to_string(seed), color_shapes);
+        save_image(to_string(100 + seed) + output_filename, mesh, state,
+            test.camera, color_shapes, spp);
 
-      auto zero              = vector<int>(state.cells[0].labels.size(), 0);
-      auto ambient_num_faces = 0;
-      for (auto& cell : state.cells) {
-        if (cell.labels != zero) continue;
-        if (ambient_num_faces < cell.faces.size()) {
-          ambient_num_faces = (int)cell.faces.size();
+        auto graph_dir      = path_dirname(output_filename);
+        auto graph_filename = path_basename(output_filename) +
+                              string("_graph.png");
+        auto graph_outfile = path_join(graph_dir, graph_filename);
+        save_tree_png(state, graph_outfile, to_string(seed), color_shapes);
+
+        auto zero              = vector<int>(state.cells[0].labels.size(), 0);
+        auto ambient_num_faces = 0;
+        for (auto& cell : state.cells) {
+          if (cell.labels != zero) continue;
+          if (ambient_num_faces < cell.faces.size()) {
+            ambient_num_faces = (int)cell.faces.size();
+          }
         }
-      }
-      printf("ambient_num_faces: %d\n", ambient_num_faces);
+        printf("ambient_num_faces: %d\n", ambient_num_faces);
 
-      for (auto& cell : state.cells) {
-        if (cell.faces.size() > ambient_num_faces) {
-          repeat = true;
-          break;
+        for (auto& cell : state.cells) {
+          if (cell.faces.size() > ambient_num_faces) {
+            repeat = true;
+            break;
+          }
         }
+
+      } catch (const std::exception&) {
+        repeat = true;
       }
 
       if (!repeat) break;
-      mesh = mesh_original;
+      if (use_projection) seed += 1;  // questo muove la camera.
+      use_projection = !use_projection;
+      mesh           = mesh_original;
     }
   } else {
-    state = state_from_test(mesh, test, 0.005);
+    state = state_from_test(mesh, test, 0.005, false);
     compute_cells(mesh, state);
     compute_shapes(state);
   }

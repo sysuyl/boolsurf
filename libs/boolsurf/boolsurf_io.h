@@ -87,8 +87,8 @@ struct bool_test {
 bool save_test(const bool_test& test, const string& filename);
 bool load_test(bool_test& test, const string& filename);
 
-bool_state state_from_test(
-    const bool_mesh& mesh, const bool_test& test, float drawing_size);
+bool_state state_from_test(const bool_mesh& mesh, const bool_test& test,
+    float drawing_size, bool use_projection);
 
 string tree_to_string(const bool_state& state, bool color_shapes);
 
@@ -163,7 +163,8 @@ inline void map_polygons_onto_surface(bool_state& state, const bool_mesh& mesh,
 }
 
 inline bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
-    const shape_bvh& bvh, const scene_camera& camera, float drawing_size) {
+    const shape_bvh& bvh, const scene_camera& camera, float drawing_size,
+    bool use_projection) {
   auto state    = bool_state{};
   auto polygons = test.polygons_screenspace;
 
@@ -193,37 +194,40 @@ inline bool_state make_test_state(const bool_test& test, const bool_mesh& mesh,
     }
   }
 
-  // map_polygons_onto_surface(state, mesh, polygons, camera, drawing_size);
+  if (!use_projection) {
+    map_polygons_onto_surface(state, mesh, polygons, camera, drawing_size);
+  } else {
+    // TODO(giacomo): Refactor into a function.
+    for (auto& polygon : polygons) {
+      state.polygons.push_back({});
+      auto polygon_id = (int)state.polygons.size() - 1;
 
-  for (auto& polygon : polygons) {
-    state.polygons.push_back({});
-    auto polygon_id = (int)state.polygons.size() - 1;
+      for (auto uv : polygon) {
+        uv.x /= camera.film;                    // input.window_size.x;
+        uv.y /= (camera.film / camera.aspect);  // input.window_size.y;
+        uv *= drawing_size;
+        uv += vec2f{0.5, 0.5};
 
-    for (auto uv : polygon) {
-      uv.x /= camera.film;                    // input.window_size.x;
-      uv.y /= (camera.film / camera.aspect);  // input.window_size.y;
-      uv *= drawing_size;
-      uv += vec2f{0.5, 0.5};
+        // auto path     = straightest_path(mesh, center, uv);
+        // path.end.uv.x = clamp(path.end.uv.x, 0.0f, 1.0f);
+        // path.end.uv.y = clamp(path.end.uv.y, 0.0f, 1.0f);
+        // check_point(path.end);
+        auto point = intersect_mesh(mesh, bvh, camera, uv);
+        if (point.face == -1) continue;
 
-      // auto path     = straightest_path(mesh, center, uv);
-      // path.end.uv.x = clamp(path.end.uv.x, 0.0f, 1.0f);
-      // path.end.uv.y = clamp(path.end.uv.y, 0.0f, 1.0f);
-      // check_point(path.end);
-      auto point = intersect_mesh(mesh, bvh, camera, uv);
-      if (point.face == -1) continue;
+        // Add point to state.
+        state.polygons[polygon_id].points.push_back((int)state.points.size());
+        state.points.push_back(point);
+      }
 
-      // Add point to state.
-      state.polygons[polygon_id].points.push_back((int)state.points.size());
-      state.points.push_back(point);
+      if (state.polygons[polygon_id].points.size() <= 2) {
+        // assert(0);
+        state.polygons[polygon_id].points.clear();
+        continue;
+      }
+
+      recompute_polygon_segments(mesh, state, state.polygons[polygon_id]);
     }
-
-    if (state.polygons[polygon_id].points.size() <= 2) {
-      // assert(0);
-      state.polygons[polygon_id].points.clear();
-      continue;
-    }
-
-    recompute_polygon_segments(mesh, state, state.polygons[polygon_id]);
   }
 
   return state;

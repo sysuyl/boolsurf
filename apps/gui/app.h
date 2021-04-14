@@ -29,6 +29,7 @@ struct app_state {
   bool_operation operation      = {};
   gui_window*    window         = nullptr;
   bool           color_shapes   = false;
+  bool           use_projection = false;
   scene_camera   camera         = {};
 
   // options
@@ -377,9 +378,8 @@ shade_instance* add_polygon_shape(
 
 inline void update_cell_shapes(app_state* app) {
   for (int i = 0; i < app->state.cells.size(); i++) {
-      auto& cell = app->state.cells[i];
-      set_patch_shape(
-        app->cell_shapes[i]->shape, app->mesh, cell.faces);
+    auto& cell = app->state.cells[i];
+    set_patch_shape(app->cell_shapes[i]->shape, app->mesh, cell.faces);
   }
 }
 
@@ -423,7 +423,7 @@ void init_from_test(app_state* app) {
     app->glcamera->focus    = app->test.camera.focus;
   }
 
-  app->state = state_from_test(app->mesh, app->test, app->svg_size);
+  app->state = state_from_test(app->mesh, app->test, app->svg_size, app->use_projection);
   for (int i = 0; i < app->state.polygons.size(); i++) {
     auto& polygon = app->state.polygons[i];
     add_polygon_shape(app, polygon, i);

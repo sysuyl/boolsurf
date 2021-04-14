@@ -77,15 +77,15 @@ bool load_test(bool_test& test, const string& filename) {
   return true;
 }
 
-bool_state state_from_test(
-    const bool_mesh& mesh, const bool_test& test, float drawing_size) {
+bool_state state_from_test(const bool_mesh& mesh, const bool_test& test,
+    float drawing_size, bool use_projection) {
   auto state   = bool_state{};
   state.points = test.points;
   state.polygons.clear();
 
   if (test.screenspace) {
     auto camera = make_camera(mesh);
-    return make_test_state(test, mesh, mesh.bvh, camera, drawing_size);
+    return make_test_state(test, mesh, mesh.bvh, camera, drawing_size, use_projection);
   }
 
   for (auto& polygon : test.polygons) {
