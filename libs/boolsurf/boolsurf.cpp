@@ -1229,13 +1229,16 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
 
 void compute_shapes(bool_state& state) {
   // Calcoliamo le informazioni sulla shape, come le celle che ne fanno parte
-  auto& shapes = state.shapes;
+  auto& shapes  = state.shapes;
+  auto& sorting = state.shapes_sorting;
   shapes.resize(state.polygons.size());
+  sorting.resize(state.polygons.size());
 
   // Assign a polygon and a color to each shape.
   for (auto p = 0; p < state.polygons.size(); p++) {
     shapes[p].polygon = p;
     shapes[p].color   = get_color(p);
+    sorting[p]        = p;
   }
 
   // Distribute cells to shapes.
@@ -1396,9 +1399,14 @@ void compute_bool_operation(bool_state& state, const bool_operation& op) {
 
   // Creiamo una nuova shape risultato, settando come generatori le shape 'a'
   // e 'b' e riconvertendo il vettore di bool a interi
-  auto& c      = state.shapes.emplace_back();
-  c.generators = {op.shape_a, op.shape_b};
-  c.color      = state.shapes[op.shape_a].color;
+  auto  shape_id = state.shapes.size();
+  auto& c        = state.shapes.emplace_back();
+  c.generators   = {op.shape_a, op.shape_b};
+  c.color        = state.shapes[op.shape_a].color;
+  auto sorting   = find_idx(state.shapes_sorting, op.shape_a);
+
+  insert(state.shapes_sorting, sorting, (int)shape_id);
+
   for (auto i = 0; i < aa.size(); i++)
     if (aa[i]) c.cells.insert(i);
 }
@@ -1413,10 +1421,10 @@ mesh_point intersect_mesh(const bool_mesh& mesh, const shape_bvh& bvh,
 
 vec3f get_cell_color(const bool_state& state, int cell_id, bool color_shapes) {
   if (color_shapes) {
-    auto shape_id = 0;
-    for (int s = (int)state.shapes.size() - 1; s >= 0; s--) {
-      if (state.shapes[s].cells.count(cell_id) && state.shapes[s].is_root) {
-        return state.shapes[s].color;
+    for (int s = (int)state.shapes_sorting.size() - 1; s >= 0; s--) {
+      auto& shape = state.shapes[state.shapes_sorting[s]];
+      if (shape.cells.count(cell_id) && shape.is_root) {
+        return shape.color;
       }
     }
     return {1, 1, 1};

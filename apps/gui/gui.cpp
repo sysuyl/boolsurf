@@ -163,8 +163,9 @@ void draw_widgets(app_state* app, const gui_input& input) {
   }
 
   if (app->selected_shape >= 0 && begin_header(widgets, "shape info", true)) {
-    auto& shape_id = app->selected_shape;
-    auto& shape    = app->state.shapes[shape_id];
+    auto& shape_id   = app->selected_shape;
+    auto& shape      = app->state.shapes[shape_id];
+    auto  sorting_id = find_idx(app->state.shapes_sorting, shape_id);
 
     draw_label(widgets, "shape", to_string(shape_id));
 
@@ -173,17 +174,17 @@ void draw_widgets(app_state* app, const gui_input& input) {
     draw_label(widgets, "cells", s);
 
     if (draw_button(widgets, "Bring forward")) {
-      if (shape_id < app->state.shapes.size() - 1) {
-        swap(app->state.shapes[shape_id], app->state.shapes[shape_id + 1]);
-        shape_id += 1;
+      if (sorting_id < app->state.shapes.size() - 1) {
+        swap(app->state.shapes_sorting[sorting_id],
+            app->state.shapes_sorting[sorting_id + 1]);
         update_cell_colors(app);
       }
     }
     continue_line(widgets);
     if (draw_button(widgets, "Bring back")) {
-      if (shape_id >= 2) {
-        swap(app->state.shapes[shape_id], app->state.shapes[shape_id - 1]);
-        shape_id -= 1;
+      if (sorting_id >= 2) {
+        swap(app->state.shapes_sorting[sorting_id],
+            app->state.shapes_sorting[sorting_id - 1]);
         update_cell_colors(app);
       }
     }
@@ -286,17 +287,18 @@ void mouse_input(app_state* app, const gui_input& input) {
   }
 
   if (app->selected_cell != -1) {
-    for (int s = (int)app->state.shapes.size() - 1; s >= 0; s--) {
-      auto& shape = app->state.shapes[s];
+    for (int s = (int)app->state.shapes_sorting.size() - 1; s >= 0; s--) {
+      auto  shape_id = app->state.shapes_sorting[s];
+      auto& shape    = app->state.shapes[shape_id];
       if (!shape.is_root) continue;
       //      if (find_idx(shape.cells, app->selected_cell) != -1) {
       if (shape.cells.count(app->selected_cell) != 0) {
-        app->selected_shape = s;
+        app->selected_shape = shape_id;
         if (is_down(input, gui_key::left_control)) {
           if (app->operation.shape_a == -1) {
-            app->operation.shape_a = s;
+            app->operation.shape_a = shape_id;
           } else if (app->operation.shape_b == -1) {
-            app->operation.shape_b = s;
+            app->operation.shape_b = shape_id;
           }
         }
 
@@ -506,7 +508,7 @@ void key_input(app_state* app, const gui_input& input) {
             app->svg_size, app->svg_subdivs);
 
         for (auto p = 0; p < app->state.polygons.size(); p++) {
-          auto& polygon       = app->state.polygons[p];
+          auto& polygon = app->state.polygons[p];
           add_polygon_shape(app, polygon, p);
         }
 
