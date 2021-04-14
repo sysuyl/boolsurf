@@ -89,7 +89,13 @@ void draw_widgets(app_state* app, const gui_input& input) {
     draw_checkbox(widgets, "edges", app->glscene->instances[1]->hidden, true);
     continue_line(widgets);
     draw_checkbox(widgets, "points", app->glscene->instances[2]->hidden, true);
-
+    continue_line(widgets);
+    static bool show_polygons = true;
+    if (draw_checkbox(widgets, "polygons", show_polygons)) {
+      for (auto i : app->polygon_shapes) {
+        i->hidden = !show_polygons;
+      }
+    }
     if (!app->glscene->instances[1]->hidden) {
       draw_coloredit(widgets, "edges color", app->edges_material->color);
     }
@@ -282,6 +288,7 @@ void mouse_input(app_state* app, const gui_input& input) {
   if (app->selected_cell != -1) {
     for (int s = (int)app->state.shapes.size() - 1; s >= 0; s--) {
       auto& shape = app->state.shapes[s];
+      if (!shape.is_root) continue;
       //      if (find_idx(shape.cells, app->selected_cell) != -1) {
       if (shape.cells.count(app->selected_cell) != 0) {
         app->selected_shape = s;
@@ -500,8 +507,7 @@ void key_input(app_state* app, const gui_input& input) {
 
         for (auto p = 0; p < app->state.polygons.size(); p++) {
           auto& polygon       = app->state.polygons[p];
-          auto  polygon_shape = add_polygon_shape(app, polygon, p);
-          app->polygon_shapes.push_back(polygon_shape);
+          add_polygon_shape(app, polygon, p);
         }
 
         update_polygons(app);
@@ -583,10 +589,8 @@ void key_input(app_state* app, const gui_input& input) {
       case (int)gui_key::enter: {
         if (app->state.polygons.back().points.size() > 2) {
           commit_state(app);
-          auto& polygon       = app->state.polygons.emplace_back();
-          auto  polygon_shape = add_polygon_shape(
-              app, polygon, (int)app->state.polygons.size() - 1);
-          app->polygon_shapes.push_back(polygon_shape);
+          auto& polygon = app->state.polygons.emplace_back();
+          add_polygon_shape(app, polygon, (int)app->state.polygons.size() - 1);
         }
       } break;
     }
@@ -670,15 +674,7 @@ int main(int argc, const char* argv[]) {
   if (app->test_filename != "") {
     init_from_test(app);
   }
-
   app->state.polygons.push_back({});
-
-  // Init polygon shapes
-  for (auto p = 0; p < app->state.polygons.size(); p++) {
-    auto& polygon       = app->state.polygons[p];
-    auto  polygon_shape = add_polygon_shape(app, polygon, p);
-    app->polygon_shapes.push_back(polygon_shape);
-  }
 
   run_ui(window, update_app);
 

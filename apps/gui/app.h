@@ -361,8 +361,7 @@ shade_instance* add_patch_shape(
   return add_instance(app->glscene, identity3x4f, patch_shape, material);
 }
 
-shade_instance* add_polygon_shape(
-    app_state* app, const mesh_polygon& polygon, int index) {
+void add_polygon_shape(app_state* app, const mesh_polygon& polygon, int index) {
   auto polygon_shape = add_shape(app->glscene, {}, {}, {}, {}, {}, {}, {}, {});
 
   auto polygon_material   = add_material(app->glscene);
@@ -373,7 +372,7 @@ shade_instance* add_polygon_shape(
       app->glscene, identity3x4f, polygon_shape, polygon_material);
   polygon_instance->depth_test = ogl_depth_test::always;
 
-  return polygon_instance;
+  app->polygon_shapes += polygon_instance;
 }
 
 inline void update_cell_shapes(app_state* app) {
@@ -385,10 +384,16 @@ inline void update_cell_shapes(app_state* app) {
 
 inline void update_cell_colors(app_state* app) {
   auto& state = app->state;
+  //  if (app->color_shapes) {
+  //    for (int i = 0; i < state.cells.size(); i++) {
+  //      app->cell_shapes[i]->material->color = state.shapes[i].color;
+  //    }
+  //  } else {
   for (int i = 0; i < state.cells.size(); i++) {
     app->cell_shapes[i]->material->color = get_cell_color(
         state, i, app->color_shapes);
   }
+  //  }
 }
 
 void save_test(

@@ -391,9 +391,10 @@ static vector<mesh_cell> flood_fill_new(vector<int>& starts,
       continue;
     }
 
-    auto  cell_id    = (int)result.size();
-    auto& cell       = result.emplace_back();
-    auto  face_stack = vector<int>{first_face};
+    auto  cell_id = (int)result.size();
+    auto& cell    = result.emplace_back();
+    cell.faces.reserve(adjacencies.size());
+    auto face_stack = vector<int>{first_face};
 
     while (!face_stack.empty()) {
       auto face = face_stack.back();
@@ -447,7 +448,8 @@ static vector<mesh_cell> flood_fill_new(vector<int>& starts,
         }
       }
     }  // end of while
-  }    // end of while
+    cell.faces.shrink_to_fit();
+  }  // end of while
 
   return result;
 }
@@ -1232,8 +1234,8 @@ void compute_shapes(bool_state& state) {
 
   // Assign a polygon and a color to each shape.
   for (auto p = 0; p < state.polygons.size(); p++) {
-    if (shapes[p].polygon == 0) shapes[p].polygon = p;
-    if (shapes[p].color == zero3f) shapes[p].color = get_color(p);
+    shapes[p].polygon = p;
+    shapes[p].color   = get_color(p);
   }
 
   // Distribute cells to shapes.
@@ -1396,6 +1398,7 @@ void compute_bool_operation(bool_state& state, const bool_operation& op) {
   // e 'b' e riconvertendo il vettore di bool a interi
   auto& c      = state.shapes.emplace_back();
   c.generators = {op.shape_a, op.shape_b};
+  c.color      = state.shapes[op.shape_a].color;
   for (auto i = 0; i < aa.size(); i++)
     if (aa[i]) c.cells.insert(i);
 }
@@ -1413,12 +1416,10 @@ vec3f get_cell_color(const bool_state& state, int cell_id, bool color_shapes) {
     auto shape_id = 0;
     for (int s = (int)state.shapes.size() - 1; s >= 0; s--) {
       if (state.shapes[s].cells.count(cell_id) && state.shapes[s].is_root) {
-        shape_id = state.shapes[s].polygon;
-        break;
+        return state.shapes[s].color;
       }
     }
-    return get_color(shape_id);
-
+    return {1, 1, 1};
   } else {
     auto color = vec3f{0, 0, 0};
     int  count = 0;
