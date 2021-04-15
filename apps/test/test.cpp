@@ -191,8 +191,10 @@ int main(int num_args, const char* args[]) {
       // color_shapes, spp);
 
       try {
-        compute_cells(mesh, state);
-
+        {
+          auto timer = print_timed("[compute_cells]");
+          compute_cells(mesh, state);
+        }
         compute_shapes(state);
 
         save_image(
@@ -214,7 +216,7 @@ int main(int num_args, const char* args[]) {
         }
         printf("ambient_num_faces: %d\n", ambient_num_faces);
 
-        if (state.cells.size() == 1){
+        if (state.cells.size() == 1) {
           repeat = true;
         }
 
