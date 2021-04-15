@@ -251,14 +251,15 @@ inline scene_camera make_camera(const bool_mesh& mesh, int seed = 0) {
   if (bbox_size.x >= bbox_size.y && bbox_size.x >= bbox_size.z) {
     x = {1, 0, 0};
   }
-  if (bbox_size.y >= bbox_size.x && bbox_size.y >= bbox_size.z) {
-    x = {0, 1, 0};
-  }
   if (bbox_size.z >= bbox_size.x && bbox_size.z >= bbox_size.y) {
     x = {0, 0, 1};
   }
+  if (bbox_size.y >= bbox_size.x && bbox_size.y >= bbox_size.z) {
+    x = {0, 1, 0};
+  }
 
   auto up = -cross(x, z);
+  assert(length(up) > 0);
   // if (up == z) up = {1, 0, 0};
   auto camera = scene_camera{};
   if (seed == 0) {
