@@ -214,6 +214,10 @@ int main(int num_args, const char* args[]) {
         }
         printf("ambient_num_faces: %d\n", ambient_num_faces);
 
+        if (state.cells.size() == 1){
+          repeat = true;
+        }
+
         for (auto& cell : state.cells) {
           if (cell.faces.size() > ambient_num_faces) {
             repeat = true;
