@@ -17,9 +17,17 @@
 - Spiegazione del flood-fill
   - Sequenza di immagini che fanno vedere come si espande il flood-fill (e in contemporanea come si crea il grafo delle adiacenze)
 
-- Labelling (visita del frago delle adiancenze)
-  - Immagine per far capire la gestione dei cicli
-  - Immagini per far capire come avviene la visita del grafo e per spiegare i casi particolari (funzionamento normale, self-loops, cicli e altri casi che mo non mi ricordo) 
+- Labelling (visita del frago delle adiacenze)
+  - Caso normale su toro (multiple paths)
+
+- Labelling con cicli
+  - Sempre toro con design diversi
+
+- Labelling con ping-pong
+  - Mo vediamo 
+
+- Labelling con tante self-intersections
+  - Far vedere l'otto sia al dritto che al rovescio 
 
 - Risultati, prendere modelli belli da thingi10k o da altri paper (Crane!) e disegnare a mano diversi esempi tipo
   - Tante intersezioni tra poligoni
