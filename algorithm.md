@@ -6,10 +6,12 @@
 5. Mostriamo risultato dell’operazione booleana, disegnando i control points dei nuovi poligoni risultanti.
 
 # 1 [slice_mesh]
-- Add polygon points as mesh vertices (snapping to original vertices if too close).
+- Aggiungiamo i punti dei poligoni come vertici della mesh (utilizzando i vertici originali se troppo vicini)
+- Salviamo il mapping tra i punti di controllo dei poligoni e indici del vertice della mesh corrispondente 
 - Creiamo hashgrid: ad ogni faccia della mesh associamo una lista di polilinee (?).
   - (Immagine piccolina per spiegare cosa sono le polilinee)
 - Aggiungiamo intersezioni all'hashgrid
+- Inseriamo anche i punti di intersezione come nuovi punti di controllo (salvando anche i poligoni che li hanno generati)
   
 # 2 [slice_mesh]
 - Per ogni faccia dell'hashgrid
@@ -66,10 +68,17 @@ L’arco è etichettato con le seguenti informazioni:
 - Nel caso in cui la label sia > 1 applichiamo la even-odd rule
   - Nelle self-intersections posso entrare in un poligono più volte senza esserne prima uscito)
 
-# 5 [compute_bool_operation]
-- Le operazioni booleane tra due poligoni vengono effettuate con una selezione delle celle che li compongono in base ai labelling
-- 
-        
+# 5 [compute_bool_operation] and [compute_shape_borders]
+- Le operazioni booleane tra due poligoni vengono effettuate con una selezione delle celle che li compongono in base ai labelling. 
+- I poligoni coinvolti nell'operazione sono chiamati generatori e il risultato dell'operazione booleana è una nuova shape (insieme di celle)
+  
+- Alla fine ricostuiamo il bordo delle shape, rappresentandolo come se fosse un poligono iniziale
+  - Calcoliamo ricorsivamente tutti i poligoni generatori che hanno prodotto la shape
+  - Calcoliamo le componenti connesse delle celle che formano la shape
+  - Calcoliamo il bordo di ogni componente connessa
+    - Estraiamo la sequenza (non ordinata) degli archi della mesh che compongono il bordo
+    - Riordiniamo la sequenza ed estraiamo i punti di controllo finali del bordo
+      - tra i punti di controllo salviamo anche dei punti di intersezione solo se si sono formati dall'intersezione di due poligoni entrambi coinvolti nei generatori della shape         
 
 
 
