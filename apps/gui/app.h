@@ -271,9 +271,7 @@ void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh) {
   auto mesh_shape = add_shape(glscene, {}, {}, app->mesh.triangles, {},
       app->mesh.positions, app->mesh.normals, {}, {}, true);
 
-  if (!is_initialized(get_normals(mesh_shape))) {
-    app->drawgl_prms.faceted = true;
-  }
+  app->drawgl_prms.faceted = true;
   set_instances(mesh_shape, {}, {});
 
   auto edges_shape    = add_shape(glscene);
