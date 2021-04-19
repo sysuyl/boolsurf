@@ -12,6 +12,8 @@ using namespace yocto;
 void save_image(const string& output_filename, const bool_mesh& mesh,
     const bool_state& state, const scene_camera& camera, bool color_shapes,
     int spp) {
+  if (output_filename == "no-output") return;
+
   auto scene = scene_model{};
   scene.cameras.push_back(camera);
 
@@ -240,6 +242,7 @@ int main(int num_args, const char* args[]) {
     state = state_from_test(mesh, test, 0.005, false);
     compute_cells(mesh, state);
     compute_shapes(state);
+    save_image(output_filename, mesh, state, test.camera, color_shapes, spp);
   }
 
   auto graph_dir      = path_dirname(output_filename);
