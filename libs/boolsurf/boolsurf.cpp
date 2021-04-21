@@ -575,23 +575,35 @@ inline vector<vector<int>> compute_components(
   return components;
 }
 
-template <typename Skip>
 static void propagate_cell_labels(vector<mesh_cell>& cells,
-    vector<bool>& visited, const vector<int>& start, Skip&& skip_edge) {
+    vector<bool>& visited, const vector<int>& start,
+    const vector<int>& skip_polygons) {
   // Calcoliamo le label delle celle visitando il grafo di adiacenza a partire
   // da una cella ambiente e incrementanto/decrementanto l'indice
   // corrispondente al poligono
-
-  auto stack = start;
-  while (!stack.empty()) {
+  auto stack                = start;
+  bool               outgoing_propagation = true;
+  auto               other_stack          = vector<int>{};
+  while (stack.size()) {
     auto cell_id = stack.back();
     stack.pop_back();
 
-    auto& cell = cells[cell_id];
+    auto& cell               = cells[cell_id];
+    auto  visited_a_neighbor = false;
     for (auto& [neighbor, polygon] : cell.adjacency) {
       auto polygon_unsigned = uint(yocto::abs(polygon));
-      if (skip_edge(cell_id, polygon, neighbor)) continue;
+      // if (skip_edge(cell_id, polygon, neighbor)) continue;
 
+      if(contains(skip_polygons, (int)polygon_unsigned)) continue;
+      if (outgoing_propagation) {
+        if (polygon < 0) {
+          continue;
+        }
+      } else {
+        if (polygon > 0) {
+          continue;
+        }
+      }
       // Se il nodo è già stato visitato e la nuova etichetta è diversa da
       // quella già calcolata allora prendo il massimo valore in ogni
       // componente
@@ -609,7 +621,17 @@ static void propagate_cell_labels(vector<mesh_cell>& cells,
         cells[neighbor].labels[polygon_unsigned] += sign(polygon);
         stack.push_back(neighbor);
         visited[neighbor] = true;
+        visited_a_neighbor = true;
       }
+    }
+    if (visited_a_neighbor) {
+      other_stack.push_back(cell_id);
+    }
+
+    if (stack.empty()) {
+      if(other_stack.empty()) return;
+      swap(stack, other_stack);
+      outgoing_propagation = !outgoing_propagation;
     }
   }
 }
@@ -1168,38 +1190,38 @@ static void compute_cell_labels(vector<mesh_cell>& cells, int num_polygons) {
   // First forward pass. Visitiamo il grafo partendo dalle celle con etichette
   // già note e utilizzimo solamente gli archi taggati positivamente
   {
-    auto skip = [&](int cell_id, int polygon, int neighbor) -> bool {
-      return polygon < 0 || contains(skip_polygons, yocto::abs(polygon));
-    };
+    // auto skip = [&](int cell_id, int polygon, int neighbor) -> bool {
+    //   return polygon < 0 || contains(skip_polygons, yocto::abs(polygon));
+    // };
 
-    propagate_cell_labels(cells, visited, start, skip);
+    propagate_cell_labels(cells, visited, start, skip_polygons);
   }
 
   // Second backward pass. Se sono rimasti altri nodi non coperti dalla visita
   // precedente allora visitiamo nuovamente il grafo partendo dalle celle di
   // "frontiera" (quelle che hanno almeno un vicino non visitato) e
   // utilizziamo solamente gli archi negativi
-  {
-    auto skip = [&](int cell_id, int polygon, int neighbor) -> bool {
-      return visited[neighbor] || polygon > 0 ||
-             contains(skip_polygons, yocto::abs(polygon));
-    };
+  // {
+  //   auto skip = [&](int cell_id, int polygon, int neighbor) -> bool {
+  //     return visited[neighbor] || polygon > 0 ||
+  //            contains(skip_polygons, yocto::abs(polygon));
+  //   };
 
-    // Calcoliamo i nuovi nodi di partenza come i nodi vicini (già visitati!)
-    // dei nodi non visitati del grafo. Se tutti i nodi sono già stati
-    // visitati dal forward pass allora questa visita non viene eseguita
-    start.clear();
-    for (int i = 0; i < visited.size(); i++) {
-      if (visited[i]) continue;
-      for (auto& [neighbor, polygon] : cells[i].adjacency) {
-        if (visited[neighbor]) start.push_back(neighbor);
-      }
-    }
+  //   // Calcoliamo i nuovi nodi di partenza come i nodi vicini (già visitati!)
+  //   // dei nodi non visitati del grafo. Se tutti i nodi sono già stati
+  //   // visitati dal forward pass allora questa visita non viene eseguita
+  //   start.clear();
+  //   for (int i = 0; i < visited.size(); i++) {
+  //     if (visited[i]) continue;
+  //     for (auto& [neighbor, polygon] : cells[i].adjacency) {
+  //       if (visited[neighbor]) start.push_back(neighbor);
+  //     }
+  //   }
 
-    if (start.size()) {
-      propagate_cell_labels(cells, visited, start, skip);
-    }
-  }
+  //   if (start.size()) {
+  //     propagate_cell_labels(cells, visited, start, skip);
+  //   }
+  // }
 
   // Se la partenza avviene da una cella senza archi entranti che non è una
   // cella ambiente effettiva allora troviamo delle etichette negative. In
