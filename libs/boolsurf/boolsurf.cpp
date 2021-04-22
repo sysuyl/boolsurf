@@ -575,61 +575,77 @@ inline vector<vector<int>> compute_components(
   return components;
 }
 
-static void propagate_cell_labels(vector<mesh_cell>& cells,
-    vector<bool>& visited, const vector<int>& start,
+void save_tree_png(const bool_state& state, string filename,
+    const string& extra, bool color_shapes);
+
+#include <deque>
+
+static void propagate_cell_labels(bool_state& state, const vector<int>& start,
     const vector<int>& skip_polygons) {
+  auto& cells = state.cells;
   // Calcoliamo le label delle celle visitando il grafo di adiacenza a partire
   // da una cella ambiente e incrementanto/decrementanto l'indice
   // corrispondente al poligono
-  auto stack                = start;
-  bool               outgoing_propagation = true;
-  auto               other_stack          = vector<int>{};
-  while (stack.size()) {
-    auto cell_id = stack.back();
-    stack.pop_back();
+  auto stack = std::deque<int>(start.begin(), start.end());
+  // auto visited = vector<bool>(cells.size(), false);
+  // for (auto& s : start) visited[s] = true;
+
+  bool outgoing_propagation = true;
+  auto other_stack          = deque<int>{};
+  while (true) {
+    auto cell_id = stack.front();
+    stack.pop_front();
+
+    printf("node: %d   (outgoing=%d)\n", cell_id, (int)outgoing_propagation);
 
     auto& cell               = cells[cell_id];
     auto  visited_a_neighbor = false;
+    
+
     for (auto& [neighbor, polygon] : cell.adjacency) {
       auto polygon_unsigned = uint(yocto::abs(polygon));
-      // if (skip_edge(cell_id, polygon, neighbor)) continue;
 
-      if(contains(skip_polygons, (int)polygon_unsigned)) continue;
+      if (contains(skip_polygons, (int)polygon_unsigned)) continue;
       if (outgoing_propagation) {
-        if (polygon < 0) {
-          continue;
-        }
+        if (polygon < 0) continue;
       } else {
-        if (polygon > 0) {
-          continue;
-        }
+        if (polygon > 0) continue;
       }
+
       // Se il nodo è già stato visitato e la nuova etichetta è diversa da
       // quella già calcolata allora prendo il massimo valore in ogni
       // componente
-      if (visited[neighbor]) {
-        auto& neighbor_labels = cells[neighbor].labels;
-        auto  cell_labels     = cell.labels;
-        cell_labels[polygon_unsigned] += sign(polygon);
 
-        if (cell_labels == neighbor_labels) continue;
-        for (int i = 0; i < neighbor_labels.size(); i++)
-          neighbor_labels[i] = yocto::max(neighbor_labels[i], cell_labels[i]);
+      printf("  neighbor: %d", neighbor);
+      auto& neighbor_labels = cells[neighbor].labels;
+      auto  cell_labels     = cell.labels;
+      cell_labels[polygon_unsigned] += sign(polygon);
 
-      } else {
-        cells[neighbor].labels = cell.labels;
-        cells[neighbor].labels[polygon_unsigned] += sign(polygon);
-        stack.push_back(neighbor);
-        visited[neighbor] = true;
-        visited_a_neighbor = true;
+      if (cell_labels == neighbor_labels) {
+        printf("\n");
+        continue;
       }
+      for (int i = 0; i < neighbor_labels.size(); i++) {
+        neighbor_labels[i] = yocto::max(neighbor_labels[i], cell_labels[i]);
+      }
+      visited_a_neighbor = true;
+      stack.push_back(neighbor);
+      printf("... added\n");
     }
-    if (visited_a_neighbor) {
+
+    static int kk = 0;
+
+//    if (visited_a_neighbor)
+    {
       other_stack.push_back(cell_id);
+      save_tree_png(state,
+          "data/tests/grafo" + to_string(kk++) + "_" +
+              to_string((int)outgoing_propagation) + ".png",
+          "", false);
     }
 
     if (stack.empty()) {
-      if(other_stack.empty()) return;
+      if (other_stack.empty()) return;
       swap(stack, other_stack);
       outgoing_propagation = !outgoing_propagation;
     }
@@ -1146,7 +1162,8 @@ static void slice_mesh(bool_mesh& mesh, bool_state& state) {
   mesh.border_tags = border_tags(mesh, hashgrid);
 }
 
-static void compute_cell_labels(vector<mesh_cell>& cells, int num_polygons) {
+static void compute_cell_labels(bool_state& state, int num_polygons) {
+  auto& cells = state.cells;
   // Calcoliamo possibili cicli all'interno del grafo delle adiacenze della
   // mesh. In modo da eliminare gli archi corrispondenti.
   auto cycles = compute_graph_cycles(cells);
@@ -1182,46 +1199,10 @@ static void compute_cell_labels(vector<mesh_cell>& cells, int num_polygons) {
   } else {
     // Trova le celle ambiente nel grafo dell'adiacenza delle celle
     start = {find_ambient_cells(cells, skip_polygons).front()};
+    // start = find_ambient_cells(cells, skip_polygons);
   }
 
-  auto visited = vector<bool>(cells.size(), false);
-  for (auto& s : start) visited[s] = true;
-
-  // First forward pass. Visitiamo il grafo partendo dalle celle con etichette
-  // già note e utilizzimo solamente gli archi taggati positivamente
-  {
-    // auto skip = [&](int cell_id, int polygon, int neighbor) -> bool {
-    //   return polygon < 0 || contains(skip_polygons, yocto::abs(polygon));
-    // };
-
-    propagate_cell_labels(cells, visited, start, skip_polygons);
-  }
-
-  // Second backward pass. Se sono rimasti altri nodi non coperti dalla visita
-  // precedente allora visitiamo nuovamente il grafo partendo dalle celle di
-  // "frontiera" (quelle che hanno almeno un vicino non visitato) e
-  // utilizziamo solamente gli archi negativi
-  // {
-  //   auto skip = [&](int cell_id, int polygon, int neighbor) -> bool {
-  //     return visited[neighbor] || polygon > 0 ||
-  //            contains(skip_polygons, yocto::abs(polygon));
-  //   };
-
-  //   // Calcoliamo i nuovi nodi di partenza come i nodi vicini (già visitati!)
-  //   // dei nodi non visitati del grafo. Se tutti i nodi sono già stati
-  //   // visitati dal forward pass allora questa visita non viene eseguita
-  //   start.clear();
-  //   for (int i = 0; i < visited.size(); i++) {
-  //     if (visited[i]) continue;
-  //     for (auto& [neighbor, polygon] : cells[i].adjacency) {
-  //       if (visited[neighbor]) start.push_back(neighbor);
-  //     }
-  //   }
-
-  //   if (start.size()) {
-  //     propagate_cell_labels(cells, visited, start, skip);
-  //   }
-  // }
+  propagate_cell_labels(state, start, skip_polygons);
 
   // Se la partenza avviene da una cella senza archi entranti che non è una
   // cella ambiente effettiva allora troviamo delle etichette negative. In
@@ -1246,7 +1227,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
   state.cells = make_mesh_cells(mesh.adjacencies, mesh.border_tags);
 
   // Calcola i label delle celle con una visita sulla loro adiacenza.
-  compute_cell_labels(state.cells, (int)state.polygons.size());
+  compute_cell_labels(state, (int)state.polygons.size());
 }
 
 void compute_shapes(bool_state& state) {
