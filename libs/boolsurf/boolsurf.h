@@ -5,7 +5,7 @@
 using namespace yocto;
 using namespace std;
 
-const static int null_label = -999;
+const static int null_label = 0;
 
 struct bool_mesh : scene_shape {
   vector<vec3i>        adjacencies = {};
