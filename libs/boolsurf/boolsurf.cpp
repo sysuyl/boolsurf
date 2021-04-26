@@ -1167,6 +1167,22 @@ static vector<vec3i> border_tags(
   return tags;
 }
 
+static int node_depth(const bool_state& state, int start) {
+  auto stack     = vector<pair<int, int>>{{start, 0}};
+  int  max_depth = 0;
+  while (stack.size()) {
+    auto [node, depth] = stack.back();
+    stack.pop_back();
+    max_depth = yocto::max(max_depth, depth);
+
+    for (auto& [neighbor, polygon] : state.cells[node].adjacency) {
+      if (polygon < 0) continue;
+      stack.push_back({neighbor, depth + 1});
+    }
+  }
+  return max_depth;
+}
+
 static void slice_mesh(bool_mesh& mesh, bool_state& state) {
   auto& polygons = state.polygons;
 
@@ -1222,34 +1238,58 @@ static void compute_cell_labels(bool_state& state, int num_polygons) {
     start = cycle_nodes;
   } else {
     // Trova le celle ambiente nel grafo dell'adiacenza delle celle
-    start = find_ambient_cells(state.cells, skip_polygons);
+    auto candidates = find_ambient_cells(state.cells, skip_polygons);
+    auto heights    = vector<int>(candidates.size());
+    for (int i = 0; i < heights.size(); i++) {
+      heights[i] = node_depth(state, candidates[i]);
+      printf("node: %d, height: %d\n", candidates[i], heights[i]);
+    }
+    auto max_depth = *max_element(heights.begin(), heights.end());
+
+    for (int i = 0; i < candidates.size(); i++) {
+      if (heights[i] == max_depth) start.push_back(candidates[i]);
+    }
   }
 
-  auto cells_backup = state.cells;
+  print("start", start);
+  // Inizializza celle ambiente.
   for (auto& ss : start) {
     state.cells[ss].labels = vector<int>(num_polygons, 0);
-
-    for (auto& cycle : cycles) {
-      for (auto& c : cycle) state.cells[c.x].labels[c.y] = 1;
-    }
-
-    propagate_cell_labels(state, {ss}, skip_polygons);
-
-    bool found_negative_label = false;
-    for (auto& cell : state.cells) {
-      auto it = find_where(cell.labels, [](int l) { return l < 0; });
-      if (it >= 0) {
-        found_negative_label = true;
-        break;
-      }
-    }
-
-    if (found_negative_label) {
-      state.cells = cells_backup;
-    } else {
-      break;
-    }
   }
+
+  // Inizializza nodi nei cicli.
+  for (auto& cycle : cycles) {
+    for (auto& c : cycle) state.cells[c.x].labels[c.y] = 1;
+  }
+
+  propagate_cell_labels(state, start, skip_polygons);
+
+  // auto cells_backup = state.cells;
+  // for (auto& ss : start) {
+  //   state.cells[ss].labels = vector<int>(num_polygons, 0);
+
+  //   for (auto& cycle : cycles) {
+  //     for (auto& c : cycle) state.cells[c.x].labels[c.y] = 1;
+  //   }
+
+  //   propagate_cell_labels(state, {ss}, skip_polygons);
+
+  //   bool found_negative_label = false;
+  //   for (auto& cell : state.cells) {
+  //     auto it = find_where(cell.labels, [](int l) { return l < 0; });
+  //     if (it >= 0) {
+  //       found_negative_label = true;
+  //       break;
+  //     }
+  //   }
+
+  //   if (found_negative_label) {
+  //     state.cells = cells_backup;
+  //   } else {
+  //     break;
+  //   }
+  // }
+
   // Se la partenza avviene da una cella senza archi entranti che non è una
   // cella ambiente effettiva allora troviamo delle etichette negative. In
   // questo caso calcoliamo l'offset e lo propaghiamo su tutti il grafo
