@@ -644,33 +644,6 @@ void save_tree_png(const bool_state& state, string filename,
 
 #include <deque>
 
-void update_label_propagation(vector<mesh_cell>& cells, int label_size) {
-  // Fixing with whole graph propagation 1
-  auto offset = vector<int>(label_size, 0);
-
-  for (int i = 0; i < cells.size(); i++) {
-    auto& cell = cells[i];
-    for (int k = 0; k < label_size; k++) {
-      if (cell.labels[k] == null_label) continue;
-      offset[k] = min(cell.labels[k], offset[k]);
-    }
-  }
-
-  auto it = find_where(offset, [](int i) { return i < 0; });
-  if (it != -1) {
-    printf("AAAAAAAAAAAA\n");
-    exit(1);
-  }
-
-  // Fixing with whole graph propagation 3
-  for (auto i = 0; i < cells.size(); i++) {
-    for (auto k = 0; k < offset.size(); k++) {
-      if (cells[i].labels[k] == null_label) continue;
-      cells[i].labels[k] += -offset[k];
-    }
-  }
-}
-
 static void propagate_cell_labels(bool_state& state, const vector<int>& start,
     const vector<int>& skip_polygons) {
   auto& cells = state.cells;
@@ -1304,16 +1277,14 @@ static void compute_cell_labels(bool_state& state, int num_polygons) {
 
   propagate_cell_labels(state, start, skip_polygons);
 
-  // Se la partenza avviene da una cella senza archi entranti che non è una
-  // cella ambiente effettiva allora troviamo delle etichette negative. In
-  // questo caso calcoliamo l'offset e lo propaghiamo su tutti il grafo
-  // update_label_propagation(cells, num_polygons);
-
   // Applichiamo la even-odd rule nel caso in cui le label > 1 (Nelle self
   // intersections posso entrare in un poligono più volte senza esserne prima
   // uscito)
   for (auto& cell : state.cells) {
     for (auto& label : cell.labels) {
+      if (label < 0) {
+        printf("[error]: cell, label = %d\n", label);
+      }
       if (label > 1) label = label % 2;
     }
   }
