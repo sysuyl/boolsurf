@@ -580,78 +580,6 @@ void save_tree_png(const bool_state& state, string filename,
 
 #include <deque>
 
-static void propagate_cell_labels(bool_state& state, const vector<int>& start,
-    const vector<int>& skip_polygons) {
-  auto& cells = state.cells;
-  // Calcoliamo le label delle celle visitando il grafo di adiacenza a partire
-  // da una cella ambiente e incrementanto/decrementanto l'indice
-  // corrispondente al poligono
-  auto stack = std::deque<int>(start.begin(), start.end());
-  // auto visited = vector<bool>(cells.size(), false);
-  // for (auto& s : start) visited[s] = true;
-
-  bool outgoing_propagation = true;
-  auto other_stack          = deque<int>{};
-  while (true) {
-    auto cell_id = stack.front();
-    stack.pop_front();
-
-    printf("node: %d   (outgoing=%d)\n", cell_id, (int)outgoing_propagation);
-
-    auto& cell               = cells[cell_id];
-    auto  visited_a_neighbor = false;
-    
-
-    for (auto& [neighbor, polygon] : cell.adjacency) {
-      auto polygon_unsigned = uint(yocto::abs(polygon));
-
-      if (contains(skip_polygons, (int)polygon_unsigned)) continue;
-      if (outgoing_propagation) {
-        if (polygon < 0) continue;
-      } else {
-        if (polygon > 0) continue;
-      }
-
-      // Se il nodo è già stato visitato e la nuova etichetta è diversa da
-      // quella già calcolata allora prendo il massimo valore in ogni
-      // componente
-
-      printf("  neighbor: %d", neighbor);
-      auto& neighbor_labels = cells[neighbor].labels;
-      auto  cell_labels     = cell.labels;
-      cell_labels[polygon_unsigned] += sign(polygon);
-
-      if (cell_labels == neighbor_labels) {
-        printf("\n");
-        continue;
-      }
-      for (int i = 0; i < neighbor_labels.size(); i++) {
-        neighbor_labels[i] = yocto::max(neighbor_labels[i], cell_labels[i]);
-      }
-      visited_a_neighbor = true;
-      stack.push_back(neighbor);
-      printf("... added\n");
-    }
-
-    static int kk = 0;
-
-//    if (visited_a_neighbor)
-    {
-      other_stack.push_back(cell_id);
-      save_tree_png(state,
-          "data/tests/grafo" + to_string(kk++) + "_" +
-              to_string((int)outgoing_propagation) + ".png",
-          "", false);
-    }
-
-    if (stack.empty()) {
-      if (other_stack.empty()) return;
-      swap(stack, other_stack);
-      outgoing_propagation = !outgoing_propagation;
-    }
-  }
-}
-
 void update_label_propagation(vector<mesh_cell>& cells, int label_size) {
   // Fixing with whole graph propagation 1
   auto offset = vector<int>(label_size, 0);
@@ -659,6 +587,7 @@ void update_label_propagation(vector<mesh_cell>& cells, int label_size) {
   for (int i = 0; i < cells.size(); i++) {
     auto& cell = cells[i];
     for (int k = 0; k < label_size; k++) {
+      if (cell.labels[k] == null_label) continue;
       offset[k] = min(cell.labels[k], offset[k]);
     }
   }
@@ -666,7 +595,104 @@ void update_label_propagation(vector<mesh_cell>& cells, int label_size) {
   // Fixing with whole graph propagation 3
   for (auto i = 0; i < cells.size(); i++) {
     for (auto k = 0; k < offset.size(); k++) {
+      if (cells[i].labels[k] == null_label) continue;
       cells[i].labels[k] += -offset[k];
+    }
+  }
+}
+
+static void propagate_cell_labels(bool_state& state, const vector<int>& start,
+    const vector<int>& skip_polygons) {
+  auto& cells = state.cells;
+  // Calcoliamo le label delle celle visitando il grafo di adiacenza a partire
+  // da una cella ambiente e incrementanto/decrementanto l'indice
+  // corrispondente al poligono
+  // auto stack       = hash_set<int>(start.begin(), start.end());
+  // auto other_stack = hash_set<int>{};
+  auto stack = deque<int>(start.begin(), start.end());
+
+  auto visited = vector<bool>(cells.size(), false);
+  for (auto& s : start) visited[s] = true;
+
+  bool outgoing_propagation = true;
+  while (true) {
+    auto cell_id = stack.front();
+    stack.pop_front();
+
+    // printf("node: %d   (outgoing=%d)\n", cell_id, (int)outgoing_propagation);
+
+    auto& cell               = cells[cell_id];
+    auto  visited_a_neighbor = false;
+
+    for (auto& [neighbor, polygon] : cell.adjacency) {
+      auto polygon_unsigned = uint(yocto::abs(polygon));
+
+      if (contains(skip_polygons, (int)polygon_unsigned)) continue;
+
+      if (polygon < 0 && visited[neighbor]) {
+        continue;
+      }
+      assert(polygon > 0);
+
+      // Se il nodo è già stato visitato e la nuova etichetta è diversa da
+      // quella già calcolata allora prendo il massimo valore in ogni
+      // componente
+
+      // printf("  neighbor: %d", neighbor);
+      auto& neighbor_labels = cells[neighbor].labels;
+      auto  cell_labels     = cell.labels;
+      cell_labels[polygon_unsigned] += sign(polygon);
+
+      if (cell_labels == neighbor_labels) {
+        // printf("\n");
+        continue;
+      }
+      auto non_conservative_path_found = false;
+      for (int i = 0; i < neighbor_labels.size(); i++) {
+        if (neighbor_labels[i] == null_label) {
+          neighbor_labels[i] = cell_labels[i];
+          continue;
+        }
+        neighbor_labels[i] = yocto::max(neighbor_labels[i], cell_labels[i]);
+        non_conservative_path_found = true;
+        //        assert(0);
+        // printf(
+        //     "ho scoperto un percorso multiplo (%d, %d)\n", cell_id,
+        //     neighbor);
+        // exit(1);
+      }
+      //      visited_a_neighbor = true;
+      stack.push_back(neighbor);
+      visited[neighbor] = true;
+
+      // stack.insert(neighbor);
+      // if (!non_conservative_path_found) other_stack.insert(neighbor);
+      // visited[neighbor] = true;
+      // printf("... added\n");
+    }
+
+    static int kk = 0;
+
+    if (0 && visited_a_neighbor) {
+      auto  _state = state;
+      auto& _cells = _state.cells;
+      update_label_propagation(_cells, _state.polygons.size());
+      for (auto& cell : _cells) {
+        for (auto& label : cell.labels) {
+          if (label > 1) label = label % 2;
+        }
+      }
+      save_tree_png(_state,
+          "data/tests/grafo" + to_string(kk++) + "_" +
+              to_string((int)outgoing_propagation) + ".png",
+          "", false);
+    }
+
+    if (stack.empty()) {
+      return;
+      // if (other_stack.empty()) return;
+      // swap(stack, other_stack);
+      // outgoing_propagation = !outgoing_propagation;
     }
   }
 }
@@ -1163,10 +1189,9 @@ static void slice_mesh(bool_mesh& mesh, bool_state& state) {
 }
 
 static void compute_cell_labels(bool_state& state, int num_polygons) {
-  auto& cells = state.cells;
   // Calcoliamo possibili cicli all'interno del grafo delle adiacenze della
   // mesh. In modo da eliminare gli archi corrispondenti.
-  auto cycles = compute_graph_cycles(cells);
+  auto cycles = compute_graph_cycles(state.cells);
 
   // (marzia) Sicuro si può fare meglio
   auto skip_polygons = vector<int>();
@@ -1182,12 +1207,11 @@ static void compute_cell_labels(bool_state& state, int num_polygons) {
   // poligoni
 
   // Inizializziamo le label delle celle a 0
-  for (auto& cell : cells) cell.labels = vector<int>(num_polygons, 0);
+  for (auto& cell : state.cells)
+    cell.labels = vector<int>(num_polygons, null_label);
 
   // Se erano presenti cicli li risolviamo settando la label in base alle
   // informazioni estratte prima
-  for (auto& cycle : cycles)
-    for (auto& c : cycle) cells[c.x].labels[c.y] = 1;
 
   // Se erano presenti cicli all'interno del grafo allora facciamo partire il
   // labelling da quelle celle, in modo da propagare le informazioni già
@@ -1198,21 +1222,43 @@ static void compute_cell_labels(bool_state& state, int num_polygons) {
     start = cycle_nodes;
   } else {
     // Trova le celle ambiente nel grafo dell'adiacenza delle celle
-    start = {find_ambient_cells(cells, skip_polygons).front()};
-    // start = find_ambient_cells(cells, skip_polygons);
+    start = find_ambient_cells(state.cells, skip_polygons);
   }
 
-  propagate_cell_labels(state, start, skip_polygons);
+  auto cells_backup = state.cells;
+  for (auto& ss : start) {
+    state.cells[ss].labels = vector<int>(num_polygons, 0);
 
+    for (auto& cycle : cycles) {
+      for (auto& c : cycle) state.cells[c.x].labels[c.y] = 1;
+    }
+
+    propagate_cell_labels(state, {ss}, skip_polygons);
+
+    bool found_negative_label = false;
+    for (auto& cell : state.cells) {
+      auto it = find_where(cell.labels, [](int l) { return l < 0; });
+      if (it >= 0) {
+        found_negative_label = true;
+        break;
+      }
+    }
+
+    if (found_negative_label) {
+      state.cells = cells_backup;
+    } else {
+      break;
+    }
+  }
   // Se la partenza avviene da una cella senza archi entranti che non è una
   // cella ambiente effettiva allora troviamo delle etichette negative. In
   // questo caso calcoliamo l'offset e lo propaghiamo su tutti il grafo
-  update_label_propagation(cells, num_polygons);
+  // update_label_propagation(cells, num_polygons);
 
   // Applichiamo la even-odd rule nel caso in cui le label > 1 (Nelle self
   // intersections posso entrare in un poligono più volte senza esserne prima
   // uscito)
-  for (auto& cell : cells) {
+  for (auto& cell : state.cells) {
     for (auto& label : cell.labels) {
       if (label > 1) label = label % 2;
     }

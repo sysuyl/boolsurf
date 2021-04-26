@@ -10,6 +10,7 @@
 #include <yocto/yocto_shape.h>  // hashing vec2i
 
 #include <cassert>
+#include <deque>
 using namespace yocto;
 
 // TODO(giacomo): Define only in debug!
