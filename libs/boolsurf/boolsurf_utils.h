@@ -278,6 +278,11 @@ inline bool contains(const std::deque<T>& vec, const T& x) {
   return find(vec.begin(), vec.end(), x) != vec.end();
 }
 
+template <class T>
+inline const T& max(const vector<T>& vec) {
+  return *max_element(vec.begin(), vec.end());
+}
+
 #ifdef MY_DEBUG
 hash_map<int, vector<vec3i>>& debug_triangles();
 hash_map<int, vector<vec2i>>& debug_edges();
