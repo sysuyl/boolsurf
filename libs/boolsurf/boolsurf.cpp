@@ -665,7 +665,8 @@ static void propagate_cell_labels(bool_state& state, const vector<int>& start,
     for (auto& [neighbor, polygon] : cell.adjacency) {
       auto polygon_unsigned = uint(yocto::abs(polygon));
 
-      if (contains(skip_polygons, (int)polygon_unsigned)) continue;
+      auto cycle_edge = contains(skip_polygons, (int)polygon_unsigned);
+      // if (contains(skip_polygons, (int)polygon_unsigned)) continue;
 
       if (polygon < 0 && visited[neighbor]) continue;
 
@@ -679,17 +680,25 @@ static void propagate_cell_labels(bool_state& state, const vector<int>& start,
       auto  cell_labels     = cell.labels;
       cell_labels[polygon_unsigned] += sign(polygon);
 
-      if (cell_labels == neighbor_labels) {
-        continue;
-      }
+      // if (cell_labels == neighbor_labels) {
+      // continue;
+      // }
+      auto updated_neighbor_labels = false;
       for (int i = 0; i < neighbor_labels.size(); i++) {
         if (neighbor_labels[i] == null_label) {
-          neighbor_labels[i] = cell_labels[i];
+          neighbor_labels[i]      = cell_labels[i];
+          updated_neighbor_labels = true;
           continue;
         }
-        neighbor_labels[i] = yocto::max(neighbor_labels[i], cell_labels[i]);
+        if (cell_labels[i] > neighbor_labels[i]) {
+          neighbor_labels[i]      = cell_labels[i];
+          updated_neighbor_labels = true;
+        }
       }
-      stack.push_back(neighbor);
+
+      if (updated_neighbor_labels) {
+        stack.push_back(neighbor);
+      }
       visited[neighbor] = true;
     }
 
@@ -1247,22 +1256,29 @@ static void compute_cell_labels(bool_state& state, int num_polygons) {
   // acquisite. In caso contrario la visita parte normalmente da una qualsiasi
   // delle celle ambiente calcolate
   auto start = vector<int>{};
-  if (cycle_nodes.size() > 0) {
-    start = cycle_nodes;
-  } else {
-    // Trova le celle ambiente nel grafo dell'adiacenza delle celle
-    auto candidates = find_ambient_cells(state.cells, skip_polygons);
-    auto heights    = vector<int>(candidates.size());
-    for (int i = 0; i < heights.size(); i++) {
-      heights[i] = node_depth(state, candidates[i]);
-      printf("node: %d, height: %d\n", candidates[i], heights[i]);
-    }
-    auto max_depth = *max_element(heights.begin(), heights.end());
 
-    for (int i = 0; i < candidates.size(); i++) {
-      if (heights[i] == max_depth) start.push_back(candidates[i]);
-    }
+  // TODO(giacomo): Incomplete.
+  // TODO(giacomo): Incomplete.
+  // TODO(giacomo): Incomplete.
+  // TODO(giacomo): Incomplete.
+  // TODO(giacomo): Incomplete.
+
+  // if (cycle_nodes.size() > 0) {
+  //   start = cycle_nodes;
+  // } else {
+  // Trova le celle ambiente nel grafo dell'adiacenza delle celle
+  auto candidates = find_ambient_cells(state.cells, skip_polygons);
+  auto heights    = vector<int>(candidates.size());
+  for (int i = 0; i < heights.size(); i++) {
+    heights[i] = node_depth(state, candidates[i]);
+    printf("node: %d, height: %d\n", candidates[i], heights[i]);
   }
+  auto max_depth = *max_element(heights.begin(), heights.end());
+
+  for (int i = 0; i < candidates.size(); i++) {
+    if (heights[i] == max_depth) start.push_back(candidates[i]);
+  }
+  // }
 
   print("start", start);
   // Inizializza celle ambiente.
