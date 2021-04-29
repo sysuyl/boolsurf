@@ -8,9 +8,10 @@ using namespace std;
 const static int null_label = 0;
 
 struct bool_mesh : scene_shape {
-  vector<vec3i>        adjacencies = {};
-  dual_geodesic_solver dual_solver = {};
-  vector<vec3i>        border_tags = {};
+  vector<vec3i>                     adjacencies = {};
+  dual_geodesic_solver              dual_solver = {};
+  vector<vec3i>                     border_tags = {};
+  hash_map<unordered_set<int>, int> vector_tags = {};
 
   shape_bvh                  bvh                = {};
   bbox3f                     bbox               = {};

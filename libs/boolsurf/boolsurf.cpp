@@ -1143,19 +1143,33 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
   }
 }
 
-static vector<vec3i> border_tags(
-    const bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
-  auto tags = vector<vec3i>(mesh.triangles.size(), zero3i);
+static pair<vector<vec3i>, hash_map<unordered_set<int>, int>> border_tags(
+    const bool_mesh& mesh, const mesh_hashgrid& hashgrid, int num_polygons) {
+  auto  result = pair<vector<vec3i>, hash_map<unordered_set<int>, int>>();
+  auto& tags   = result.first;
+  tags         = vector<vec3i>(mesh.triangles.size(), zero3i);
 
   // Fill border_map.
-  auto border_map = hash_map<vec2i, int>{};
+  auto border_map = hash_map<vec2i, unordered_set<int>>{};
   for (auto& [face, polylines] : hashgrid) {
     for (auto& polyline : polylines) {
       auto polygon_id = polyline.polygon;
       for (auto i = 0; i < num_segments(polyline); i++) {
-        auto edge        = get_segment_vertices(polyline, i);
-        border_map[edge] = polygon_id;
+        auto edge     = get_segment_vertices(polyline, i);
+        auto edge_key = make_edge_key(edge);
+        if (edge == edge_key)
+          border_map[edge_key].insert(polygon_id);
+        else
+          border_map[edge_key].insert(-polygon_id);
       }
+    }
+  }
+
+  auto& vector_tags = result.second;
+  vector_tags       = hash_map<unordered_set<int>, int>();
+  for (auto& [key, value] : border_map) {
+    if (value.size() > 1 && !contains(vector_tags, value)) {
+      vector_tags[value] = num_polygons + vector_tags.size();
     }
   }
 
@@ -1166,10 +1180,18 @@ static vector<vec3i> border_tags(
         auto tag  = 0;
         auto it   = border_map.find(edge);
         if (it != border_map.end()) {
-          tag = -it->second;
+          if (it->second.size() > 1) {
+            tag = -vector_tags[it->second];
+          } else {
+            tag = -*it->second.begin();
+          }
         } else if (it = border_map.find({edge.y, edge.x});
                    it != border_map.end()) {
-          tag = it->second;
+          if (it->second.size() > 1) {
+            tag = vector_tags[it->second];
+          } else {
+            tag = *it->second.begin();
+          }
         } else {
           continue;
         }
@@ -1177,8 +1199,9 @@ static vector<vec3i> border_tags(
       }
     }
   }
-  check_tags(mesh, tags);
-  return tags;
+  // check_tags(mesh, tags);
+
+  return result;
 }
 
 static int node_depth(const bool_state& state, int start) {
@@ -1214,7 +1237,8 @@ static void slice_mesh(bool_mesh& mesh, bool_state& state) {
   update_face_adjacencies(mesh);
 
   // Calcola i border_tags per le facce triangolata.
-  mesh.border_tags = border_tags(mesh, hashgrid);
+  tie(mesh.border_tags, mesh.vector_tags) = border_tags(
+      mesh, hashgrid, polygons.size());
 }
 
 static void compute_cell_labels(bool_state& state, int num_polygons) {

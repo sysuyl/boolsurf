@@ -39,6 +39,16 @@ inline void insert(vector<T>& vec, size_t i, const T& x) {
   vec.insert(vec.begin() + i, x);
 }
 
+// namespace std {
+// size_t hash(const vector<int>& V) {
+//   auto h = V.size();
+//   for (auto& i : V) {
+//     h ^= i + 0x9e3779b9 + (h << 6) + (h >> 2);
+//   }
+//   return h;
+// }
+// }  // namespace std
+
 inline bool operator==(const mesh_point& a, const mesh_point& b) {
   return (a.face == b.face) && (a.uv == b.uv);
 }
@@ -250,6 +260,28 @@ template <class T>
 inline bool contains(const vector<T>& vec, const T& x) {
   return find(vec.begin(), vec.end(), x) != vec.end();
 }
+
+template <>
+struct std::hash<vector<int>> {
+  size_t operator()(const vector<int>& V) const {
+    auto hash = V.size();
+    for (auto& i : V) {
+      hash ^= i + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    }
+    return hash;
+  }
+};
+
+template <>
+struct std::hash<std::unordered_set<int>> {
+  size_t operator()(const std::unordered_set<int>& V) const {
+    auto hash = V.size();
+    for (auto& i : V) {
+      hash ^= std::hash<int>{}(i);
+    }
+    return hash;
+  }
+};
 
 #ifdef MY_DEBUG
 hash_map<int, vector<vec3i>>& debug_triangles();
