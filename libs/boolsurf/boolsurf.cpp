@@ -1200,36 +1200,55 @@ static vector<vec3i> border_tags(
   return tags;
 }
 
-static int node_depth(
-    const bool_state& state, int start, const hash_set<int>& cycle_nodes) {
-  auto stack  = deque<int>{start};
-  auto depths = vector<int>(state.cells.size(), 99999);
+static vector<int> node_depth(const bool_state& state,
+    const vector<int>& candidates, const hash_set<int>& cycle_nodes) {
+  auto stack   = deque<int>(candidates.begin(), candidates.end());
+  auto depths  = vector<int>(state.cells.size(), -99999);
+  auto parents = vector<vector<int>>(state.cells.size());
   for (auto& s : stack) {
-    depths[s] = 0;
+    depths[s]  = 0;
+    parents[s] = {s};
   }
   while (stack.size()) {
     auto node = stack.front();
     stack.pop_front();
 
     for (auto& [neighbor, polygon] : state.cells[node].adjacency) {
-      // if (polygon < 0) continue;
+      if (polygon < 0) continue;
       if (contains(cycle_nodes, node) && contains(cycle_nodes, neighbor)) {
-        if (polygon < 0) continue;
-        depths[neighbor] = depths[node];
+        if (depths[node] == depths[neighbor]) continue;
+        parents[neighbor] = parents[node];
+        depths[neighbor]  = depths[node];
         stack.push_back(neighbor);
         continue;
       }
 
-      auto new_depth = depths[node] + sign(polygon);
-      if (new_depth >= depths[neighbor]) {
+      auto new_depth = depths[node] + 1;
+      if (new_depth < depths[neighbor]) {
         continue;
       }
 
-      depths[neighbor] = new_depth;
+      if (new_depth > depths[neighbor]) {
+        parents[neighbor] = {parents[node]};
+        depths[neighbor]  = new_depth;
+      } else if (new_depth == depths[neighbor]) {
+        parents[neighbor] += parents[node];
+      }
       stack.push_back(neighbor);
     }
   }
-  return max(depths);
+
+  print("depths", depths);
+  // print("parents", parents);
+  auto max_depth     = max(depths);
+  auto ambient_cells = hash_set<int>{};
+  for (int i = 0; i < depths.size(); i++) {
+    if (depths[i] == max_depth) {
+      for (auto& p : parents[i]) ambient_cells.insert(p);
+    }
+  }
+
+  return vector<int>(ambient_cells.begin(), ambient_cells.end());
 }
 
 static void slice_mesh(bool_mesh& mesh, bool_state& state) {
@@ -1281,7 +1300,7 @@ static void compute_cell_labels(bool_state& state, int num_polygons) {
   // labelling da quelle celle, in modo da propagare le informazioni già
   // acquisite. In caso contrario la visita parte normalmente da una qualsiasi
   // delle celle ambiente calcolate
-  auto start = vector<int>{};
+  // auto start = vector<int>{};
 
   // TODO(giacomo): Incomplete.
   // TODO(giacomo): Incomplete.
@@ -1295,22 +1314,23 @@ static void compute_cell_labels(bool_state& state, int num_polygons) {
   // Trova le celle ambiente nel grafo dell'adiacenza delle celle
 
   auto candidates = find_ambient_cells(state.cells, skip_polygons);
-  auto heights    = vector<int>(candidates.size());
-  for (int i = 0; i < heights.size(); i++) {
-    heights[i] = node_depth(state, candidates[i], cycle_nodes);
-    printf("candidate: %d, height: %d\n", candidates[i], heights[i]);
-  }
-  auto max_depth = max(heights);
+  print("candidates", candidates);
+  // auto heights    = vector<int>(candidates.size());
+  // for (int i = 0; i < heights.size(); i++) {
+  auto start = node_depth(state, candidates, cycle_nodes);
+  print("start", start);
+  // printf("candidate: %d, height: %d\n", candidates[i], heights[i]);
+  // }
+  // auto max_depth = max(heights);
 
-  for (int i = 0; i < candidates.size(); i++) {
-    if (heights[i] == max_depth) start.push_back(candidates[i]);
-  }
+  // for (int i = 0; i < candidates.size(); i++) {
+  // if (heights[i] == max_depth) start.push_back(candidates[i]);
+  // }
 
   // start = {5};
 
   // }
 
-  print("start", start);
   // Inizializza celle ambiente.
   for (auto& ss : start) {
     state.cells[ss].labels = vector<int>(num_polygons, 0);
