@@ -533,10 +533,11 @@ static vector<int> find_ambient_cells(
   auto adjacency = vector<int>(cells.size(), 0);
   for (auto& cell : cells) {
     for (auto& [adj, p] : cell.adjacency) {
-      if (find_idx(skip_polygons, p) != -1) continue;
+      // if (find_idx(skip_polygons, p) != -1) continue;
       if (p > 0) adjacency[adj] += 1;
     }
   }
+  print("adjacency", adjacency);
 
   auto result = vector<int>{};
   for (int i = 0; i < adjacency.size(); i++) {
@@ -1201,30 +1202,31 @@ static vector<vec3i> border_tags(
 
 static int node_depth(
     const bool_state& state, int start, const hash_set<int>& cycle_nodes) {
-  auto stack   = deque<int>{start};
-  auto visited = vector<bool>(state.cells.size(), false);
-  auto depths  = vector<int>(state.cells.size(), 99999);
+  auto stack  = deque<int>{start};
+  auto depths = vector<int>(state.cells.size(), 99999);
   for (auto& s : stack) {
     depths[s] = 0;
   }
-  int max_depth = 0;
   while (stack.size()) {
     auto node = stack.front();
     stack.pop_front();
-    visited[node] = true;
 
     for (auto& [neighbor, polygon] : state.cells[node].adjacency) {
-      if (polygon < 0) continue;
-      if (depths[neighbor] <= depths[node] + 1) {
-        continue;
-      }
+      // if (polygon < 0) continue;
       if (contains(cycle_nodes, node) && contains(cycle_nodes, neighbor)) {
+        if (polygon < 0) continue;
         depths[neighbor] = depths[node];
         stack.push_back(neighbor);
-      } else {
-        depths[neighbor] = depths[node] + 1;
-        stack.push_back(neighbor);
+        continue;
       }
+
+      auto new_depth = depths[node] + sign(polygon);
+      if (new_depth >= depths[neighbor]) {
+        continue;
+      }
+
+      depths[neighbor] = new_depth;
+      stack.push_back(neighbor);
     }
   }
   return max(depths);
@@ -1298,13 +1300,13 @@ static void compute_cell_labels(bool_state& state, int num_polygons) {
     heights[i] = node_depth(state, candidates[i], cycle_nodes);
     printf("candidate: %d, height: %d\n", candidates[i], heights[i]);
   }
-  auto max_depth = *max_element(heights.begin(), heights.end());
+  auto max_depth = max(heights);
 
-  // for (int i = 0; i < candidates.size(); i++) {
-  //   if (heights[i] == max_depth) start.push_back(candidates[i]);
-  // }
+  for (int i = 0; i < candidates.size(); i++) {
+    if (heights[i] == max_depth) start.push_back(candidates[i]);
+  }
 
-  start = {5};
+  // start = {5};
 
   // }
 
