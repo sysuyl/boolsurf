@@ -222,6 +222,28 @@ void print(const string& name, const vector<T>& vec, int max_elements = 100) {
   printf("\n");
 }
 
+template <typename T>
+void print(
+    const string& name, const std::deque<T>& vec, int max_elements = 100) {
+  printf("[size: %lu] ", vec.size());
+  printf("%s: [", name.c_str());
+  if (vec.empty()) {
+    printf("]\n");
+    return;
+  }
+
+  for (auto& x : vec) {
+    printf("%s ", std::to_string(x).c_str());
+  }
+
+  if (vec.size() > max_elements) {
+    printf("...]");
+  } else {
+    printf("]");
+  }
+  printf("\n");
+}
+
 namespace yocto {
 struct ogl_texture;
 }
@@ -259,6 +281,16 @@ inline bool contains(const hash_set<T>& set, const T& x) {
 template <class T>
 inline bool contains(const vector<T>& vec, const T& x) {
   return find(vec.begin(), vec.end(), x) != vec.end();
+}
+
+template <class T>
+inline bool contains(const std::deque<T>& vec, const T& x) {
+  return find(vec.begin(), vec.end(), x) != vec.end();
+}
+
+template <class T>
+inline const T& max(const vector<T>& vec) {
+  return *max_element(vec.begin(), vec.end());
 }
 
 template <>
