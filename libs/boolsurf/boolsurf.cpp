@@ -1405,16 +1405,18 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     auto& left                 = state.cells[c];
     auto  added_left_adjacency = hash_set<vec2i>();
 
-    for (auto it = left.adjacency.begin(); it != left.adjacency.end(); it++) {
-      auto [neighbor, polygon] = *it;
+    //    for (const auto it = left.adjacency.begin(); it !=
+    //    left.adjacency.end(); it++) {
+    for (auto& [neighbor, polygon] : left.adjacency) {
+      //      auto [neighbor, polygon] = *it;
 
       if (polygon < num_polygons) continue;
 
-      auto& right    = state.cells[neighbor];
-      auto& polygons = mesh.virtual_border_tags[polygon - num_polygons];
-
       auto  virtual_cell_id = (int)state.cells.size();
       auto& virtual_cell    = state.cells.emplace_back();
+
+      auto& right    = state.cells[neighbor];
+      auto& polygons = mesh.virtual_border_tags[polygon - num_polygons];
 
       for (auto p : polygons) {
         if (p > 0) {
@@ -1427,15 +1429,16 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
       }
     }
 
-    for (auto it = left.adjacency.begin(); it != left.adjacency.end();) {
+    for (auto it = state.cells[c].adjacency.begin();
+         it != state.cells[c].adjacency.end();) {
       auto [neighbor, polygon] = *it;
-      if (polygon > num_polygons)
-        it = left.adjacency.erase(it);
+      if (polygon >= num_polygons)
+        it = state.cells[c].adjacency.erase(it);
       else
         it++;
     }
 
-    left.adjacency.insert(
+    state.cells[c].adjacency.insert(
         added_left_adjacency.begin(), added_left_adjacency.end());
   }
 
