@@ -35,7 +35,7 @@ void save_image(const string& output_filename, const bool_mesh& mesh,
       shape.triangles.push_back(mesh.triangles[face]);
     }
 
-    {
+    if (0) {
       auto& instance     = scene.instances.emplace_back();
       instance.shape     = (int)scene.shapes.size();
       instance.material  = (int)scene.materials.size();

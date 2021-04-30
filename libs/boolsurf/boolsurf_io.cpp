@@ -115,7 +115,7 @@ string tree_to_string(const bool_state& state, bool color_shapes) {
     auto label = string{};
     for (int k = 1; k < cell.labels.size(); k++) {
       if (cell.labels[k] == null_label) {
-        label += "- ";
+        label += "0 ";
         continue;
       }
       label += to_string(cell.labels[k]) + " ";

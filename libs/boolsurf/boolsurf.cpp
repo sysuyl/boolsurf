@@ -1177,18 +1177,19 @@ static vector<vec3i> border_tags(
   return tags;
 }
 
-static vector<int> find_ambient_cells(const bool_state& state,
-    const vector<int>& roots, const hash_set<int>& cycle_nodes) {
-  auto stack     = deque<int>(roots.begin(), roots.end());
+static vector<int> find_ambient_cells(
+    const bool_state& state, const hash_set<int>& cycle_nodes) {
+  auto roots     = find_roots(state.cells);
+  auto queue     = deque<int>(roots.begin(), roots.end());
   auto distances = vector<int>(state.cells.size(), -99999);
   auto parents   = vector<vector<int>>(state.cells.size());
-  for (auto& s : stack) {
+  for (auto& s : queue) {
     distances[s] = 0;
     parents[s]   = {s};
   }
-  while (stack.size()) {
-    auto node = stack.front();
-    stack.pop_front();
+  while (queue.size()) {
+    auto node = queue.front();
+    queue.pop_front();
 
     for (auto& [neighbor, polygon] : state.cells[node].adjacency) {
       if (polygon < 0) continue;
@@ -1196,7 +1197,7 @@ static vector<int> find_ambient_cells(const bool_state& state,
         if (distances[node] == distances[neighbor]) continue;
         parents[neighbor]   = parents[node];
         distances[neighbor] = distances[node];
-        stack.push_back(neighbor);
+        queue.push_back(neighbor);
         continue;
       }
 
@@ -1211,7 +1212,7 @@ static vector<int> find_ambient_cells(const bool_state& state,
       } else if (new_depth == distances[neighbor]) {
         parents[neighbor] += parents[node];
       }
-      stack.push_back(neighbor);
+      queue.push_back(neighbor);
     }
   }
 
@@ -1264,37 +1265,10 @@ static void compute_cell_labels(bool_state& state, int num_polygons) {
   // Calcoliamo il labelling definitivo per effettuare le booleane tra
   // poligoni
 
-  // Inizializziamo le label delle celle a 0
-  for (auto& cell : state.cells)
-    cell.labels = vector<int>(num_polygons, null_label);
+  auto ambient_cells = find_ambient_cells(state, cycle_nodes);
 
-  // Se erano presenti cicli li risolviamo settando la label in base alle
-  // informazioni estratte prima
-
-  // Se erano presenti cicli all'interno del grafo allora facciamo partire il
-  // labelling da quelle celle, in modo da propagare le informazioni già
-  // acquisite. In caso contrario la visita parte normalmente da una qualsiasi
-  // delle celle ambiente calcolate
-  // auto start = vector<int>{};
-
-  // TODO(giacomo): Incomplete.
-  // TODO(giacomo): Incomplete.
-  // TODO(giacomo): Incomplete.
-  // TODO(giacomo): Incomplete.
-  // TODO(giacomo): Incomplete.
-
-  // if (cycle_nodes.size() > 0) {
-  //   start = cycle_nodes;
-  // } else {
-  // Trova le celle ambiente nel grafo dell'adiacenza delle celle
-
-  auto candidates    = find_roots(state.cells);
-  auto ambient_cells = find_ambient_cells(state, candidates, cycle_nodes);
-
-  // Inizializza celle ambiente.
-  for (auto& i : ambient_cells) {
-    state.cells[i].labels = vector<int>(num_polygons, 0);
-  }
+  // Inizializziamo le label delle celle a 0.
+  for (auto& cell : state.cells) cell.labels = vector<int>(num_polygons, 0);
 
   // Inizializza la label dei nodi nei cicli.
   for (auto& cycle : cycles) {
