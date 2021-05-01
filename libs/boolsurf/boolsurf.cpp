@@ -1135,8 +1135,9 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
 
 static bool_borders border_tags(
     const bool_mesh& mesh, const mesh_hashgrid& hashgrid, int num_polygons) {
-  auto borders = bool_borders{};
-  borders.tags = vector<vec3i>(mesh.triangles.size(), zero3i);
+  auto borders         = bool_borders{};
+  borders.tags         = vector<vec3i>(mesh.triangles.size(), zero3i);
+  borders.num_polygons = num_polygons;
 
   // Map each mesh edge to the polygons passing through it.
   auto border_map = hash_map<vec2i, unordered_set<int>>{};
@@ -1190,7 +1191,6 @@ static bool_borders border_tags(
     }
   }
 
-  // TODO(giacomo): Fammi rifunzionzare.
   check_tags(mesh, borders.tags);
 
   borders.virtual_tags = vector<hash_set<int>>(virtual_tag_map.size());
@@ -1271,7 +1271,7 @@ static void slice_mesh(bool_mesh& mesh, bool_state& state) {
   mesh.borders = border_tags(mesh, hashgrid, polygons.size());
 }
 
-static void compute_cell_labels(bool_state& state, int num_polygons) {
+static void compute_cell_labels(bool_state& state) {
   // Calcoliamo possibili cicli all'interno del grafo delle adiacenze della
   // mesh. In modo da eliminare gli archi corrispondenti.
   auto cycles = compute_graph_cycles(state.cells);
@@ -1290,6 +1290,7 @@ static void compute_cell_labels(bool_state& state, int num_polygons) {
   // poligoni
 
   // Inizializziamo le label delle celle a 0
+  auto num_polygons = state.polygons.size();
   for (auto& cell : state.cells)
     cell.labels = vector<int>(num_polygons, null_label);
 
@@ -1356,18 +1357,11 @@ static void compute_cell_labels(bool_state& state, int num_polygons) {
   }
 }
 
-void compute_cells(bool_mesh& mesh, bool_state& state) {
-  // Triangola mesh in modo da embeddare tutti i poligoni come mesh-edges.
-  int num_polygons = state.polygons.size();
-
-  slice_mesh(mesh, state);
-
-  // Trova celle e loro adiacenza via flood-fill.
-  state.cells = make_mesh_cells(mesh.adjacencies, mesh.borders);
-
+void update_virtual_adjacencies(
+    vector<mesh_cell>& cells, const bool_borders& borders) {
   // Update with void cells
-  for (auto c = 0; c < state.cells.size(); c++) {
-    auto& left                 = state.cells[c];
+  for (auto c = 0; c < cells.size(); c++) {
+    auto& left                 = cells[c];
     auto  added_left_adjacency = hash_set<vec2i>();
 
     //    for (const auto it = left.adjacency.begin(); it !=
@@ -1375,13 +1369,13 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
     for (auto& [neighbor, polygon] : left.adjacency) {
       //      auto [neighbor, polygon] = *it;
 
-      if (polygon < num_polygons) continue;
+      if (polygon < borders.num_polygons) continue;
 
-      auto  virtual_cell_id = (int)state.cells.size();
-      auto& virtual_cell    = state.cells.emplace_back();
+      auto  virtual_cell_id = (int)cells.size();
+      auto& virtual_cell    = cells.emplace_back();
 
-      auto& right    = state.cells[neighbor];
-      auto& polygons = mesh.borders.virtual_tags[polygon - num_polygons];
+      auto& right    = cells[neighbor];
+      auto& polygons = borders.virtual_tags[polygon - borders.num_polygons];
 
       for (auto p : polygons) {
         if (p > 0) {
@@ -1394,21 +1388,30 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
       }
     }
 
-    for (auto it = state.cells[c].adjacency.begin();
-         it != state.cells[c].adjacency.end();) {
+    for (auto it = cells[c].adjacency.begin();
+         it != cells[c].adjacency.end();) {
       auto [neighbor, polygon] = *it;
-      if (polygon >= num_polygons)
-        it = state.cells[c].adjacency.erase(it);
+      if (polygon >= borders.num_polygons)
+        it = cells[c].adjacency.erase(it);
       else
         it++;
     }
 
-    state.cells[c].adjacency.insert(
+    cells[c].adjacency.insert(
         added_left_adjacency.begin(), added_left_adjacency.end());
   }
+}
+
+void compute_cells(bool_mesh& mesh, bool_state& state) {
+  // Triangola mesh in modo da embeddare tutti i poligoni come mesh-edges.
+  slice_mesh(mesh, state);
+
+  // Trova celle e loro adiacenza via flood-fill.
+  state.cells = make_mesh_cells(mesh.adjacencies, mesh.borders);
+  update_virtual_adjacencies(state.cells, mesh.borders);
 
   // Calcola i label delle celle con una visita sulla loro adiacenza.
-  compute_cell_labels(state, num_polygons);
+  compute_cell_labels(state);
 }
 
 void compute_shapes(bool_state& state) {
