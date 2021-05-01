@@ -7,10 +7,16 @@ using namespace std;
 
 const static int null_label = -999;
 
+struct bool_borders {
+  vector<vec3i>         tags         = {};
+  vector<hash_set<int>> virtual_tags = {};
+  int                   num_polygons = 0;
+};
+
 struct bool_mesh : scene_shape {
   vector<vec3i>        adjacencies = {};
   dual_geodesic_solver dual_solver = {};
-  vector<vec3i>        border_tags = {};
+  bool_borders         borders     = {};
 
   shape_bvh                  bvh                = {};
   bbox3f                     bbox               = {};
@@ -261,14 +267,14 @@ static void flood_fill_debug(
 
   debug_result().push_back(face);
 
-  auto tag = mesh.border_tags[face];
+  auto tag = mesh.borders.tags[face];
   auto adj = mesh.adjacencies[face];
   printf("\nfrom %d: tag(%d %d %d) adj(%d %d %d)\n", face, tag[0], tag[1],
       tag[2], adj[0], adj[1], adj[2]);
 
   for (auto neighbor : mesh.adjacencies[face]) {
     if (neighbor < 0 || debug_visited()[neighbor]) continue;
-    auto tag = mesh.border_tags[neighbor];
+    auto tag = mesh.borders.tags[neighbor];
     auto adj = mesh.adjacencies[neighbor];
     if (check(face, neighbor)) {
       debug_stack().push_back(neighbor);

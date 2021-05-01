@@ -390,43 +390,6 @@ static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
   return hashgrid;
 }
 
-// static vector<vector<vector<int>>> add_vertices(
-//    bool_mesh& mesh, const vector<mesh_polygon>& polygons) {
-//  auto vertices   = vector<vector<vector<int>>>(polygons.size());
-//  auto duplicates = hash_map<int, int>();
-//
-//  for (int p = 0; p < polygons.size(); p++) {
-//    if (polygons[p].length == 0) continue;
-//    auto& edges = polygons[p].edges;
-//    vertices[p].resize(edges.size());
-//
-//    for (auto e = 0; e < edges.size(); e++) {
-//      auto& segments = edges[e];
-//      vertices[p][e].resize(segments.size());
-//
-//      // TODO(marzia): Move somewhere else
-//      // L'ultimo vertice di un edge è un control point. Se è già stato
-//      // incontrato riutilizziamo l'indice già calcolato
-//      auto control_point = polygons[p].points[e];
-//      if (contains(duplicates, control_point)) {
-//        vertices[p][e][0] = duplicates[control_point];
-//      } else {
-//        vertices[p][e][0] = add_vertex(
-//            mesh, {segments[0].face, segments[0].start});
-//        duplicates[control_point] = vertices[p][e][0];
-//      }
-//
-//      // Aggiungiamo tutti i vertici tranne l'ultimo, perché dobbiamo
-//      // individuare e salvare i control points separatamente
-//      for (auto s = 1; s < segments.size(); s++) {
-//        auto vertex = add_vertex(mesh, {segments[s].face, segments[s].start});
-//        vertices[p][e][s] = vertex;
-//      }
-//    }
-//  }
-//  return vertices;
-//}
-
 static hash_map<int, int> compute_control_points(vector<mesh_polygon>& polygons,
     const vector<vector<vector<int>>> vertices) {
   auto control_points = hash_map<int, int>();
@@ -440,8 +403,10 @@ static hash_map<int, int> compute_control_points(vector<mesh_polygon>& polygons,
   return control_points;
 }
 
+// TODO(giacomo): CAMBIAMI NOME
 static vector<mesh_cell> flood_fill_new(vector<int>& starts,
-    const vector<vec3i>& adjacencies, const vector<vec3i>& border_tags) {
+    const vector<vec3i>& adjacencies, const vector<vec3i>& border_tags,
+    int num_polygons) {
   auto result    = vector<mesh_cell>{};
   auto cell_tags = vector<int>(adjacencies.size(), -1);
 
@@ -493,11 +458,16 @@ static vector<mesh_cell> flood_fill_new(vector<int>& starts,
             if (p > 0) {
               // Sto entrando nel poligono p.
               cell.adjacency.insert({neighbor_cell, +p});
-              result[neighbor_cell].adjacency.insert({cell_id, -p});
+
+              if (p < num_polygons)
+                result[neighbor_cell].adjacency.insert({cell_id, -p});
             } else {
               // Sto uscendo dal poligono p.
               result[neighbor_cell].adjacency.insert({cell_id, -p});
-              cell.adjacency.insert({neighbor_cell, +p});
+
+              if (-p < num_polygons) {
+                cell.adjacency.insert({neighbor_cell, +p});
+              }
             }
           }
         } else {
@@ -519,10 +489,11 @@ static vector<mesh_cell> flood_fill_new(vector<int>& starts,
 }
 
 inline vector<mesh_cell> make_mesh_cells(
-    const vector<vec3i>& adjacencies, const vector<vec3i>& border_tags) {
+    const vector<vec3i>& adjacencies, const bool_borders& borders) {
   // Iniziamo dall'ultima faccia che sicuramente non e' stata distrutta.
   auto starts = vector<int>{(int)adjacencies.size() - 1};
-  auto result = flood_fill_new(starts, adjacencies, border_tags);
+  auto result = flood_fill_new(
+      starts, adjacencies, borders.tags, borders.num_polygons);
   return result;
 }
 
@@ -534,6 +505,7 @@ static vector<int> find_roots(const vector<mesh_cell>& cells) {
       if (p > 0) adjacency[adj] += 1;
     }
   }
+  print("adjacency", adjacency);
 
   auto result = vector<int>{};
   for (int i = 0; i < adjacency.size(); i++) {
@@ -1139,22 +1111,37 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
   }
 }
 
-static vector<vec3i> border_tags(
-    const bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
-  auto tags = vector<vec3i>(mesh.triangles.size(), zero3i);
+static bool_borders border_tags(
+    const bool_mesh& mesh, const mesh_hashgrid& hashgrid, int num_polygons) {
+  auto borders         = bool_borders{};
+  borders.tags         = vector<vec3i>(mesh.triangles.size(), zero3i);
+  borders.num_polygons = num_polygons;
 
-  // Fill border_map.
-  auto border_map = hash_map<vec2i, int>{};
+  // Map each mesh edge to the polygons passing through it.
+  auto border_map = hash_map<vec2i, unordered_set<int>>{};
   for (auto& [face, polylines] : hashgrid) {
     for (auto& polyline : polylines) {
       auto polygon_id = polyline.polygon;
       for (auto i = 0; i < num_segments(polyline); i++) {
-        auto edge        = get_segment_vertices(polyline, i);
-        border_map[edge] = polygon_id;
+        auto edge     = get_segment_vertices(polyline, i);
+        auto edge_key = make_edge_key(edge);
+        if (edge == edge_key)
+          border_map[edge_key].insert(polygon_id);
+        else
+          border_map[edge_key].insert(-polygon_id);
       }
     }
   }
 
+  // Map each set of colinear polygons to a virtual tag.
+  auto virtual_tag_map = hash_map<unordered_set<int>, int>();
+  for (auto& [key, value] : border_map) {
+    if (value.size() > 1 && !contains(virtual_tag_map, value)) {
+      virtual_tag_map[value] = num_polygons + virtual_tag_map.size();
+    }
+  }
+
+  // Fill border tags.
   for (auto& [_, faces] : mesh.triangulated_faces) {
     for (auto& face : faces) {
       for (int k = 0; k < 3; k++) {
@@ -1162,19 +1149,33 @@ static vector<vec3i> border_tags(
         auto tag  = 0;
         auto it   = border_map.find(edge);
         if (it != border_map.end()) {
-          tag = -it->second;
+          if (it->second.size() > 1) {
+            tag = -virtual_tag_map[it->second];
+          } else {
+            tag = -*it->second.begin();
+          }
         } else if (it = border_map.find({edge.y, edge.x});
                    it != border_map.end()) {
-          tag = it->second;
+          if (it->second.size() > 1) {
+            tag = virtual_tag_map[it->second];
+          } else {
+            tag = *it->second.begin();
+          }
         } else {
           continue;
         }
-        tags[face][k] = tag;
+        borders.tags[face][k] = tag;
       }
     }
   }
-  check_tags(mesh, tags);
-  return tags;
+
+  check_tags(mesh, borders.tags);
+
+  borders.virtual_tags = vector<hash_set<int>>(virtual_tag_map.size());
+  for (auto& [key, value] : virtual_tag_map)
+    borders.virtual_tags[value - num_polygons] = key;
+
+  return borders;
 }
 
 static vector<int> find_ambient_cells(
@@ -1244,10 +1245,10 @@ static void slice_mesh(bool_mesh& mesh, bool_state& state) {
   update_face_adjacencies(mesh);
 
   // Calcola i border_tags per le facce triangolata.
-  mesh.border_tags = border_tags(mesh, hashgrid);
+  mesh.borders = border_tags(mesh, hashgrid, polygons.size());
 }
 
-static void compute_cell_labels(bool_state& state, int num_polygons) {
+static void compute_cell_labels(bool_state& state) {
   // Calcoliamo possibili cicli all'interno del grafo delle adiacenze della
   // mesh. In modo da eliminare gli archi corrispondenti.
   auto cycles = compute_graph_cycles(state.cells);
@@ -1268,7 +1269,7 @@ static void compute_cell_labels(bool_state& state, int num_polygons) {
   auto ambient_cells = find_ambient_cells(state, cycle_nodes);
 
   // Inizializziamo le label delle celle a 0.
-  for (auto& cell : state.cells) cell.labels = vector<int>(num_polygons, 0);
+  for (auto& cell : state.cells) cell.labels = vector<int>(state.polygons.size(), 0);
 
   // Inizializza la label dei nodi nei cicli.
   for (auto& cycle : cycles) {
@@ -1290,15 +1291,61 @@ static void compute_cell_labels(bool_state& state, int num_polygons) {
   }
 }
 
+void update_virtual_adjacencies(
+    vector<mesh_cell>& cells, const bool_borders& borders) {
+  // Update with void cells
+  for (auto c = 0; c < cells.size(); c++) {
+    auto& left                 = cells[c];
+    auto  added_left_adjacency = hash_set<vec2i>();
+
+    //    for (const auto it = left.adjacency.begin(); it !=
+    //    left.adjacency.end(); it++) {
+    for (auto& [neighbor, polygon] : left.adjacency) {
+      //      auto [neighbor, polygon] = *it;
+
+      if (polygon < borders.num_polygons) continue;
+
+      auto  virtual_cell_id = (int)cells.size();
+      auto& virtual_cell    = cells.emplace_back();
+
+      auto& right    = cells[neighbor];
+      auto& polygons = borders.virtual_tags[polygon - borders.num_polygons];
+
+      for (auto p : polygons) {
+        if (p > 0) {
+          virtual_cell.adjacency.insert({neighbor, p});
+          right.adjacency.insert({virtual_cell_id, -p});
+        } else {
+          virtual_cell.adjacency.insert({c, -p});
+          added_left_adjacency.insert({virtual_cell_id, p});
+        }
+      }
+    }
+
+    for (auto it = cells[c].adjacency.begin();
+         it != cells[c].adjacency.end();) {
+      auto [neighbor, polygon] = *it;
+      if (polygon >= borders.num_polygons)
+        it = cells[c].adjacency.erase(it);
+      else
+        it++;
+    }
+
+    cells[c].adjacency.insert(
+        added_left_adjacency.begin(), added_left_adjacency.end());
+  }
+}
+
 void compute_cells(bool_mesh& mesh, bool_state& state) {
   // Triangola mesh in modo da embeddare tutti i poligoni come mesh-edges.
   slice_mesh(mesh, state);
 
   // Trova celle e loro adiacenza via flood-fill.
-  state.cells = make_mesh_cells(mesh.adjacencies, mesh.border_tags);
+  state.cells = make_mesh_cells(mesh.adjacencies, mesh.borders);
+  update_virtual_adjacencies(state.cells, mesh.borders);
 
   // Calcola i label delle celle con una visita sulla loro adiacenza.
-  compute_cell_labels(state, (int)state.polygons.size());
+  compute_cell_labels(state);
 }
 
 void compute_shapes(bool_state& state) {
@@ -1373,13 +1420,13 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
         // dalle facce che ne fanno parte
         for (auto face : cell.faces) {
           // Se è una faccia interna allora non costituirà il bordo
-          if (mesh.border_tags[face] == zero3i) continue;
+          if (mesh.borders.tags[face] == zero3i) continue;
 
           // Per ogni lato del triangolo considero solamente quelli che sono
           // di bordo (tag != 0)
           auto& tri = mesh.triangles[face];
           for (auto k = 0; k < 3; k++) {
-            auto tag = mesh.border_tags[face][k];
+            auto tag = mesh.borders.tags[face][k];
             if (tag == 0) continue;
             auto edge     = get_mesh_edge_from_index(tri, k);
             auto rev_edge = vec2i{edge.y, edge.x};
