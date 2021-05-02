@@ -612,11 +612,18 @@ void save_tree_png(const bool_state& state, string filename,
 
 #include <deque>
 
-static void propagate_cell_labels(bool_state& state, const vector<int>& start,
-    const vector<int>& skip_polygons) {
-  auto& cells = state.cells;
-  // Calcoliamo le label delle celle visitando il grafo di adiacenza a partire
-  // dalle celle ambiente e incrementanto/decrementanto l'indice
+static vector<vector<int>> propagate_cell_labels(const vector<mesh_cell>& cells,
+    const vector<int>& start, const vector<vector<vec2i>>& cycles,
+    const vector<int>& skip_polygons, int num_polygons) {
+  // Inizializziamo le label delle celle a 0.
+  auto labels = vector<vector<int>>(cells.size(), vector<int>(num_polygons, 0));
+
+  // Inizializza la label dei nodi nei cicli.
+  for (auto& cycle : cycles) {
+    for (auto& c : cycle) labels[c.x][c.y] = 1;
+  }
+  // Calcoliamo le label delle celle visitando il grafo di adiacenza a
+  // partire dalle celle ambiente e incrementanto/decrementanto l'indice
   // corrispondente al poligono.
 
   auto queue   = deque<int>(start.begin(), start.end());
@@ -641,8 +648,8 @@ static void propagate_cell_labels(bool_state& state, const vector<int>& start,
       // quella già calcolata allora prendo il massimo valore in ogni
       // componente
 
-      auto& neighbor_labels = state.labels[neighbor];
-      auto  cell_labels     = state.labels[cell_id];
+      auto& neighbor_labels = labels[neighbor];
+      auto  cell_labels     = labels[cell_id];
       cell_labels[polygon_unsigned] += sign(polygon);
 
       auto updated_neighbor_labels = false;
@@ -674,6 +681,7 @@ static void propagate_cell_labels(bool_state& state, const vector<int>& start,
       visited[neighbor] = true;
     }
   }
+  return labels;
 }
 
 static void add_polygon_intersection_points(bool_state& state,
@@ -1267,16 +1275,8 @@ static void compute_cell_labels(bool_state& state) {
 
   state.ambient_cells = find_ambient_cells(state, cycle_nodes);
 
-  // Inizializziamo le label delle celle a 0.
-  state.labels.assign(
-      state.cells.size(), vector<int>(state.polygons.size(), 0));
-
-  // Inizializza la label dei nodi nei cicli.
-  for (auto& cycle : cycles) {
-    for (auto& c : cycle) state.labels[c.x][c.y] = 1;
-  }
-
-  propagate_cell_labels(state, state.ambient_cells, skip_polygons);
+  state.labels = propagate_cell_labels(state.cells, state.ambient_cells, cycles,
+      skip_polygons, state.polygons.size());
 
   // Applichiamo la even-odd rule nel caso in cui le label > 1 (Nelle self
   // intersections posso entrare in un poligono più volte senza esserne prima
