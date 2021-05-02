@@ -505,7 +505,6 @@ static vector<int> find_roots(const vector<mesh_cell>& cells) {
       if (p > 0) adjacency[adj] += 1;
     }
   }
-  print("adjacency", adjacency);
 
   auto result = vector<int>{};
   for (int i = 0; i < adjacency.size(); i++) {
@@ -642,8 +641,8 @@ static void propagate_cell_labels(bool_state& state, const vector<int>& start,
       // quella già calcolata allora prendo il massimo valore in ogni
       // componente
 
-      auto& neighbor_labels = cells[neighbor].labels;
-      auto  cell_labels     = cell.labels;
+      auto& neighbor_labels = state.labels[neighbor];
+      auto  cell_labels     = state.labels[cell_id];
       cell_labels[polygon_unsigned] += sign(polygon);
 
       auto updated_neighbor_labels = false;
@@ -1266,23 +1265,24 @@ static void compute_cell_labels(bool_state& state) {
   // Calcoliamo il labelling definitivo per effettuare le booleane tra
   // poligoni
 
-  auto ambient_cells = find_ambient_cells(state, cycle_nodes);
+  state.ambient_cells = find_ambient_cells(state, cycle_nodes);
 
   // Inizializziamo le label delle celle a 0.
-  for (auto& cell : state.cells) cell.labels = vector<int>(state.polygons.size(), 0);
+  state.labels.assign(
+      state.cells.size(), vector<int>(state.polygons.size(), 0));
 
   // Inizializza la label dei nodi nei cicli.
   for (auto& cycle : cycles) {
-    for (auto& c : cycle) state.cells[c.x].labels[c.y] = 1;
+    for (auto& c : cycle) state.labels[c.x][c.y] = 1;
   }
 
-  propagate_cell_labels(state, ambient_cells, skip_polygons);
+  propagate_cell_labels(state, state.ambient_cells, skip_polygons);
 
   // Applichiamo la even-odd rule nel caso in cui le label > 1 (Nelle self
   // intersections posso entrare in un poligono più volte senza esserne prima
   // uscito)
-  for (auto& cell : state.cells) {
-    for (auto& label : cell.labels) {
+  for (auto& ll : state.labels) {
+    for (auto& label : ll) {
       if (label < 0) {
         printf("[error]: cell, label = %d\n", label);
       }
@@ -1301,8 +1301,6 @@ void update_virtual_adjacencies(
     //    for (const auto it = left.adjacency.begin(); it !=
     //    left.adjacency.end(); it++) {
     for (auto& [neighbor, polygon] : left.adjacency) {
-      //      auto [neighbor, polygon] = *it;
-
       if (polygon < borders.num_polygons) continue;
 
       auto  virtual_cell_id = (int)cells.size();
@@ -1365,13 +1363,13 @@ void compute_shapes(bool_state& state) {
   // Distribute cells to shapes.
   // La prima shape è relativa alla cella ambiente, che è rotto per
   // definizione
-  shapes[0].cells   = {state.ambient_cell};
+  shapes[0].cells = hash_set<int>(
+      state.ambient_cells.begin(), state.ambient_cells.end());
   shapes[0].is_root = false;
 
   for (auto c = 0; c < state.cells.size(); c++) {
-    auto& cell = state.cells[c];
-    for (auto p = 0; p < cell.labels.size(); p++) {
-      if (cell.labels[p] > 0) shapes[p].cells.insert(c);
+    for (auto p = 0; p < state.labels[c].size(); p++) {
+      if (state.labels[c][p] > 0) shapes[p].cells.insert(c);
     }
   }
 }
@@ -1552,8 +1550,8 @@ vec3f get_cell_color(const bool_state& state, int cell_id, bool color_shapes) {
   } else {
     auto color = vec3f{0, 0, 0};
     int  count = 0;
-    for (int p = 0; p < state.cells[cell_id].labels.size(); p++) {
-      auto label = state.cells[cell_id].labels[p];
+    for (int p = 0; p < state.labels[cell_id].size(); p++) {
+      auto label = state.labels[cell_id][p];
       if (label > 0) {
         color += get_color(p);
         count += 1;

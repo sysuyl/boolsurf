@@ -147,6 +147,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
   if (app->selected_cell >= 0 && begin_header(widgets, "cell info", true)) {
     auto& cell = app->state.cells[app->selected_cell];
+    auto cell_id = app->selected_cell;
     draw_label(widgets, "cell", to_string(app->selected_cell));
     draw_label(widgets, "faces", to_string(cell.faces.size()));
 
@@ -155,8 +156,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
     draw_label(widgets, "adj", s);
 
     s = ""s;
-    for (auto p = 1; p < cell.labels.size(); p++)
-      s += to_string(cell.labels[p]) + " ";
+    for (auto p = 1; p < app->state.labels[cell_id].size(); p++)
+      s += to_string(app->state.labels[cell_id][p]) + " ";
     draw_label(widgets, "label", s);
 
     end_header(widgets);

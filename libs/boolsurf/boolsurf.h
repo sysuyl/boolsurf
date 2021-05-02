@@ -61,7 +61,7 @@ struct triangulation_info {
 struct mesh_cell {
   vector<int>     faces     = {};
   hash_set<vec2i> adjacency = {};  // {cell_id, crossed_polygon_id}
-  vector<int>     labels    = {};
+  // vector<int>     labels    = {};
 };
 
 struct mesh_shape {
@@ -84,8 +84,10 @@ struct bool_state {
   hash_map<int, int>   control_points      = {};
   hash_map<int, vec2i> isecs_generators    = {};
 
-  int                ambient_cell   = -1;
-  vector<mesh_cell>  cells          = {};
+  vector<mesh_cell>   cells         = {};
+  vector<int>         ambient_cells = {};
+  vector<vector<int>> labels        = {};
+
   vector<mesh_shape> shapes         = {};
   vector<int>        shapes_sorting = {};
 };
@@ -170,21 +172,6 @@ vec3f get_cell_color(const bool_state& state, int cell_id, bool color_shapes);
  *     DEBUGGING STUFF
  *
  */
-
-inline void print_cell_info(const mesh_cell& cell, int idx) {
-  printf("[cell %d]\n", idx);
-  printf("  faces: %d\n", (int)cell.faces.size());
-  printf("  adjacent cells: ");
-  for (auto& [cell_id, polygon_id] : cell.adjacency)
-    printf("(%d %d) ", cell_id, polygon_id);
-  printf("\n");
-
-  printf("  label: ");
-  for (auto p = 1; p < cell.labels.size(); p++) printf("%d ", cell.labels[p]);
-  printf("\n");
-
-  printf("\n\n");
-}
 
 template <typename F>
 static vector<int> flood_fill(const bool_mesh& mesh, const vector<int>& start,
