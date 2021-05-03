@@ -65,6 +65,28 @@ void draw_widgets(app_state* app, const gui_input& input) {
     save_test(app, app->state, filename);
   }
 
+  if (draw_filedialog_button(widgets, "load svg", true, "load svg",
+          app->svg_filename, false, "data/svgs/", "test.svg", "*.svg")) {
+    // app->state = {};
+    // for (auto& shape : app->polygon_shapes) clear_shape(shape->shape);
+    // app->polygon_shapes = {};
+    auto num_polygons = (int)app->state.polygons.size();
+
+    auto svg = load_svg(app->svg_filename);
+
+    init_from_svg(app->state, app->mesh, app->last_clicked_point, svg,
+        app->svg_size, app->svg_subdivs);
+
+    for (auto p = num_polygons; p < app->state.polygons.size(); p++) {
+      auto& polygon = app->state.polygons[p];
+      add_polygon_shape(app, polygon, p);
+    }
+
+    update_polygons(app);
+  }
+
+  draw_slider(widgets, "svg_size", app->svg_size, 0.0, 1.0);
+
   static auto view_triangulation = false;
   draw_checkbox(widgets, "view triangulation", view_triangulation);
   if (view_triangulation) {
@@ -217,28 +239,6 @@ void draw_widgets(app_state* app, const gui_input& input) {
     app->operation = {};
     app->test.operations.clear();
   }
-
-  if (draw_filedialog_button(widgets, "draw svg", true, "draw svg",
-          app->svg_filename, false, "data/svgs/", "test.svg", "*.svg")) {
-    // app->state = {};
-    // for (auto& shape : app->polygon_shapes) clear_shape(shape->shape);
-    // app->polygon_shapes = {};
-    auto num_polygons = (int)app->state.polygons.size();
-
-    auto svg = load_svg(app->svg_filename);
-
-    init_from_svg(app->state, app->mesh, app->last_clicked_point, svg,
-        app->svg_size, app->svg_subdivs);
-
-    for (auto p = num_polygons; p < app->state.polygons.size(); p++) {
-      auto& polygon = app->state.polygons[p];
-      add_polygon_shape(app, polygon, p);
-    }
-
-    update_polygons(app);
-  }
-
-  draw_slider(widgets, "svg_size", app->svg_size, 0.0, 1.0);
 
   end_imgui(widgets);
 }
