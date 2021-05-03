@@ -217,42 +217,28 @@ void draw_widgets(app_state* app, const gui_input& input) {
     app->operation = {};
     app->test.operations.clear();
   }
-  if (draw_button(widgets, "Draw letter")) {
-    auto svg      = load_svg("data/svgs/rectangle.svg");
-    auto polygons = vector<vector<vec2f>>{
-        {{344.261, 488.09}, {435.116, 100.957}, {603.936, 129.097},
-            {638.062, 169.8}, {647.917, 208.993}, {646.561, 252.953},
-            {629.785, 276.726}, {610.792, 303.154}, {583.55, 316.923},
-            {609.525, 332.67}, {628.794, 365.505}, {631.995, 400.703},
-            {626.094, 452.98}, {601.427, 487.932}, {537.858, 511.936},
-            {450.002, 514.445}},
-        {{344.261, 488.09}, {435.116, 100.957}, {603.936, 129.097},
-            {638.062, 169.8}, {647.917, 208.993}, {646.561, 252.953},
-            {629.785, 276.726}, {610.792, 303.154}, {583.55, 316.923},
-            {609.525, 332.67}, {628.794, 365.505}, {631.995, 400.703},
-            {626.094, 452.98}, {601.427, 487.932}, {537.858, 511.936},
-            {450.002, 514.445}}};
 
-    for (auto& polygon : polygons) {
-      auto polygon_id = (int)app->state.polygons.size() - 1;
+  if (draw_filedialog_button(widgets, "draw svg", true, "draw svg",
+          app->svg_filename, false, "data/svgs/", "test.svg", "*.svg")) {
+    // app->state = {};
+    // for (auto& shape : app->polygon_shapes) clear_shape(shape->shape);
+    // app->polygon_shapes = {};
+    auto num_polygons = (int)app->state.polygons.size();
 
-      for (auto uv : polygon) {
-        // Add point index to last polygon.
-        app->state.polygons[polygon_id].points.push_back(
-            (int)app->state.points.size());
+    auto svg = load_svg(app->svg_filename);
 
-        uv.x /= input.window_size.x;
-        uv.y /= input.window_size.y;
-        auto point = intersect_mesh(app->mesh, app->camera, uv);
-        if (point.face == -1) continue;
+    init_from_svg(app->state, app->mesh, app->last_clicked_point, svg,
+        app->svg_size, app->svg_subdivs);
 
-        // Add point to state.
-        app->state.points.push_back(point);
-      }
-      update_polygon(app, polygon_id);
+    for (auto p = num_polygons; p < app->state.polygons.size(); p++) {
+      auto& polygon = app->state.polygons[p];
+      add_polygon_shape(app, polygon, p);
     }
-    app->state.polygons.push_back({});
+
+    update_polygons(app);
   }
+
+  draw_slider(widgets, "svg_size", app->svg_size, 0.0, 1.0);
 
   end_imgui(widgets);
 }
@@ -499,21 +485,6 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key('S'): {
-        app->state = {};
-        for (auto& shape : app->polygon_shapes) clear_shape(shape->shape);
-        app->polygon_shapes = {};
-
-        auto svg = load_svg(app->svg_filename);
-
-        init_from_svg(app->state, app->mesh, app->last_clicked_point, svg,
-            app->svg_size, app->svg_subdivs);
-
-        for (auto p = 0; p < app->state.polygons.size(); p++) {
-          auto& polygon = app->state.polygons[p];
-          add_polygon_shape(app, polygon, p);
-        }
-
-        update_polygons(app);
       } break;
 
 #ifdef MY_DEBUG
