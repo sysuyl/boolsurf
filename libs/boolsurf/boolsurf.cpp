@@ -1,6 +1,7 @@
 #include "boolsurf.h"
 
 #include <cassert>
+#include <deque>
 
 #include "ext/CDT/CDT/include/CDT.h"
 
@@ -610,11 +611,9 @@ inline vector<vector<int>> compute_components(
 void save_tree_png(const bool_state& state, string filename,
     const string& extra, bool color_shapes);
 
-#include <deque>
-
 static vector<vector<int>> propagate_cell_labels(const vector<mesh_cell>& cells,
     const vector<int>& start, const vector<vector<vec2i>>& cycles,
-    const vector<int>& skip_polygons, int num_polygons) {
+    const hash_set<int>& skip_polygons, int num_polygons) {
   // Inizializziamo le label delle celle a 0.
   auto labels = vector<vector<int>>(cells.size(), vector<int>(num_polygons, 0));
 
@@ -1261,12 +1260,12 @@ static void compute_cell_labels(bool_state& state) {
   auto cycles = compute_graph_cycles(state.cells);
 
   // (marzia) Sicuro si può fare meglio
-  auto skip_polygons = vector<int>();
+  auto skip_polygons = hash_set<int>();
   auto cycle_nodes   = hash_set<int>();
   for (auto& cycle : cycles) {
     for (auto& [node, polygon] : cycle) {
       cycle_nodes.insert(node);
-      skip_polygons.push_back(polygon);
+      skip_polygons.insert(polygon);
     }
   }
 
@@ -1283,9 +1282,7 @@ static void compute_cell_labels(bool_state& state) {
   // uscito)
   for (auto& ll : state.labels) {
     for (auto& label : ll) {
-      if (label < 0) {
-        printf("[error]: cell, label = %d\n", label);
-      }
+      assert(label >= 0);
       if (label > 1) label = label % 2;
     }
   }
