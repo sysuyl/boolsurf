@@ -177,7 +177,8 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
         auto& segment = polygon.edges.back().back();
         positions.push_back(eval_position(mesh, {segment.face, segment.end}));
       }
-
+        if(positions.empty()) continue;
+        
       auto lines = vector<vec2i>(positions.size() - 1);
       for (int i = 0; i < lines.size(); i++) {
         lines[i] = {i, i + 1};
