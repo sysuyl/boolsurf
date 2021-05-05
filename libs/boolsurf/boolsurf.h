@@ -150,6 +150,12 @@ inline vec3f eval_normal(const bool_mesh& mesh, const mesh_point& point) {
   return eval_normal(mesh.triangles, mesh.positions, point);
 }
 
+inline vec3f eval_normal(const bool_mesh& mesh, int face) {
+  auto [x, y, z] = mesh.triangles[face];
+  return triangle_normal(
+      mesh.positions[x], mesh.positions[y], mesh.positions[z]);
+}
+
 mesh_point intersect_mesh(const bool_mesh& mesh, const shape_bvh& bvh,
     const scene_camera& camera, const vec2f& uv);
 
