@@ -20,17 +20,21 @@ using namespace yocto;
 // Application state
 struct app_state {
   // loading parameters
-  string         model_filename = "";
-  string         test_filename  = "";
-  string         svg_filename   = "";
-  int            svg_subdivs    = 2;
-  float          svg_size       = 0.005f;
-  bool_test      test           = {};
-  bool_operation operation      = {};
-  gui_window*    window         = nullptr;
-  bool           color_shapes   = false;
-  bool           use_projection = false;
-  scene_camera   camera         = {};
+  string         model_filename       = "";
+  string         test_filename        = "";
+  string         svg_filename         = "";
+  int            svg_subdivs          = 4;
+  float          svg_size             = 0.01;
+  bool           project_points       = false;
+  int            num_sampled_polygons = 200;
+  bool_test      test                 = {};
+  bool_operation operation            = {};
+  gui_window*    window               = nullptr;
+  bool           color_shapes         = false;
+  bool           color_hashgrid       = false;
+  bool           show_polygons        = true;
+  bool           use_projection       = false;
+  scene_camera   camera               = {};
 
   // options
   shade_params drawgl_prms = {};
@@ -41,11 +45,15 @@ struct app_state {
 
   bool_state state = {};
 
-  vector<shade_instance*> cell_shapes    = {};
-  vector<shade_instance*> polygon_shapes = {};
+  vector<shade_instance*> cell_shapes         = {};
+  vector<shade_instance*> polygon_shapes      = {};
+  shade_instance*         hashgrid_shape      = nullptr;
+  vector<shade_instance*> border_faces_shapes = {};
+  // shade_instance*         inner_faces_shape = nullptr;
+  // shade_instance*         outer_faces_shape = nullptr;
 
   vector<bool_state> history        = {};
-  int                history_index  = 0;
+  int                history_index  = -1;
   int                selected_cell  = -1;
   int                selected_shape = -1;
 
@@ -77,10 +85,18 @@ struct app_state {
   vector<int> cell_patches   = {};
   int         current_patch  = 0;
   int         current_border = 0;
+  int         current_cell   = 0;
 
-  gui_widgets widgets                     = {};
-  mesh_point  last_clicked_point          = {};
-  mesh_point  last_clicked_point_original = {};
+  gui_widgets widgets = {};
+
+  mesh_point last_clicked_point          = {};
+  mesh_point last_clicked_point_original = {};
+
+  struct last_svg {
+    vector<Svg_Shape> svg;
+    int               previous_polygons;
+  } last_svg          = {};
+  bool_test temp_test = {};
 
   ~app_state() {
     if (glscene) delete glscene;
@@ -103,17 +119,27 @@ void update_polygon(app_state* app, int polygon_id, int index = 0) {
 
   // Draw polygon.
   recompute_polygon_segments(app->mesh, app->state, mesh_polygon, index);
+  if (!app->show_polygons) return;
+
   if (mesh_polygon.length > 0)
     set_polygon_shape(polygon_shape->shape, app->mesh, mesh_polygon);
+  else if (polygon_shape->shape)
+    clear_shape(polygon_shape->shape);
 }
 
 void update_polygons(app_state* app) {
   for (int i = 1; i < app->state.polygons.size(); i++) {
     update_polygon(app, i);
   }
+  for (auto i = app->state.polygons.size(); i < app->polygon_shapes.size();
+       i++) {
+    clear_shape(app->polygon_shapes[i]->shape);
+  }
+  app->polygon_shapes.resize(app->state.polygons.size());
 }
 
 void commit_state(app_state* app) {
+  PRINT_CALL();
   app->history_index += 1;
   app->history.resize(app->history_index + 1);
   app->history[app->history_index] = app->state;
@@ -123,7 +149,7 @@ inline void update_cell_shapes(app_state* app);
 inline void update_cell_colors(app_state* app);
 
 bool undo_state(app_state* app) {
-  if (app->history_index <= 1) return false;
+  if (app->history_index <= 0) return false;
   app->history_index -= 1;
   app->state = app->history[app->history_index];
   update_polygons(app);
@@ -149,8 +175,7 @@ void load_shape(app_state* app, const string& filename) {
   //  vector<vec3f> colors;
   //  vector<vec3f> normals;
   //  if (!load_mesh(filename, app->mesh.triangles, app->mesh.positions,
-  //  normals,
-  //          texcoords, colors, error)) {
+  //  normals, texcoords, colors, error)) {
   if (!load_shape(filename, app->mesh, error)) {
     printf("%s\n", error.c_str());
     print_fatal("Error loading model " + filename);
@@ -225,12 +250,7 @@ void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh) {
       0.050, 16.0f / 9.0f, 0.036);
   app->glcamera->focus = length(app->glcamera->frame.o);
 
-  // material
-  // TODO(giacomo): Replace this with a proper colormap.
-  //  if (progress_cb) progress_cb("convert material", progress.x++,
-  //  progress.y);
-  app->mesh_material = add_material(
-      glscene, {0, 0, 0}, {0.5, 0.5, 0.9}, 1, 0, 0.4);
+  app->mesh_material  = add_material(glscene, {0, 0, 0}, {1, 1, 1}, 1, 0, 0.4);
   app->edges_material = add_material(
       glscene, {0, 0, 0}, {0.4, 0.4, 1}, 1, 0, 0.4);
   app->points_material = add_material(glscene, {0, 0, 0}, {0, 0, 1}, 1, 0, 0.4);
@@ -273,6 +293,7 @@ void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh) {
 
   app->drawgl_prms.faceted = true;
   set_instances(mesh_shape, {}, {});
+  app->drawgl_prms.background = {1, 1, 1, 1};
 
   auto edges_shape    = add_shape(glscene);
   auto vertices_shape = add_shape(glscene);
@@ -344,20 +365,21 @@ mesh_point intersect_mesh_original(
 
 shade_instance* add_patch_shape(
     app_state* app, const vector<int>& faces, const vec3f& color) {
-  auto patch_shape    = add_shape(app->glscene, {}, {}, {}, {}, {}, {}, {}, {});
-  auto patch_material = add_material(app->glscene);  // @Leak
-  *patch_material     = *app->mesh_material;
-  patch_material->color = color;
-  set_patch_shape(patch_shape, app->mesh, faces);
-  return add_instance(app->glscene, identity3x4f, patch_shape, patch_material);
+  auto instance       = add_instance(app->glscene);
+  instance->shape     = add_shape(app->glscene, {}, {}, {}, {}, {}, {}, {}, {});
+  instance->material  = add_material(app->glscene);
+  *instance->material = *app->mesh_material;
+  instance->material->color = color;
+  set_patch_shape(instance->shape, app->mesh, faces);
+  return instance;
 }
 
-shade_instance* add_patch_shape(
-    app_state* app, const vector<int>& faces, shade_material* material) {
-  auto patch_shape = add_shape(app->glscene, {}, {}, {}, {}, {}, {}, {}, {});
-  set_patch_shape(patch_shape, app->mesh, faces);
-  return add_instance(app->glscene, identity3x4f, patch_shape, material);
-}
+// shade_instance* add_patch_shape(
+//     app_state* app, const vector<int>& faces, shade_material* material) {
+//   auto patch_shape = add_shape(app->glscene, {}, {}, {}, {}, {}, {}, {}, {});
+//   set_patch_shape(patch_shape, app->mesh, faces);
+//   return add_instance(app->glscene, identity3x4f, patch_shape, material);
+// }
 
 void add_polygon_shape(app_state* app, const mesh_polygon& polygon, int index) {
   auto polygon_shape = add_shape(app->glscene, {}, {}, {}, {}, {}, {}, {}, {});
@@ -368,8 +390,7 @@ void add_polygon_shape(app_state* app, const mesh_polygon& polygon, int index) {
   if (polygon.length > 0) set_polygon_shape(polygon_shape, app->mesh, polygon);
   auto polygon_instance = add_instance(
       app->glscene, identity3x4f, polygon_shape, polygon_material);
-  polygon_instance->depth_test = ogl_depth_test::always;
-
+  // polygon_instance->depth_test = ogl_depth_test::always;
   app->polygon_shapes += polygon_instance;
 }
 
@@ -391,7 +412,19 @@ inline void update_cell_colors(app_state* app) {
     app->cell_shapes[i]->material->color = get_cell_color(
         state, i, app->color_shapes);
   }
-  //  }
+}
+
+void update_svg(app_state* app) {
+  init_from_svg(app->state, app->mesh, app->last_clicked_point,
+      app->last_svg.svg, app->svg_size, app->svg_subdivs);
+
+  for (auto p = app->last_svg.previous_polygons; p < app->state.polygons.size();
+       p++) {
+    auto& polygon = app->state.polygons[p];
+    add_polygon_shape(app, polygon, p);
+  }
+
+  update_polygons(app);
 }
 
 void save_test(
