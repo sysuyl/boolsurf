@@ -1200,7 +1200,7 @@ static bool_borders border_tags(
     }
   }
 
-  check_tags(mesh, borders.tags);
+  //  check_tags(mesh, borders.tags);
 
   borders.virtual_tags = vector<hash_set<int>>(virtual_tag_map.size());
   for (auto& [key, value] : virtual_tag_map)

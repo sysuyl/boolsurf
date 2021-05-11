@@ -140,30 +140,14 @@ void load_svg(app_state* app) {
 }
 
 // draw with shading
-void draw_widgets(app_state* app, const gui_input& input) {
-  auto widgets = &app->widgets;
-  begin_imgui(widgets, "boolsurf", {0, 0}, {320, 720});
-
-  if (draw_filedialog_button(widgets, "load test", true, "load file",
-          app->test_filename, false, "data/tests/", "test.json", "*.json")) {
-    load_test(app->test, app->test_filename);
-    init_from_test(app);
-  }
-  continue_line(widgets);
-
-  static auto test_filename = ""s;
-  if (draw_filedialog_button(widgets, "save test", true, "save file",
-          test_filename, true, "data/tests", "test.json", "*.json")) {
-    save_test(app, app->state, test_filename);
-  }
-
-  continue_line(widgets);
-  if (draw_filedialog_button(widgets, "load svg", true, "load svg",
+void draw_svg_gui(gui_widgets* widgets, app_state* app) {
+  if (draw_filedialog_button(widgets, "load", true, "load svg",
           app->svg_filename, false, "data/svgs/", "test.svg", "*.svg")) {
     load_svg(app);
   }
+  continue_line(widgets);
 
-  if (draw_button(widgets, "draw svg")) {
+  if (draw_button(widgets, "draw")) {
     commit_state(app);
     add_polygons(
         app, app->temp_test, app->last_clicked_point, app->project_points);
@@ -171,6 +155,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
   }
   continue_line(widgets);
   draw_checkbox(widgets, "project points", app->project_points);
+  draw_label(widgets, "filename##svg-filename", app->svg_filename);
 
   if (draw_slider(widgets, "svg_size", app->svg_size, 0.0, 0.1)) {
     app->state.polygons.resize(app->last_svg.previous_polygons);
@@ -182,8 +167,61 @@ void draw_widgets(app_state* app, const gui_input& input) {
     update_svg(app);
   };
 
+  if (app->svg_filename.size()) {
+    draw_slider(widgets, "num polygons", app->num_sampled_polygons, 0, 500);
+    if (draw_button(widgets, "bomb polygons")) {
+      commit_state(app);
+      auto vertices = sample_vertices_poisson(
+          app->mesh.graph, app->num_sampled_polygons);
+      auto points = vector<mesh_point>{};
+      for (auto& v : vertices) {
+        for (int i = 0; i < app->mesh.triangles.size(); i++) {
+          auto tr = app->mesh.triangles[i];
+          if (tr.x == v) {
+            points += mesh_point{i, {1.0 / 3, 1.0 / 3}};
+            break;
+          }
+          if (tr.y == v) {
+            points += mesh_point{i, {1.0 / 3, 1.0 / 3}};
+            break;
+          }
+          if (tr.z == v) {
+            points += mesh_point{i, {1.0 / 3, 1.0 / 3}};
+            break;
+          }
+        }
+      }
+
+      auto num_polygons = app->state.polygons.size();
+      for (int i = 0; i < points.size(); i++) {
+        auto& point = points[i];
+        add_polygons(app, app->temp_test, point, app->project_points);
+      }
+      update_polygons(app);
+    }
+  }
+}
+
+void draw_widgets(app_state* app, const gui_input& input) {
+  auto widgets = &app->widgets;
+  begin_imgui(widgets, "boolsurf", {0, 0}, {320, 720});
+
+  if (draw_filedialog_button(widgets, "load test", true, "load file",
+          app->test_filename, false, "data/tests/", "test.json", "*.json")) {
+    load_test(app->test, app->test_filename);
+    init_from_test(app);
+  }
+
+  static auto test_filename = ""s;
+  if (draw_filedialog_button(widgets, "save test", true, "save file",
+          test_filename, true, "data/tests", "test.json", "*.json")) {
+    save_test(app, app->state, test_filename);
+  }
+
   static auto scene_filename = "data/scenes/"s;
   draw_textinput(widgets, "scene", scene_filename);
+
+  continue_line(widgets);
 
   if (draw_button(widgets, "save scene")) {
     auto scene = make_scene(
@@ -194,98 +232,72 @@ void draw_widgets(app_state* app, const gui_input& input) {
     save_scene(path_join(scene_filename, "scene.json"), scene, error);
   }
 
-  static auto view_triangulation = false;
-  draw_checkbox(widgets, "view triangulation", view_triangulation);
-  if (view_triangulation) {
-    static ogl_texture* texture = new ogl_texture{};
-    ImGui::Begin("Triangulation viewer");
-    //    auto [x, y] = ImGui::GetWindowSize();
-    // auto size   = yocto::min(yocto::min(x, y), 1024);
-
-    // ImGui::Text("pointer = %p", texture);
-    auto face = app->last_clicked_point_original.face;
-    auto size = vec2i{1200, 800};
-    draw_triangulation(texture, face, size * 4);
-    ImGui::Image((void*)texture->texture_id, {float(size.x), float(size.y)},
-        {0, 1}, {1, 0});
-    ImGui::End();
+  if (begin_header(widgets, "SVG", app->svg_filename.size())) {
+    draw_svg_gui(widgets, app);
   }
 
-  // if (begin_header(widgets, "view"))
-  {
-    auto  glmaterial = app->mesh_material;
-    auto& params     = app->drawgl_prms;
-    draw_checkbox(widgets, "edges", app->glscene->instances[1]->hidden, true);
-    continue_line(widgets);
-    draw_checkbox(widgets, "points", app->glscene->instances[2]->hidden, true);
-    continue_line(widgets);
+  if (begin_header(widgets, "view")) {
+    static auto view_triangulation = false;
+    draw_checkbox(widgets, "view triangulation", view_triangulation);
+    if (view_triangulation) {
+      static ogl_texture* texture = new ogl_texture{};
+      ImGui::Begin("Triangulation viewer");
+      //    auto [x, y] = ImGui::GetWindowSize();
+      // auto size   = yocto::min(yocto::min(x, y), 1024);
 
-    if (draw_checkbox(widgets, "polygons", app->show_polygons)) {
-      for (auto i : app->polygon_shapes) {
-        i->hidden = !app->show_polygons;
+      // ImGui::Text("pointer = %p", texture);
+      auto face = app->last_clicked_point_original.face;
+      auto size = vec2i{1200, 800};
+      draw_triangulation(texture, face, size * 4);
+      ImGui::Image((void*)texture->texture_id, {float(size.x), float(size.y)},
+          {0, 1}, {1, 0});
+      ImGui::End();
+    }
+
+    // if (begin_header(widgets, "view"))
+    {
+      auto  glmaterial = app->mesh_material;
+      auto& params     = app->drawgl_prms;
+      draw_checkbox(widgets, "edges", app->glscene->instances[1]->hidden, true);
+      continue_line(widgets);
+      draw_checkbox(
+          widgets, "points", app->glscene->instances[2]->hidden, true);
+      continue_line(widgets);
+
+      if (draw_checkbox(widgets, "polygons", app->show_polygons)) {
+        for (auto i : app->polygon_shapes) {
+          i->hidden = !app->show_polygons;
+        }
+        if (app->show_polygons) update_polygons(app);
       }
-      if (app->show_polygons) update_polygons(app);
-    }
 
-    if (!app->glscene->instances[1]->hidden) {
-      draw_coloredit(widgets, "edges color", app->edges_material->color);
-    }
-    if (!app->glscene->instances[2]->hidden) {
-      draw_coloredit(widgets, "points color", app->points_material->color);
-    }
-    draw_coloredit(widgets, "mesh color", glmaterial->color);
-    // draw_slider(widgets, "resolution", params.resolution, 0, 4096);
-    // draw_combobox(
-    //     widgets, "lighting", (int&)params.lighting, shade_lighting_names);
-    draw_checkbox(widgets, "wireframe", params.wireframe);
-    continue_line(widgets);
-    draw_checkbox(widgets, "double sided", params.double_sided);
-
-    if (app->hashgrid_shape) {
-      draw_checkbox(widgets, "hashgrid", app->hashgrid_shape->hidden, true);
-    }
-    if (app->border_faces_shapes.size()) {
-      if (draw_checkbox(widgets, "border faces",
-              app->border_faces_shapes[0]->hidden, true)) {
-        for (auto& shape : app->border_faces_shapes) {
-          shape->hidden = app->border_faces_shapes[0]->hidden;
-        }
+      if (!app->glscene->instances[1]->hidden) {
+        draw_coloredit(widgets, "edges color", app->edges_material->color);
       }
-    }
-    // end_header(widgets);
-  }
+      if (!app->glscene->instances[2]->hidden) {
+        draw_coloredit(widgets, "points color", app->points_material->color);
+      }
+      draw_coloredit(widgets, "mesh color", glmaterial->color);
+      // draw_slider(widgets, "resolution", params.resolution, 0, 4096);
+      // draw_combobox(
+      //     widgets, "lighting", (int&)params.lighting, shade_lighting_names);
+      draw_checkbox(widgets, "wireframe", params.wireframe);
+      continue_line(widgets);
+      draw_checkbox(widgets, "double sided", params.double_sided);
 
-  draw_slider(widgets, "num polygons", app->num_sampled_polygons, 0, 500);
-  if (draw_button(widgets, "bomb polygons")) {
-    commit_state(app);
-    load_svg(app);
-    auto vertices = sample_vertices_poisson(
-        app->mesh.graph, app->num_sampled_polygons);
-    auto points = vector<mesh_point>{};
-    for (auto& v : vertices) {
-      for (int i = 0; i < app->mesh.triangles.size(); i++) {
-        auto tr = app->mesh.triangles[i];
-        if (tr.x == v) {
-          points += mesh_point{i, {1.0 / 3, 1.0 / 3}};
-          break;
-        }
-        if (tr.y == v) {
-          points += mesh_point{i, {1.0 / 3, 1.0 / 3}};
-          break;
-        }
-        if (tr.z == v) {
-          points += mesh_point{i, {1.0 / 3, 1.0 / 3}};
-          break;
+      if (app->hashgrid_shape) {
+        draw_checkbox(widgets, "hashgrid", app->hashgrid_shape->hidden, true);
+      }
+      if (app->border_faces_shapes.size()) {
+        if (draw_checkbox(widgets, "border faces",
+                app->border_faces_shapes[0]->hidden, true)) {
+          for (auto& shape : app->border_faces_shapes) {
+            shape->hidden = app->border_faces_shapes[0]->hidden;
+          }
         }
       }
+      // end_header(widgets);
     }
-
-    auto num_polygons = app->state.polygons.size();
-    for (int i = 0; i < points.size(); i++) {
-      auto& point = points[i];
-      add_polygons(app, app->temp_test, point, app->project_points);
-    }
-    update_polygons(app);
   }
 
   if (begin_header(widgets, "mesh info")) {
