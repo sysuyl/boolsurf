@@ -145,6 +145,7 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
           app->svg_filename, false, "data/svgs/", "test.svg", "*.svg")) {
     load_svg(app);
   }
+  if (app->svg_filename.empty()) return;
   continue_line(widgets);
 
   if (draw_button(widgets, "draw")) {
@@ -167,38 +168,36 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
     update_svg(app);
   };
 
-  if (app->svg_filename.size()) {
-    draw_slider(widgets, "num polygons", app->num_sampled_polygons, 0, 500);
-    if (draw_button(widgets, "bomb polygons")) {
-      commit_state(app);
-      auto vertices = sample_vertices_poisson(
-          app->mesh.graph, app->num_sampled_polygons);
-      auto points = vector<mesh_point>{};
-      for (auto& v : vertices) {
-        for (int i = 0; i < app->mesh.triangles.size(); i++) {
-          auto tr = app->mesh.triangles[i];
-          if (tr.x == v) {
-            points += mesh_point{i, {1.0 / 3, 1.0 / 3}};
-            break;
-          }
-          if (tr.y == v) {
-            points += mesh_point{i, {1.0 / 3, 1.0 / 3}};
-            break;
-          }
-          if (tr.z == v) {
-            points += mesh_point{i, {1.0 / 3, 1.0 / 3}};
-            break;
-          }
+  draw_slider(widgets, "num polygons", app->num_sampled_polygons, 0, 500);
+  if (draw_button(widgets, "bomb polygons")) {
+    commit_state(app);
+    auto vertices = sample_vertices_poisson(
+        app->mesh.graph, app->num_sampled_polygons);
+    auto points = vector<mesh_point>{};
+    for (auto& v : vertices) {
+      for (int i = 0; i < app->mesh.triangles.size(); i++) {
+        auto tr = app->mesh.triangles[i];
+        if (tr.x == v) {
+          points += mesh_point{i, {1.0 / 3, 1.0 / 3}};
+          break;
+        }
+        if (tr.y == v) {
+          points += mesh_point{i, {1.0 / 3, 1.0 / 3}};
+          break;
+        }
+        if (tr.z == v) {
+          points += mesh_point{i, {1.0 / 3, 1.0 / 3}};
+          break;
         }
       }
-
-      auto num_polygons = app->state.polygons.size();
-      for (int i = 0; i < points.size(); i++) {
-        auto& point = points[i];
-        add_polygons(app, app->temp_test, point, app->project_points);
-      }
-      update_polygons(app);
     }
+
+    auto num_polygons = app->state.polygons.size();
+    for (int i = 0; i < points.size(); i++) {
+      auto& point = points[i];
+      add_polygons(app, app->temp_test, point, app->project_points);
+    }
+    update_polygons(app);
   }
 }
 
@@ -211,6 +210,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     load_test(app->test, app->test_filename);
     init_from_test(app);
   }
+  continue_line(widgets);
 
   static auto test_filename = ""s;
   if (draw_filedialog_button(widgets, "save test", true, "save file",
@@ -219,7 +219,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
   }
 
   static auto scene_filename = "data/scenes/"s;
-  draw_textinput(widgets, "scene", scene_filename);
+  draw_textinput(widgets, "##scene-name", scene_filename);
 
   continue_line(widgets);
 
@@ -237,8 +237,23 @@ void draw_widgets(app_state* app, const gui_input& input) {
   }
 
   if (begin_header(widgets, "view")) {
+    auto  glmaterial = app->mesh_material;
+    auto& params     = app->drawgl_prms;
+    draw_checkbox(widgets, "edges", app->glscene->instances[1]->hidden, true);
+    continue_line(widgets);
+    draw_checkbox(widgets, "points", app->glscene->instances[2]->hidden, true);
+    continue_line(widgets);
+
+    if (draw_checkbox(widgets, "polygons", app->show_polygons)) {
+      for (auto i : app->polygon_shapes) {
+        i->hidden = !app->show_polygons;
+      }
+      if (app->show_polygons) update_polygons(app);
+    }
+
     static auto view_triangulation = false;
-    draw_checkbox(widgets, "view triangulation", view_triangulation);
+    continue_line(widgets);
+    draw_checkbox(widgets, "debug", view_triangulation);
     if (view_triangulation) {
       static ogl_texture* texture = new ogl_texture{};
       ImGui::Begin("Triangulation viewer");
@@ -254,53 +269,34 @@ void draw_widgets(app_state* app, const gui_input& input) {
       ImGui::End();
     }
 
-    // if (begin_header(widgets, "view"))
-    {
-      auto  glmaterial = app->mesh_material;
-      auto& params     = app->drawgl_prms;
-      draw_checkbox(widgets, "edges", app->glscene->instances[1]->hidden, true);
-      continue_line(widgets);
-      draw_checkbox(
-          widgets, "points", app->glscene->instances[2]->hidden, true);
-      continue_line(widgets);
+    if (!app->glscene->instances[1]->hidden) {
+      draw_coloredit(widgets, "edges color", app->edges_material->color);
+    }
+    if (!app->glscene->instances[2]->hidden) {
+      draw_coloredit(widgets, "points color", app->points_material->color);
+    }
+    draw_coloredit(widgets, "mesh color", glmaterial->color);
+    // draw_slider(widgets, "resolution", params.resolution, 0, 4096);
+    // draw_combobox(
+    //     widgets, "lighting", (int&)params.lighting, shade_lighting_names);
+    draw_checkbox(widgets, "wireframe", params.wireframe);
+    continue_line(widgets);
+    draw_checkbox(widgets, "double sided", params.double_sided);
 
-      if (draw_checkbox(widgets, "polygons", app->show_polygons)) {
-        for (auto i : app->polygon_shapes) {
-          i->hidden = !app->show_polygons;
-        }
-        if (app->show_polygons) update_polygons(app);
-      }
-
-      if (!app->glscene->instances[1]->hidden) {
-        draw_coloredit(widgets, "edges color", app->edges_material->color);
-      }
-      if (!app->glscene->instances[2]->hidden) {
-        draw_coloredit(widgets, "points color", app->points_material->color);
-      }
-      draw_coloredit(widgets, "mesh color", glmaterial->color);
-      // draw_slider(widgets, "resolution", params.resolution, 0, 4096);
-      // draw_combobox(
-      //     widgets, "lighting", (int&)params.lighting, shade_lighting_names);
-      draw_checkbox(widgets, "wireframe", params.wireframe);
-      continue_line(widgets);
-      draw_checkbox(widgets, "double sided", params.double_sided);
-
-      if (app->hashgrid_shape) {
-        draw_checkbox(widgets, "hashgrid", app->hashgrid_shape->hidden, true);
-      }
-      if (app->border_faces_shapes.size()) {
-        if (draw_checkbox(widgets, "border faces",
-                app->border_faces_shapes[0]->hidden, true)) {
-          for (auto& shape : app->border_faces_shapes) {
-            shape->hidden = app->border_faces_shapes[0]->hidden;
-          }
+    if (app->hashgrid_shape) {
+      draw_checkbox(widgets, "hashgrid", app->hashgrid_shape->hidden, true);
+    }
+    if (app->border_faces_shapes.size()) {
+      if (draw_checkbox(widgets, "border faces",
+              app->border_faces_shapes[0]->hidden, true)) {
+        for (auto& shape : app->border_faces_shapes) {
+          shape->hidden = app->border_faces_shapes[0]->hidden;
         }
       }
-      // end_header(widgets);
     }
   }
 
-  if (begin_header(widgets, "mesh info")) {
+  if (begin_header(widgets, "mesh")) {
     draw_label(widgets, "filename", app->model_filename);
     draw_label(
         widgets, "triangles", std::to_string(app->mesh.triangles.size()));
@@ -354,7 +350,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
 
-  if (app->selected_shape >= 0 && begin_header(widgets, "shape info", true)) {
+  if (app->selected_shape >= 0 && begin_header(widgets, "shapes", true)) {
     auto& shape_id   = app->selected_shape;
     auto& shape      = app->state.shapes[shape_id];
     auto  sorting_id = find_idx(app->state.shapes_sorting, shape_id);
@@ -387,45 +383,50 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
 
-  auto ff = [&](int i) { return to_string(i); };
-  draw_combobox(
-      widgets, "a", app->operation.shape_a, (int)app->state.shapes.size(), ff);
-  draw_combobox(
-      widgets, "b", app->operation.shape_b, (int)app->state.shapes.size(), ff);
+  auto open_booleans = app->selected_shape >= 0;
+  if (open_booleans && begin_header(widgets, "booleans")) {
+    auto ff = [&](int i) { return to_string(i); };
+    draw_combobox(widgets, "a", app->operation.shape_a,
+        (int)app->state.shapes.size(), ff);
+    draw_combobox(widgets, "b", app->operation.shape_b,
+        (int)app->state.shapes.size(), ff);
 
-  auto op = (int)app->operation.type;
-  draw_combobox(widgets, "operation", op, bool_operation::type_names);
-  app->operation.type = (bool_operation::Type)op;
-  if (draw_button(widgets, "Apply")) {
-    commit_state(app);
-    compute_bool_operation(app->state, app->operation);
-    app->test.operations += app->operation;
-    update_cell_colors(app);
-    app->operation = {};
-  }
+    auto op = (int)app->operation.type;
+    draw_combobox(widgets, "operation", op, bool_operation::type_names);
+    app->operation.type = (bool_operation::Type)op;
+    if (draw_button(widgets, "Apply")) {
+      commit_state(app);
+      compute_bool_operation(app->state, app->operation);
+      app->test.operations += app->operation;
+      update_cell_colors(app);
+      app->operation = {};
+    }
 
-  if (draw_button(widgets, "Apply difference")) {
-    commit_state(app);
+    if (draw_button(widgets, "Apply difference")) {
+      commit_state(app);
 
-    // auto indices = vector<int>(app->state.shapes.size() - 1);
-    // for (auto i = 1; i < indices.size() + 1; i++) indices[(i - 1)] = i;
+      // auto indices = vector<int>(app->state.shapes.size() - 1);
+      // for (auto i = 1; i < indices.size() + 1; i++) indices[(i - 1)] = i;
 
-    // compute_symmetrical_difference(app->state, indices);
-    // update_cell_colors(app);
-    for (int i = 0; i < app->state.cells.size(); i++) {
-      auto k = sum(app->state.labels[i]);
-      if (k % 2 == 1) {
-        // app->cell_shapes[i]->material->color = {1, 0, 0};
-      } else {
-        app->cell_shapes[i]->material->color = {1, 1, 1};
+      // compute_symmetrical_difference(app->state, indices);
+      // update_cell_colors(app);
+      for (int i = 0; i < app->state.cells.size(); i++) {
+        auto k = sum(app->state.labels[i]);
+        if (k % 2 == 1) {
+          // app->cell_shapes[i]->material->color = {1, 0, 0};
+        } else {
+          app->cell_shapes[i]->material->color = {1, 1, 1};
+        }
       }
     }
-  }
 
-  if (draw_button(widgets, "Clear operations")) {
-    commit_state(app);
-    app->operation = {};
-    app->test.operations.clear();
+    if (draw_button(widgets, "Clear operations")) {
+      commit_state(app);
+      app->operation = {};
+      app->test.operations.clear();
+    }
+
+    end_header(widgets);
   }
 
   end_imgui(widgets);
