@@ -158,12 +158,12 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
   draw_checkbox(widgets, "project points", app->project_points);
   draw_label(widgets, "filename##svg-filename", app->svg_filename);
 
-  if (draw_slider(widgets, "svg_size", app->svg_size, 0.0, 0.1)) {
+  if (draw_slider(widgets, "size##svg_size", app->svg_size, 0.0, 0.1)) {
     app->state.polygons.resize(app->last_svg.previous_polygons);
     update_svg(app);
   };
 
-  if (draw_slider(widgets, "svg_subdivisions", app->svg_subdivs, 2, 16)) {
+  if (draw_slider(widgets, "subdivs##svg_subdivs", app->svg_subdivs, 2, 16)) {
     app->state.polygons.resize(app->last_svg.previous_polygons);
     update_svg(app);
   };
@@ -296,17 +296,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
     }
   }
 
-  if (begin_header(widgets, "mesh")) {
-    draw_label(widgets, "filename", app->model_filename);
-    draw_label(
-        widgets, "triangles", std::to_string(app->mesh.triangles.size()));
-    draw_label(
-        widgets, "positions", std::to_string(app->mesh.positions.size()));
-    end_header(widgets);
-  }
-
   if (app->last_clicked_point.face >= 0 &&
-      begin_header(widgets, "face info", true)) {
+      begin_header(widgets, "face", false)) {
     auto face = app->last_clicked_point.face;
     draw_label(widgets, "face", std::to_string(face));
 
@@ -329,7 +320,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
 
-  if (app->selected_cell >= 0 && begin_header(widgets, "cell info", true)) {
+  if (app->selected_cell >= 0 && begin_header(widgets, "cell")) {
     auto& cell    = app->state.cells[app->selected_cell];
     auto  cell_id = app->selected_cell;
     draw_label(widgets, "cell", to_string(app->selected_cell));
@@ -350,7 +341,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
 
-  if (app->selected_shape >= 0 && begin_header(widgets, "shapes", true)) {
+  if (app->selected_shape >= 0 && begin_header(widgets, "shapes")) {
     auto& shape_id   = app->selected_shape;
     auto& shape      = app->state.shapes[shape_id];
     auto  sorting_id = find_idx(app->state.shapes_sorting, shape_id);
@@ -426,6 +417,15 @@ void draw_widgets(app_state* app, const gui_input& input) {
       app->test.operations.clear();
     }
 
+    end_header(widgets);
+  }
+
+  if (begin_header(widgets, "mesh")) {
+    draw_label(widgets, "filename", app->model_filename);
+    draw_label(
+        widgets, "triangles", std::to_string(app->mesh.triangles.size()));
+    draw_label(
+        widgets, "positions", std::to_string(app->mesh.positions.size()));
     end_header(widgets);
   }
 
@@ -843,6 +843,7 @@ int main(int argc, const char* argv[]) {
   window->user_data = app;
 
   if (app->svg_filename.size()) {
+    load_svg(app);
   }
 
   auto extension = path_extension(input);
