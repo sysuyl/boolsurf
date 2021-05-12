@@ -658,6 +658,13 @@ void key_input(app_state* app, const gui_input& input) {
         set_normals(app->mesh_instance->shape, app->mesh.normals);
         init_edges_and_vertices_shapes_and_points(app);
 
+        // {
+        //   auto ist      = add_instance(app->glscene);
+        //   ist->shape    = add_shape(app->glscene);
+        //   ist->material = add_material(app->glscene);
+        //   set_arrow_shapes(ist->shape, {}, {});
+        // }
+
         if (app->color_hashgrid) {
           auto faces = vector<int>();
           for (auto& [face, _] : app->mesh.triangulated_faces) {

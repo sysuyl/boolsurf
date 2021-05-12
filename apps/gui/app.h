@@ -47,8 +47,10 @@ struct app_state {
 
   vector<shade_instance*> cell_shapes         = {};
   vector<shade_instance*> polygon_shapes      = {};
+  vector<shade_instance*> arrow_shapes        = {};
   shade_instance*         hashgrid_shape      = nullptr;
   vector<shade_instance*> border_faces_shapes = {};
+
   // shade_instance*         inner_faces_shape = nullptr;
   // shade_instance*         outer_faces_shape = nullptr;
 
@@ -107,6 +109,7 @@ void update_polygon(app_state* app, int polygon_id, int index = 0) {
   auto& mesh_polygon = app->state.polygons[polygon_id];
   // app->polygon_shapes.resize(app->state.polygons.size());
   auto& polygon_shape = app->polygon_shapes[polygon_id];
+  auto& arrow_shape   = app->arrow_shapes[polygon_id];
 
   // TODO(giacomo): Solve this situation.
   // if (!polygon_shape) {
