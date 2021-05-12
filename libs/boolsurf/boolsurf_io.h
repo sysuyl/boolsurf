@@ -96,7 +96,8 @@ void save_tree_png(const bool_state& state, string filename,
     const string& extra, bool color_shapes);
 
 scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
-    const scene_camera& camera, bool color_shapes);
+    const scene_camera& camera, bool color_shapes,
+    const vector<vec3f>& cell_colors = {});
 
 using Svg_Path = vector<array<vec2f, 4>>;
 struct Svg_Shape {

@@ -224,11 +224,19 @@ void draw_widgets(app_state* app, const gui_input& input) {
   continue_line(widgets);
 
   if (draw_button(widgets, "save scene")) {
+    auto cell_colors = vector<vec3f>(app->state.cells.size());
+    for (int i = 0; i < cell_colors.size(); i++) {
+      cell_colors[i] = app->cell_shapes[i]->material->color;
+    }
     auto scene = make_scene(
-        app->mesh, app->state, app->camera, app->color_shapes);
+        app->mesh, app->state, app->camera, app->color_shapes, cell_colors);
     auto error = string{};
-    assert(make_directory(scene_filename, error));
-    assert(make_directory(path_join(scene_filename, "shapes"), error));
+    if (!make_directory(scene_filename, error)) {
+      printf("%s\n", error.c_str());
+    }
+    if (!make_directory(path_join(scene_filename, "shapes"), error)) {
+      printf("%s\n", error.c_str());
+    }
     save_scene(path_join(scene_filename, "scene.json"), scene, error);
   }
 

@@ -120,17 +120,22 @@ bool_state state_from_test(const bool_mesh& mesh, const bool_test& test,
 }
 
 scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
-    const scene_camera& camera, bool color_shapes) {
+    const scene_camera& camera, bool color_shapes,
+    const vector<vec3f>& cell_colors) {
   auto scene = scene_model{};
   scene.cameras.push_back(camera);
 
   for (int i = 0; i < state.cells.size(); i++) {
     auto& cell = state.cells[i];
 
-    auto& instance     = scene.instances.emplace_back();
-    instance.material  = (int)scene.materials.size();
-    auto& material     = scene.materials.emplace_back();
-    material.color     = get_cell_color(state, i, color_shapes);
+    auto& instance    = scene.instances.emplace_back();
+    instance.material = (int)scene.materials.size();
+    auto& material    = scene.materials.emplace_back();
+    if (cell_colors.size()) {
+      material.color = cell_colors[i];
+    } else {
+      material.color = get_cell_color(state, i, color_shapes);
+    }
     material.type      = scene_material_type::glossy;
     material.roughness = 0.5;
     instance.shape     = (int)scene.shapes.size();
@@ -215,6 +220,8 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
       shape.lines       = lines;
     }
   }
+  auto& env    = scene.environments.emplace_back();
+  env.emission = {0.3, 0.3, 0.3};
   return scene;
 }
 
