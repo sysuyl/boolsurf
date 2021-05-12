@@ -54,10 +54,11 @@ struct app_state {
   // shade_instance*         inner_faces_shape = nullptr;
   // shade_instance*         outer_faces_shape = nullptr;
 
-  vector<bool_state> history        = {};
-  int                history_index  = -1;
-  int                selected_cell  = -1;
-  int                selected_shape = -1;
+  vector<bool_state> history          = {};
+  int                history_index    = -1;
+  int                selected_cell    = -1;
+  int                selected_shape   = -1;
+  int                selected_polygon = 0;
 
   // rendering state
   shade_scene*    glscene           = new shade_scene{};
