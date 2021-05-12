@@ -40,6 +40,22 @@ inline vector<vec3f> polygon_positions(
   return positions;
 }
 
+inline vector<vec3f> polygon_normals(
+    const mesh_polygon& polygon, const bool_mesh& mesh) {
+  auto normals = vector<vec3f>{};
+  normals.reserve(polygon.length + 1);
+
+  for (auto& edge : polygon.edges)
+    for (auto& segment : edge)
+      normals.push_back(eval_normal(mesh, {segment.face, segment.start}));
+
+  if (polygon.edges.size() && polygon.edges.back().size()) {
+    auto& segment = polygon.edges.back().back();
+    normals.push_back(eval_normal(mesh, {segment.face, segment.end}));
+  }
+  return normals;
+}
+
 inline bool_shape make_polygon_shape(
     const bool_mesh& mesh, const vector<vec3f>& positions, bool thin = false) {
   auto shape = bool_shape{};
@@ -383,11 +399,14 @@ inline void save_triangulation(const string& filename, int face) {
   return draw_sphere(scene, mesh, material, {pos}, dim);
 }
 
-scene_shape make_arrow_shape() {
-  auto shape      = scene_shape{};
+bool_shape make_arrow_shape() {
+  auto shape      = bool_shape{};
   shape.positions = vector<vec3f>{{-0.5, 0, 0}, {0.5, 0, 0}, {0.5, 1, 0},
       {1, 1, 0}, {0, 2, 0}, {-1, 1, 0}, {-0.5, 1, 0}};
   shape.triangles = vector<vec3i>{{0, 1, 2}, {0, 2, 6}, {3, 4, 5}};
+  for (auto& p : shape.positions) {
+    swap(p.y, p.z);
+  }
   return shape;
 }
 

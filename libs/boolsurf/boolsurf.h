@@ -149,7 +149,7 @@ inline vec3f eval_position(const bool_mesh& mesh, const mesh_point& point) {
 }
 
 inline vec3f eval_normal(const bool_mesh& mesh, const mesh_point& point) {
-  return eval_normal(mesh.triangles, mesh.positions, point);
+  return eval_normal(mesh.triangles, mesh.normals, point);
 }
 
 inline vec3f eval_normal(const bool_mesh& mesh, int face) {
