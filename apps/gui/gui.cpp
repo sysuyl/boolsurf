@@ -242,6 +242,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
   if (begin_header(widgets, "SVG", app->svg_filename.size())) {
     draw_svg_gui(widgets, app);
+    end_header(widgets);
   }
 
   if (begin_header(widgets, "view")) {
@@ -302,6 +303,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
         }
       }
     }
+    end_header(widgets);
   }
 
   if (app->last_clicked_point.face >= 0 &&
