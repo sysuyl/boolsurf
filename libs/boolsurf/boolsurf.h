@@ -62,7 +62,6 @@ struct triangulation_info {
 struct mesh_cell {
   vector<int>     faces     = {};
   hash_set<vec2i> adjacency = {};  // {cell_id, crossed_polygon_id}
-  // vector<int>     labels    = {};
 };
 
 struct mesh_shape {

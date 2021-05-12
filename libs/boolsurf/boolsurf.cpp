@@ -167,6 +167,9 @@ void recompute_polygon_segments(const bool_mesh& mesh, const bool_state& state,
     auto& last_segment = polygon.edges.back();
     polygon.length -= last_segment.size();
     polygon.edges.pop_back();
+  } else {
+    polygon.length = 0;
+    polygon.edges.clear();
   }
 
   auto faces = hash_set<int>();
