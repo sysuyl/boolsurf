@@ -438,8 +438,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
   }
   if (draw_button(widgets, "bezier")) {
     commit_state(app);
-      auto& mesh = app->mesh;
-    auto control_points = vector<mesh_point>(
+    auto& mesh           = app->mesh;
+    auto  control_points = vector<mesh_point>(
         app->state.points.end() - 4, app->state.points.end());
     auto bezier = compute_bezier_path(mesh.dual_solver, mesh.triangles,
         mesh.positions, mesh.adjacencies, control_points, 4);

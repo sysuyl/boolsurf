@@ -352,6 +352,20 @@ inline void save_triangulation(const string& filename, int face) {
   return draw_sphere(scene, mesh, material, {pos}, dim);
 }
 
+void set_arrow_shapes(shade_shape* shape, const vector<vec3f>& positions,
+    const vector<vec3f>& normals) {
+  //    .
+  // . .  . .
+  //   .  .
+  auto arrow_pos = vector<vec3f>{{-0.5, 0, 0}, {0.5, 0, 0}, {0.5, 1, 0}, {1, 1, 0},
+      {0, 2, 0}, {-1, 1, 0}, {-0.5, 1, 0}};
+  auto arrow_tri = vector<vec3i>{{0, 1, 2}, {0, 2, 6}, {3, 4, 5}};
+
+  set_positions(shape, arrow_pos);
+  set_triangles(shape, arrow_tri);
+  set_instances(shape, {}, {});
+}
+
 #if 0
 
 void update_path_shape(shade_shape* shape, const bool_mesh& mesh,
