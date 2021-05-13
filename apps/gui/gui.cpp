@@ -242,6 +242,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
   if (begin_header(widgets, "SVG", app->svg_filename.size())) {
     draw_svg_gui(widgets, app);
+    end_header(widgets);
   }
 
   if (begin_header(widgets, "view")) {
@@ -302,6 +303,24 @@ void draw_widgets(app_state* app, const gui_input& input) {
         }
       }
     }
+
+    auto ff = [&](int i) { return to_string(i); };
+    draw_combobox(widgets, "polygon", app->selected_polygon,
+        (int)app->state.polygons.size(), ff);
+
+    if (draw_button(widgets, "Invert polygon")) {
+      if (app->selected_polygon >= 1) {
+        auto& polygon = app->state.polygons[app->selected_polygon];
+        reverse(polygon.points.begin(), polygon.points.end());
+        reverse(polygon.edges.begin(), polygon.edges.end());
+
+        for (auto& edge : polygon.edges) {
+          reverse(edge.begin(), edge.end());
+          for (auto& segment : edge) swap(segment.start, segment.end);
+        }
+      }
+    }
+    end_header(widgets);
   }
 
   if (app->last_clicked_point.face >= 0 &&

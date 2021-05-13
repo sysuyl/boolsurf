@@ -5,9 +5,10 @@
 #include <yocto_gui/yocto_shade.h>
 
 struct bool_shape : scene_shape {
-  vector<vec3f>    froms = {};
-  vector<vec3f>    tos   = {};
-  ogl_element_type type  = ogl_element_type::triangles;
+  vector<vec3f>    froms      = {};
+  vector<vec3f>    tos        = {};
+  ogl_element_type type       = ogl_element_type::triangles;
+  ogl_depth_test   depth_test = {};
 };
 
 inline void set_patch_shape(
@@ -57,12 +58,13 @@ inline vector<vec3f> polygon_normals(
 }
 
 inline bool_shape make_polygon_shape(
-    const bool_mesh& mesh, const vector<vec3f>& positions, bool thin = false) {
+    const bool_mesh& mesh, const vector<vec3f>& positions, bool thin = true) {
   auto shape = bool_shape{};
 
   if (thin) {
-    shape.positions = positions;
-    shape.type      = ogl_element_type::line_strip;
+    shape.positions  = positions;
+    shape.type       = ogl_element_type::line_strip;
+    shape.depth_test = ogl_depth_test::always;
   } else {
     auto froms = vector<vec3f>();
     auto tos   = vector<vec3f>();
@@ -91,23 +93,25 @@ inline bool_shape make_polygon_shape(
   return shape;
 }
 
-void set_shape(shade_shape* gl_shape, const bool_shape& shape) {
-  set_positions(gl_shape, shape.positions);
+void set_shape(shade_instance* instance, const bool_shape& shape) {
+  set_positions(instance->shape, shape.positions);
   if (shape.quads.size()) {
-    set_triangles(gl_shape, quads_to_triangles(shape.quads));
+    set_triangles(instance->shape, quads_to_triangles(shape.quads));
   } else {
-    set_triangles(gl_shape, shape.triangles);
+    set_triangles(instance->shape, shape.triangles);
   }
-  set_positions(gl_shape, shape.positions);
-  set_normals(gl_shape, shape.normals);
-  set_instances(gl_shape, shape.froms, shape.tos);
+  set_positions(instance->shape, shape.positions);
+  set_normals(instance->shape, shape.normals);
+  set_instances(instance->shape, shape.froms, shape.tos);
+  instance->shape->shape->elements = shape.type;
+  instance->depth_test             = shape.depth_test;
 }
 
-inline void set_polygon_shape(
-    shade_shape* gl_shape, const bool_mesh& mesh, const mesh_polygon& polygon) {
+inline void set_polygon_shape(shade_instance* instance, const bool_mesh& mesh,
+    const mesh_polygon& polygon) {
   auto positions = polygon_positions(polygon, mesh);
   auto shape     = make_polygon_shape(mesh, positions);
-  set_shape(gl_shape, shape);
+  set_shape(instance, shape);
 }
 
 // inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
@@ -404,8 +408,19 @@ bool_shape make_arrow_shape() {
   shape.positions = vector<vec3f>{{-0.5, 0, 0}, {0.5, 0, 0}, {0.5, 1, 0},
       {1, 1, 0}, {0, 2, 0}, {-1, 1, 0}, {-0.5, 1, 0}};
   shape.triangles = vector<vec3i>{{0, 1, 2}, {0, 2, 6}, {3, 4, 5}};
-  for (auto& p : shape.positions) {
-    swap(p.y, p.z);
+  for (int i = 0; i < 7; i++) {
+    swap(shape.positions[i].y, shape.positions[i].z);
+  }
+
+  shape.positions += shape.positions;
+  for (int i = 7; i < shape.positions.size(); i++) {
+    swap(shape.positions[i].y, shape.positions[i].x);
+  }
+
+  for (int i = 0; i < 3; i++) {
+    auto t = shape.triangles[i];
+    t += vec3i{7, 7, 7};
+    shape.triangles.push_back(t);
   }
   return shape;
 }

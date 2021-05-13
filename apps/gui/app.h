@@ -54,10 +54,11 @@ struct app_state {
   // shade_instance*         inner_faces_shape = nullptr;
   // shade_instance*         outer_faces_shape = nullptr;
 
-  vector<bool_state> history        = {};
-  int                history_index  = -1;
-  int                selected_cell  = -1;
-  int                selected_shape = -1;
+  vector<bool_state> history          = {};
+  int                history_index    = -1;
+  int                selected_cell    = -1;
+  int                selected_shape   = -1;
+  int                selected_polygon = 0;
 
   // rendering state
   shade_scene*    glscene           = new shade_scene{};
@@ -111,18 +112,18 @@ void set_polygon_shape(app_state* app, int polygon_id) {
   auto  normals   = polygon_normals(app->state.polygons[polygon_id], mesh);
 
   auto polygon_shape = make_polygon_shape(mesh, positions);
-  set_shape(app->polygon_shapes[polygon_id]->shape, polygon_shape);
+  set_shape(app->polygon_shapes[polygon_id], polygon_shape);
 
   auto arrow_shape = make_arrow_shape();
-  for (auto& p : arrow_shape.positions) p *= 0.01;
+  for (auto& p : arrow_shape.positions) p *= 0.005;
   for (int i :
       {1, (int)positions.size() / 3, (int)(positions.size() * 2) / 3}) {
     arrow_shape.froms.push_back(positions[i]);
-     auto left = normalize(positions[i + 1] - positions[i]);
-     auto y    = cross(left, normals[i]);
-    arrow_shape.tos.push_back(positions[i] + y);
+    auto left = normalize(positions[i + 1] - positions[i]);
+    auto y    = cross(left, normals[i]);
+    arrow_shape.tos.push_back(positions[i] - y);
   }
-  set_shape(app->arrow_shapes[polygon_id]->shape, arrow_shape);
+  set_shape(app->arrow_shapes[polygon_id], arrow_shape);
 }
 
 void update_polygon(app_state* app, int polygon_id, int index = 0) {
@@ -406,17 +407,21 @@ shade_instance* add_patch_shape(
 // }
 
 void add_polygon_shape(app_state* app, const mesh_polygon& polygon, int index) {
-  auto polygon_shape = add_shape(app->glscene, {}, {}, {}, {}, {}, {}, {}, {});
+  auto polygon_shape = add_shape(app->glscene);
 
   auto polygon_material   = add_material(app->glscene);
   polygon_material->color = get_color(index);
 
   auto polygon_instance = add_instance(
       app->glscene, identity3x4f, polygon_shape, polygon_material);
+
+  if (polygon.length > 0)
+    set_polygon_shape(polygon_instance, app->mesh, polygon);
+
   // polygon_instance->depth_test = ogl_depth_test::always;
   app->polygon_shapes += polygon_instance;
 
-  auto arrow_shape    = add_shape(app->glscene, {}, {}, {}, {}, {}, {}, {}, {});
+  auto arrow_shape    = add_shape(app->glscene);
   auto arrow_material = polygon_material;
 
   // if (polygon.length > 0) set_polygon_shape(polygon_shape, app->mesh,
@@ -426,7 +431,8 @@ void add_polygon_shape(app_state* app, const mesh_polygon& polygon, int index) {
   // arrow_instance->depth_test = ogl_depth_test::always;
   app->arrow_shapes += arrow_instance;
 
-  if (polygon.length > 0) set_polygon_shape(polygon_shape, app->mesh, polygon);
+  if (polygon.length > 0)
+    set_polygon_shape(polygon_instance, app->mesh, polygon);
 }
 
 inline void update_cell_shapes(app_state* app) {
