@@ -288,6 +288,7 @@ static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
   for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
     auto& polygon = polygons[polygon_id];
     if (polygon.length == 0) continue;
+    if(polygon.edges.empty()) continue;
 
     // La polilinea della prima faccia del poligono viene processata alla fine
     // (perché si trova tra il primo e l'ultimo edge)

@@ -126,7 +126,7 @@ void update_polygon(app_state* app, int polygon_id, int index = 0) {
   if (!app->show_polygons) return;
 
   if (mesh_polygon.length > 0)
-    set_polygon_shape(polygon_shape->shape, app->mesh, mesh_polygon);
+    set_polygon_shape(polygon_shape, app->mesh, mesh_polygon);
   else if (polygon_shape->shape)
     clear_shape(polygon_shape->shape);
 }
@@ -391,9 +391,11 @@ void add_polygon_shape(app_state* app, const mesh_polygon& polygon, int index) {
   auto polygon_material   = add_material(app->glscene);
   polygon_material->color = get_color(index);
 
-  if (polygon.length > 0) set_polygon_shape(polygon_shape, app->mesh, polygon);
   auto polygon_instance = add_instance(
       app->glscene, identity3x4f, polygon_shape, polygon_material);
+    
+    if (polygon.length > 0) set_polygon_shape(polygon_instance, app->mesh, polygon);
+
   // polygon_instance->depth_test = ogl_depth_test::always;
   app->polygon_shapes += polygon_instance;
 }
