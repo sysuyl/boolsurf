@@ -1287,18 +1287,6 @@ static vector<int> find_ambient_cells(
     }
   }
 
-  // for (int i = 0; i < state.cells.size(); i++) {
-  //   printf("%d: [", i);
-  //   for (auto& pp : parents[i]) {
-  //     printf("[");
-  //     for (auto p : pp) {
-  //       printf("%d, ", p);
-  //     }
-  //     printf("]");
-  //   }
-  //   printf("]\n");
-  // }
-
   for (int i = 0; i < state.cells.size(); i++) {
     auto& parent_map = parent_maps[i];
     for (auto& path : parents[i]) {
@@ -1337,6 +1325,34 @@ static vector<int> find_ambient_cells(
       for (auto& parent_path : values) {
         dag[parent_path.back()].push_back(i);
       }
+    }
+  }
+
+  queue          = deque<int>(roots.begin(), roots.end());
+  auto distances = vector<int>(state.cells.size(), 0);
+
+  // for (auto& s : queue) {
+  //   distances[s] = 0;
+  // }
+
+  while (queue.size()) {
+    auto node = queue.front();
+    queue.pop_front();
+
+    for (auto& neighbor : dag[node]) {
+      if (contains(cycle_nodes, node) && contains(cycle_nodes, neighbor)) {
+        if (distances[node] == distances[neighbor]) continue;
+        distances[neighbor] = distances[node];
+        queue.push_back(neighbor);
+        continue;
+      }
+
+      auto new_depth = distances[node] + 1;
+
+      if (new_depth > distances[neighbor]) {
+        distances[neighbor] = new_depth;
+      }
+      queue.push_back(neighbor);
     }
   }
 
