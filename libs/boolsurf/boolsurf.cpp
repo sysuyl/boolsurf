@@ -1214,8 +1214,10 @@ static bool_borders border_tags(
 }
 
 static vector<int> find_ambient_cells(
-    bool_state& state, const hash_set<int>& cycle_nodes) {
-  state.cells    = {};
+    bool_state& state, hash_set<int>& cycle_nodes) {
+  state.cells = {};
+  cycle_nodes = {};
+
   auto cell_zero = mesh_cell{};
   cell_zero.adjacency.insert({1, 1});
   cell_zero.adjacency.insert({2, 1});
@@ -1255,14 +1257,16 @@ static vector<int> find_ambient_cells(
   state.cells.push_back(cell_eight);
   cell_eight.adjacency.insert({6, -1});
 
-  auto roots = find_roots(state.cells);
-  auto queue = deque<int>(roots.begin(), roots.end());
-  // auto distances = vector<int>(state.cells.size(), -99999);
-  auto parents = vector<vector<vector<int>>>(state.cells.size());
+  auto roots       = find_roots(state.cells);
+  auto queue       = deque<int>(roots.begin(), roots.end());
+  auto parents     = vector<vector<vector<int>>>(state.cells.size());
+  auto parent_maps = vector<hash_map<int, vector<vector<int>>>>(
+      state.cells.size());
+
   for (auto& s : queue) {
-    // distances[s] = 0;
     parents[s] = {{}};
   }
+
   while (queue.size()) {
     auto node = queue.front();
     queue.pop_front();
@@ -1270,45 +1274,33 @@ static vector<int> find_ambient_cells(
     for (auto& [neighbor, polygon] : state.cells[node].adjacency) {
       if (polygon < 0) continue;
       if (contains(cycle_nodes, node) && contains(cycle_nodes, neighbor)) {
-        // if (distances[node] == distances[neighbor]) continue;
         parents[neighbor] = parents[node];
-        // distances[neighbor] = distances[node];
         queue.push_back(neighbor);
         continue;
       }
 
-      // auto new_depth = distances[node] + 1;
-      // if (new_depth < distances[neighbor]) {
-      // continue;
-      // }
-
-      // if (new_depth > distances[neighbor]) {
-      // parents[neighbor]   = {parents[node]};
-      // distances[neighbor] = new_depth;
-      // } else if (new_depth == distances[neighbor]) {
       for (auto p : parents[node]) {
         p += node;
         parents[neighbor] += p;
       }
-      // }
       queue.push_back(neighbor);
     }
   }
 
-  for (int i = 0; i < state.cells.size(); i++) {
-    printf("%d: [", i);
-    for (auto& pp : parents[i]) {
-      printf("[");
-      for (auto p : pp) {
-        printf("%d, ", p);
-      }
-      printf("]");
-    }
-    printf("]\n");
-  }
+  // for (int i = 0; i < state.cells.size(); i++) {
+  //   printf("%d: [", i);
+  //   for (auto& pp : parents[i]) {
+  //     printf("[");
+  //     for (auto p : pp) {
+  //       printf("%d, ", p);
+  //     }
+  //     printf("]");
+  //   }
+  //   printf("]\n");
+  // }
 
   for (int i = 0; i < state.cells.size(); i++) {
-    auto parent_map = hash_map<int, vector<vector<int>>>{};
+    auto& parent_map = parent_maps[i];
     for (auto& path : parents[i]) {
       if (path.empty()) continue;
       auto root = path[0];
@@ -1334,6 +1326,16 @@ static vector<int> find_ambient_cells(
       printf("root %d, ", root);
       for (auto& path : paths) {
         print("", path);
+      }
+    }
+  }
+
+  auto dag = vector<vector<int>>(state.cells.size());
+  for (auto i = 0; i < parent_maps.size(); i++) {
+    auto& parent_map = parent_maps[i];
+    for (auto& [_, values] : parent_map) {
+      for (auto& parent_path : values) {
+        dag[parent_path.back()].push_back(i);
       }
     }
   }
