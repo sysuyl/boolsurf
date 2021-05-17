@@ -288,7 +288,7 @@ static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
   for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
     auto& polygon = polygons[polygon_id];
     if (polygon.length == 0) continue;
-    if(polygon.edges.empty()) continue;
+    if (polygon.edges.empty()) continue;
 
     // La polilinea della prima faccia del poligono viene processata alla fine
     // (perché si trova tra il primo e l'ultimo edge)
@@ -1214,14 +1214,54 @@ static bool_borders border_tags(
 }
 
 static vector<int> find_ambient_cells(
-    const bool_state& state, const hash_set<int>& cycle_nodes) {
-  auto roots     = find_roots(state.cells);
-  auto queue     = deque<int>(roots.begin(), roots.end());
-  auto distances = vector<int>(state.cells.size(), -99999);
-  auto parents   = vector<vector<int>>(state.cells.size());
+    bool_state& state, const hash_set<int>& cycle_nodes) {
+  state.cells    = {};
+  auto cell_zero = mesh_cell{};
+  cell_zero.adjacency.insert({1, 1});
+  cell_zero.adjacency.insert({2, 1});
+  state.cells.push_back(cell_zero);
+  auto cell_one = mesh_cell{};
+  cell_one.adjacency.insert({0, -1});
+  state.cells.push_back(cell_one);
+  auto cell_two = mesh_cell{};
+  cell_two.adjacency.insert({0, -1});
+  cell_two.adjacency.insert({3, -1});
+  state.cells.push_back(cell_two);
+  auto cell_three = mesh_cell{};
+  cell_three.adjacency.insert({2, 1});
+  cell_three.adjacency.insert({4, 1});
+  cell_three.adjacency.insert({5, 1});
+  state.cells.push_back(cell_three);
+  auto cell_four = mesh_cell{};
+  cell_four.adjacency.insert({5, 1});
+  cell_four.adjacency.insert({7, 1});
+  cell_four.adjacency.insert({3, -1});
+  state.cells.push_back(cell_four);
+  auto cell_five = mesh_cell{};
+  cell_five.adjacency.insert({3, -1});
+  cell_five.adjacency.insert({4, -1});
+  cell_five.adjacency.insert({6, -1});
+  state.cells.push_back(cell_five);
+  auto cell_six = mesh_cell{};
+  cell_six.adjacency.insert({5, 1});
+  cell_six.adjacency.insert({7, 1});
+  cell_six.adjacency.insert({8, 1});
+  state.cells.push_back(cell_six);
+  auto cell_seven = mesh_cell{};
+  cell_seven.adjacency.insert({6, -1});
+  cell_seven.adjacency.insert({4, -1});
+  state.cells.push_back(cell_seven);
+  auto cell_eight = mesh_cell{};
+  state.cells.push_back(cell_eight);
+  cell_eight.adjacency.insert({6, -1});
+
+  auto roots = find_roots(state.cells);
+  auto queue = deque<int>(roots.begin(), roots.end());
+  // auto distances = vector<int>(state.cells.size(), -99999);
+  auto parents = vector<vector<vector<int>>>(state.cells.size());
   for (auto& s : queue) {
-    distances[s] = 0;
-    parents[s]   = {s};
+    // distances[s] = 0;
+    parents[s] = {{}};
   }
   while (queue.size()) {
     auto node = queue.front();
@@ -1230,37 +1270,85 @@ static vector<int> find_ambient_cells(
     for (auto& [neighbor, polygon] : state.cells[node].adjacency) {
       if (polygon < 0) continue;
       if (contains(cycle_nodes, node) && contains(cycle_nodes, neighbor)) {
-        if (distances[node] == distances[neighbor]) continue;
-        parents[neighbor]   = parents[node];
-        distances[neighbor] = distances[node];
+        // if (distances[node] == distances[neighbor]) continue;
+        parents[neighbor] = parents[node];
+        // distances[neighbor] = distances[node];
         queue.push_back(neighbor);
         continue;
       }
 
-      auto new_depth = distances[node] + 1;
-      if (new_depth < distances[neighbor]) {
-        continue;
-      }
+      // auto new_depth = distances[node] + 1;
+      // if (new_depth < distances[neighbor]) {
+      // continue;
+      // }
 
-      if (new_depth > distances[neighbor]) {
-        parents[neighbor]   = {parents[node]};
-        distances[neighbor] = new_depth;
-      } else if (new_depth == distances[neighbor]) {
-        parents[neighbor] += parents[node];
+      // if (new_depth > distances[neighbor]) {
+      // parents[neighbor]   = {parents[node]};
+      // distances[neighbor] = new_depth;
+      // } else if (new_depth == distances[neighbor]) {
+      for (auto p : parents[node]) {
+        p += node;
+        parents[neighbor] += p;
       }
+      // }
       queue.push_back(neighbor);
     }
   }
 
-  auto max_depth     = max(distances);
-  auto ambient_cells = hash_set<int>{};
-  for (int i = 0; i < distances.size(); i++) {
-    if (distances[i] == max_depth) {
-      for (auto& p : parents[i]) ambient_cells.insert(p);
+  for (int i = 0; i < state.cells.size(); i++) {
+    printf("%d: [", i);
+    for (auto& pp : parents[i]) {
+      printf("[");
+      for (auto p : pp) {
+        printf("%d, ", p);
+      }
+      printf("]");
+    }
+    printf("]\n");
+  }
+
+  for (int i = 0; i < state.cells.size(); i++) {
+    auto parent_map = hash_map<int, vector<vector<int>>>{};
+    for (auto& path : parents[i]) {
+      if (path.empty()) continue;
+      auto root = path[0];
+      if (contains(parent_map, root)) {
+        auto max_path = max(
+            parent_map[root], [](const vector<int>& x, const vector<int>& y) {
+              return x.size() > y.size();
+            });
+
+        if (path.size() == max_path.size()) {
+          parent_map[root] += path;
+        }
+        if (path.size() > max_path.size()) {
+          parent_map[root] = {path};
+        }
+      } else {
+        parent_map[root] = {path};
+      }
+    }
+
+    printf("cell %d\n", i);
+    for (auto& [root, paths] : parent_map) {
+      printf("root %d, ", root);
+      for (auto& path : paths) {
+        print("", path);
+      }
     }
   }
 
-  return vector<int>(ambient_cells.begin(), ambient_cells.end());
+  exit(1);
+  return {};
+  // auto max_depth     = max(distances);
+  // auto ambient_cells = hash_set<int>{};
+  // for (int i = 0; i < distances.size(); i++) {
+  //   if (distances[i] == max_depth) {
+  //     for (auto& p : parents[i]) ambient_cells.insert(p);
+  //   }
+  // }
+
+  // return vector<int>(ambient_cells.begin(), ambient_cells.end());
 }
 
 static void slice_mesh(bool_mesh& mesh, bool_state& state) {
