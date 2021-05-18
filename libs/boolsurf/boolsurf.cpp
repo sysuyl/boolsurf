@@ -1351,13 +1351,26 @@ static vector<int> find_ambient_cells(
 
       if (new_depth > distances[neighbor]) {
         distances[neighbor] = new_depth;
+        queue.push_back(neighbor);
       }
-      queue.push_back(neighbor);
     }
   }
 
-  exit(1);
-  return {};
+  auto result = vector<int>{};
+  for (auto& root : roots) {
+    bool found = false;
+    for (auto& child : dag[root]) {
+      if (distances[child] > 1) {
+        found = true;
+        break;
+      }
+    }
+    if (found) continue;
+    result.push_back(root);
+  }
+  return result;
+  // exit(1);
+  // return {};
   // auto max_depth     = max(distances);
   // auto ambient_cells = hash_set<int>{};
   // for (int i = 0; i < distances.size(); i++) {
