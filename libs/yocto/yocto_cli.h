@@ -75,6 +75,7 @@ inline int print_fatal(const string& message);
 // Timer that prints as scope end. Create with `print_timed` and print with
 // `print_elapsed`.
 struct print_timer {
+  string  message    = "";
   int64_t start_time = -1;
   ~print_timer();  // print time if scope ends
 };
@@ -326,15 +327,16 @@ inline string format_num(uint64_t num) {
 
 // Print traces for timing and program debugging
 inline print_timer print_timed(const string& message) {
-  printf("%s", message.c_str());
-  fflush(stdout);
+  printf("[timer]: %s started\n", message.c_str());
+  // fflush(stdout);
   // print_info(fmt + " [started]", args...);
-  return print_timer{get_time_()};
+  return print_timer{message, get_time_()};
 }
 inline int64_t print_elapsed(print_timer& timer) {
   if (timer.start_time < 0) return -1;
   auto elapsed = get_time_() - timer.start_time;
-  printf(" in %s\n", format_duration(elapsed).c_str());
+  printf("[timer]: %s ended in %s\n", timer.message.c_str(),
+      format_duration(elapsed).c_str());
   timer.start_time = -1;
   return elapsed;
 }

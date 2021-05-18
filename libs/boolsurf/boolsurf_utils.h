@@ -5,6 +5,7 @@
 #undef far
 #endif
 
+#include <yocto/yocto_cli.h>  // hashing vec2i
 #include <yocto/yocto_mesh.h>
 #include <yocto/yocto_scene.h>
 #include <yocto/yocto_shape.h>  // hashing vec2i
@@ -20,6 +21,9 @@ using namespace yocto;
   printf("%s() at %s, line %d\n", function, file, line)
 
 #define PRINT_CALL() _PRINT_CALL(__FUNCTION__, __FILE__, __LINE__)
+
+#define _PROFILE(function) auto _profile = print_timed(string(function));
+#define PROFILE() _PROFILE(__FUNCTION__)
 
 inline int mod3(int i) { return (i > 2) ? i - 3 : i; }
 

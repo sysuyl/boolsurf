@@ -516,6 +516,7 @@ static vector<mesh_cell> flood_fill_new(vector<int>& starts,
 
 inline vector<mesh_cell> make_mesh_cells(
     const vector<vec3i>& adjacencies, const bool_borders& borders) {
+  PROFILE();
   // Iniziamo dall'ultima faccia che sicuramente non e' stata distrutta.
   auto starts = vector<int>{(int)adjacencies.size() - 1};
   auto result = flood_fill_new(
@@ -1267,13 +1268,13 @@ static vector<int> find_ambient_cells(
       }
     }
 
-    printf("cell %d\n", i);
-    for (auto& [root, paths] : parent_map) {
-      printf("root %d, ", root);
-      for (auto& path : paths) {
-        print("", path);
-      }
-    }
+    // printf("cell %d\n", i);
+    // for (auto& [root, paths] : parent_map) {
+    //   printf("root %d, ", root);
+    //   for (auto& path : paths) {
+    //     print("", path);
+    //   }
+    // }
   }
 
   auto dag = vector<vector<int>>(state.cells.size());
@@ -1341,6 +1342,7 @@ static vector<int> find_ambient_cells(
 }
 
 static void slice_mesh(bool_mesh& mesh, bool_state& state) {
+  PROFILE();
   auto& polygons = state.polygons;
 
   // Calcoliamo i vertici nuovi della mesh
@@ -1361,6 +1363,7 @@ static void slice_mesh(bool_mesh& mesh, bool_state& state) {
 }
 
 static void compute_cell_labels(bool_state& state) {
+  PROFILE();
   global_state = &state;
 
   // Calcoliamo possibili cicli all'interno del grafo delle adiacenze della
@@ -1447,6 +1450,7 @@ void update_virtual_adjacencies(
 
 void compute_cells(bool_mesh& mesh, bool_state& state) {
   // Triangola mesh in modo da embeddare tutti i poligoni come mesh-edges.
+  PROFILE();
   global_state = &state;
   slice_mesh(mesh, state);
 
