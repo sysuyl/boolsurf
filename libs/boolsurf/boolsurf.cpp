@@ -1215,48 +1215,6 @@ static bool_borders border_tags(
 
 static vector<int> find_ambient_cells(
     bool_state& state, hash_set<int>& cycle_nodes) {
-  state.cells = {};
-  cycle_nodes = {};
-
-  auto cell_zero = mesh_cell{};
-  cell_zero.adjacency.insert({1, 1});
-  cell_zero.adjacency.insert({2, 1});
-  state.cells.push_back(cell_zero);
-  auto cell_one = mesh_cell{};
-  cell_one.adjacency.insert({0, -1});
-  state.cells.push_back(cell_one);
-  auto cell_two = mesh_cell{};
-  cell_two.adjacency.insert({0, -1});
-  cell_two.adjacency.insert({3, -1});
-  state.cells.push_back(cell_two);
-  auto cell_three = mesh_cell{};
-  cell_three.adjacency.insert({2, 1});
-  cell_three.adjacency.insert({4, 1});
-  cell_three.adjacency.insert({5, 1});
-  state.cells.push_back(cell_three);
-  auto cell_four = mesh_cell{};
-  cell_four.adjacency.insert({5, 1});
-  cell_four.adjacency.insert({7, 1});
-  cell_four.adjacency.insert({3, -1});
-  state.cells.push_back(cell_four);
-  auto cell_five = mesh_cell{};
-  cell_five.adjacency.insert({3, -1});
-  cell_five.adjacency.insert({4, -1});
-  cell_five.adjacency.insert({6, -1});
-  state.cells.push_back(cell_five);
-  auto cell_six = mesh_cell{};
-  cell_six.adjacency.insert({5, 1});
-  cell_six.adjacency.insert({7, 1});
-  cell_six.adjacency.insert({8, 1});
-  state.cells.push_back(cell_six);
-  auto cell_seven = mesh_cell{};
-  cell_seven.adjacency.insert({6, -1});
-  cell_seven.adjacency.insert({4, -1});
-  state.cells.push_back(cell_seven);
-  auto cell_eight = mesh_cell{};
-  state.cells.push_back(cell_eight);
-  cell_eight.adjacency.insert({6, -1});
-
   auto roots       = find_roots(state.cells);
   auto queue       = deque<int>(roots.begin(), roots.end());
   auto parents     = vector<vector<vector<int>>>(state.cells.size());
