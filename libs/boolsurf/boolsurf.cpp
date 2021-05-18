@@ -1216,12 +1216,9 @@ static bool_borders border_tags(
 
 static vector<int> find_ambient_cells(
     bool_state& state, hash_set<int>& cycle_nodes) {
-  auto roots       = find_roots(state.cells);
-  auto queue       = deque<int>(roots.begin(), roots.end());
-  auto parents     = vector<vector<vector<int>>>(state.cells.size());
-  auto parent_maps = vector<hash_map<int, vector<vector<int>>>>(
-      state.cells.size());
-
+  auto roots   = find_roots(state.cells);
+  auto queue   = deque<int>(roots.begin(), roots.end());
+  auto parents = vector<vector<vector<int>>>(state.cells.size());
   for (auto& s : queue) {
     parents[s] = {{}};
   }
@@ -1242,10 +1239,13 @@ static vector<int> find_ambient_cells(
         p += node;
         parents[neighbor] += p;
       }
-      queue.push_back(neighbor);
+
+      if (!contains(queue, neighbor)) queue.push_back(neighbor);
     }
   }
 
+  auto parent_maps = vector<hash_map<int, vector<vector<int>>>>(
+      state.cells.size());
   for (int i = 0; i < state.cells.size(); i++) {
     auto& parent_map = parent_maps[i];
     for (auto& path : parents[i]) {
@@ -1289,11 +1289,6 @@ static vector<int> find_ambient_cells(
 
   queue          = deque<int>(roots.begin(), roots.end());
   auto distances = vector<int>(state.cells.size(), 0);
-
-  // for (auto& s : queue) {
-  //   distances[s] = 0;
-  // }
-
   while (queue.size()) {
     auto node = queue.front();
     queue.pop_front();
@@ -1328,17 +1323,6 @@ static vector<int> find_ambient_cells(
     result.push_back(root);
   }
   return result;
-  // exit(1);
-  // return {};
-  // auto max_depth     = max(distances);
-  // auto ambient_cells = hash_set<int>{};
-  // for (int i = 0; i < distances.size(); i++) {
-  //   if (distances[i] == max_depth) {
-  //     for (auto& p : parents[i]) ambient_cells.insert(p);
-  //   }
-  // }
-
-  // return vector<int>(ambient_cells.begin(), ambient_cells.end());
 }
 
 static void slice_mesh(bool_mesh& mesh, bool_state& state) {
