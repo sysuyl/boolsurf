@@ -11,7 +11,8 @@ def subdivide_bezier(points):
     result = [points[0]]
 
     def subdivide_polygon(polygon):
-        def midpoint(a, b): return ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+        def midpoint(a, b):
+            return ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
 
         Q0 = midpoint(polygon[0], polygon[1])
         Q1 = midpoint(polygon[1], polygon[2])
@@ -21,9 +22,9 @@ def subdivide_bezier(points):
         S = midpoint(R0, R1)
         return [Q0, R0, S, R1, Q2, polygon[3]]
 
-    for i in range(0, len(points)-3, 3):
+    for i in range(0, len(points) - 3, 3):
         # print(f'len {len(points)}: {i}, {i+4}')
-        polygon = points[i:i+4]
+        polygon = points[i : i + 4]
         result += subdivide_polygon(polygon)
 
     return result
@@ -67,11 +68,13 @@ def parse_path_string(path_string, num_subdivisions):
                         bezier_points = [points[-1]]
                         bezier_points += parse_points(c.split(" "))
 
-                        assert(len(bezier_points) == 4)
+                        assert len(bezier_points) == 4
                         bezier_points = bezier(bezier_points, num_subdivisions)
 
                         # Removing possible duplicate points
-                        pts = [] if bezier_points[0] == points[-1] else [bezier_points[0]]
+                        pts = (
+                            [] if bezier_points[0] == points[-1] else [bezier_points[0]]
+                        )
                         for point in bezier_points[1:]:
                             if len(pts) and point != pts[-1]:
                                 pts.append(point)
@@ -94,7 +97,7 @@ def parse_path_string(path_string, num_subdivisions):
                 points += pts
 
         for p in range(1, len(points)):
-            if points[p] == points[p-1]:
+            if points[p] == points[p - 1]:
                 print(p, points[p])
 
         result_paths.append(points[:-1])
@@ -107,7 +110,7 @@ def parse_path_string(path_string, num_subdivisions):
 
 def find_simple_paths(element, paths):
     if element.tag == "{http://www.w3.org/2000/svg}path":
-        paths.append(element.attrib['d'])
+        paths.append(element.attrib["d"])
         return
 
     for child in element:
@@ -116,47 +119,38 @@ def find_simple_paths(element, paths):
 
 def create_json(infile, outfile, num_subdivisions):
     root = ET.parse(infile).getroot()
-    data = {'screenspace': True, 'polygons': []}
+    data = {"screenspace": True, "polygons": []}
 
     for element in root:
         if element.tag == "{http://www.w3.org/2000/svg}g":
 
-            # Parsing transformation matrix
-            # Parsing translation matrix
-            rot_transform = np.zeros((2, 2))
-            tran_transform = np.zeros((2, 1))
+            rot_transform = np.zeros((3, 3))
 
-            if 'transform' in element.attrib:
-                matrix = element.attrib['transform'][7:-1].split(",")
-                print(matrix)
-                rot_transform = np.matrix(
-                    matrix[:4], dtype=float).reshape(2, 2).transpose()
-                tran_transform = np.matrix(
-                    matrix[4:], dtype=float).reshape(1, 2)
+            if "transform" in element.attrib:
+                matrix = element.attrib["transform"][7:-1].split(",")
 
-                print(rot_transform)
-                print(tran_transform)
+                rot_transform = np.array(matrix, dtype=float).reshape(3, 2).transpose()
+                rot_transform = np.append(rot_transform, [[0, 0, 1]], axis=0)
 
             paths = []
             find_simple_paths(element, paths)
 
             for path in paths:
-                path_points = parse_path_string(
-                    path, num_subdivisions)
+                path_points = parse_path_string(path, num_subdivisions)
                 for points in path_points:
                     for p in range(len(points)):
                         nppoint = np.array(points[p])
-                        nppoint = nppoint * rot_transform + tran_transform
+                        nppoint = np.append(nppoint, 1).reshape(3, 1)
+                        nppoint = rot_transform @ nppoint
 
-                        points[p] = tuple(nppoint.tolist()[0])
+                        points[p] = tuple(nppoint.reshape(1, 3).tolist()[0][:2])
 
-                    data['polygons'].append(points)
+                    data["polygons"].append(points)
 
         elif element.tag == "{http://www.w3.org/2000/svg}path":
-            path_points = parse_path_string(
-                element.attrib['d'], num_subdivisions)
+            path_points = parse_path_string(element.attrib["d"], num_subdivisions)
             for path in path_points:
-                data['polygons'].append(path)
+                data["polygons"].append(path)
 
     with open(outfile, "w") as out:
         json.dump(data, out, indent=2)
