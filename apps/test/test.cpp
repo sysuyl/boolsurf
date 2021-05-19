@@ -35,6 +35,26 @@ void save_image(
   save_image(output_image_filename, image, error);
 }
 
+bool check_ambient_cell(const bool_state& state) {
+  if (state.cells.size() == 1) return false;
+
+  // Getting max faces in ambient cell
+  auto zero               = vector<int>(state.labels[0].size(), 0);
+  auto ambient_cell_faces = 0;
+  for (int c = 0; c < state.cells.size(); c++) {
+    auto& cell = state.cells[c];
+    if (state.labels[c] != zero) continue;
+    ambient_cell_faces = max(ambient_cell_faces, (int)cell.faces.size());
+  }
+
+  printf("ambient_cell_faces: %d\n", ambient_cell_faces);
+  for (auto& cell : state.cells) {
+    if (cell.faces.size() > ambient_cell_faces) return false;
+  }
+
+  return true;
+}
+
 int main(int num_args, const char* args[]) {
   auto test_filename         = ""s;
   auto output_image_filename = "data/render.png"s;
@@ -91,6 +111,7 @@ int main(int num_args, const char* args[]) {
       printf("%s\n", error.c_str());
       print_fatal("Error loading model " + test_filename);
     }
+
     init_mesh(mesh);
     printf("triangles: %d\n", (int)mesh.triangles.size());
     printf("positions: %d\n\n", (int)mesh.positions.size());
@@ -98,68 +119,34 @@ int main(int num_args, const char* args[]) {
   }
   auto bvh = make_triangles_bvh(mesh.triangles, mesh.positions, {});
 
+  int  seed = 0;
+  auto rng  = make_rng(seed);
+  auto stop = false;
+
   // Init bool_state
   auto state = bool_state{};
-
   if (test.screenspace) {
-    int  seed           = 0;
-    bool use_projection = false;
-    while (true) {
-      bool repeat = false;
-      test.camera = make_camera(mesh, seed);
-      state       = make_test_state(
-          test, mesh, bvh, test.camera, drawing_size, use_projection);
-      printf("%s\n", "make_test_state");
+    while (!stop) {
+      state        = {};
+      auto cdf     = sample_triangles_cdf(mesh.triangles, mesh.positions);
+      auto [t, uv] = sample_triangles(cdf, rand1f(rng), rand2f(rng));
 
-      // save_image(to_string(seed) + output_image_filename, mesh, state,
-      // test.camera, color_shapes, spp);
+      auto center = mesh_point{t, uv};
+      test.camera = make_camera(mesh, seed);
+      add_polygons(state, mesh, test.camera, test, center, drawing_size, false);
 
       try {
-        {
-          auto timer = print_timed("[compute_cells]");
-          compute_cells(mesh, state);
-        }
+        auto timer = print_timed("[compute_cells]");
+        compute_cells(mesh, state);
         compute_shapes(state);
+        stop = check_ambient_cell(state);
 
-        // save_image(
-        // output_image_filename, mesh, state, test.camera, color_shapes, spp);
-
-        auto graph_dir      = path_dirname(output_image_filename);
-        auto graph_filename = path_basename(output_image_filename) +
-                              string("_graph.png");
-        auto graph_outfile = path_join(graph_dir, graph_filename);
-        save_tree_png(state, graph_outfile, "", color_shapes);
-
-        auto zero              = vector<int>(state.labels[0].size(), 0);
-        auto ambient_num_faces = 0;
-
-        for (int c = 0; c < state.cells.size(); c++) {
-          auto& cell = state.cells[c];
-          if (state.labels[c] != zero) continue;
-          if (ambient_num_faces < cell.faces.size()) {
-            ambient_num_faces = (int)cell.faces.size();
-          }
-        }
-        printf("ambient_num_faces: %d\n", ambient_num_faces);
-
-        if (state.cells.size() == 1) {
-          repeat = true;
-        }
-
-        for (auto& cell : state.cells) {
-          if (cell.faces.size() > ambient_num_faces) {
-            repeat = true;
-            break;
-          }
-        }
       } catch (const std::exception&) {
-        repeat = true;
+        stop = true;
       }
 
-      if (!repeat) break;
-      if (use_projection) seed += 1;  // questo muove la camera.
-      use_projection = !use_projection;
-      mesh           = mesh_original;
+      if (stop) break;
+      mesh = mesh_original;
     }
   } else {
     state = state_from_test(mesh, test, 0.005, false);
@@ -167,22 +154,22 @@ int main(int num_args, const char* args[]) {
     compute_shapes(state);
   }
 
+  // Saving output scene
   auto scene = make_scene(mesh, state, test.camera, color_shapes);
   if (output_scene_filename.size()) {
     // for (auto& shape : scene.shapes) {
     //   save_shape(shape, output_scene_filename + "/")
-
     // }
     save_scene(output_scene_filename, scene, error);
   }
 
-  // save_image(output_image_filename, save_image, spp);
-
+  // Saving render and cell adjacency graph
+  save_image(
+      output_image_filename, mesh, state, test.camera, color_shapes, spp);
   auto graph_dir      = path_dirname(output_image_filename);
   auto graph_filename = path_basename(output_image_filename) +
                         string("_graph.png");
   auto graph_outfile = path_join(graph_dir, graph_filename);
-
   save_tree_png(state, graph_outfile.c_str(), "", color_shapes);
 
   if (color_shapes) {
