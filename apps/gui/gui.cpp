@@ -58,16 +58,13 @@ void debug_cell_flood_fill(app_state* app) {
 // }
 #endif
 
-void add_polygons(app_state* app, bool_test test, const mesh_point& center,
-    bool screenspace) {
-  auto& state    = app->state;
-  auto& mesh     = app->mesh;
-  auto& camera   = app->camera;
-  auto  polygons = app->temp_test.polygons_screenspace;
-
+void add_polygons(bool_state& state, const bool_mesh& mesh,
+    const scene_camera& camera, const bool_test& test, const mesh_point& center,
+    const float svg_size, bool screenspace) {
+  auto polygons = test.polygons_screenspace;
   for (auto& polygon : polygons) {
     for (auto& uv : polygon) {
-      uv *= app->svg_size;
+      uv *= svg_size;
       uv.x = -uv.x;
     }
   }
@@ -78,12 +75,12 @@ void add_polygons(app_state* app, bool_test test, const mesh_point& center,
     uv.x = -uv.x;
     uv += vec2f{0.5, 0.5};
     auto cam      = scene_camera{};
-    auto position = eval_position(app->mesh, center);
-    auto normal   = eval_normal(app->mesh, center);
+    auto position = eval_position(mesh, center);
+    auto normal   = eval_normal(mesh, center);
     auto eye      = position + normal * 0.2;
     cam.frame     = lookat_frame(eye, position, {0, 1, 0});
     cam.focus     = length(eye - position);
-    return intersect_mesh(app->mesh, cam, uv);
+    return intersect_mesh(mesh, cam, uv);
   };
   auto get_mapped_point = [&](vec2f uv) {
     uv /= camera.film;
@@ -114,7 +111,12 @@ void add_polygons(app_state* app, bool_test test, const mesh_point& center,
     }
     // recompute_polygon_segments(mesh, state, state.polygons[polygon_id]);
   }
+}
 
+void add_polygons(app_state* app, bool_test test, const mesh_point& center,
+    bool screenspace) {
+  add_polygons(app->state, app->mesh, app->camera, test, center, app->svg_size,
+      screenspace);
   for (auto p = app->last_svg.previous_polygons; p < app->state.polygons.size();
        p++) {
     auto& polygon = app->state.polygons[p];
