@@ -119,6 +119,62 @@ bool_state state_from_test(const bool_mesh& mesh, const bool_test& test,
   return state;
 }
 
+void add_polygons(bool_state& state, const bool_mesh& mesh,
+    const scene_camera& camera, const bool_test& test, const mesh_point& center,
+    float svg_size, bool screenspace) {
+  auto polygons = test.polygons_screenspace;
+  for (auto& polygon : polygons) {
+    for (auto& uv : polygon) {
+      uv *= svg_size;
+      uv.x = -uv.x;
+    }
+  }
+
+  auto get_projected_point = [&](vec2f uv) {
+    uv.x /= camera.film;                    // input.window_size.x;
+    uv.y /= (camera.film / camera.aspect);  // input.window_size.y;
+    uv.x = -uv.x;
+    uv += vec2f{0.5, 0.5};
+    auto cam      = scene_camera{};
+    auto position = eval_position(mesh, center);
+    auto normal   = eval_normal(mesh, center);
+    auto eye      = position + normal * 0.2;
+    cam.frame     = lookat_frame(eye, position, {0, 1, 0});
+    cam.focus     = length(eye - position);
+    return intersect_mesh(mesh, cam, uv);
+  };
+
+  auto get_mapped_point = [&](vec2f uv) {
+    uv /= camera.film;
+    auto path     = straightest_path(mesh, center, uv);
+    path.end.uv.x = clamp(path.end.uv.x, 0.0f, 1.0f);
+    path.end.uv.y = clamp(path.end.uv.y, 0.0f, 1.0f);
+    return path.end;
+  };
+
+  for (auto& polygon : polygons) {
+    state.polygons.push_back({});
+    auto polygon_id = (int)state.polygons.size() - 1;
+
+    for (auto uv : polygon) {
+      auto point = screenspace ? get_projected_point(uv) : get_mapped_point(uv);
+      if (point.face == -1) continue;
+
+      // Add point to state.
+      state.polygons[polygon_id].points.push_back((int)state.points.size());
+      state.points.push_back(point);
+    }
+
+    if (state.polygons[polygon_id].points.size() <= 2) {
+      assert(0);
+      state.polygons[polygon_id].points.clear();
+      continue;
+    }
+
+    recompute_polygon_segments(mesh, state, state.polygons[polygon_id]);
+  }
+}
+
 scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
     const scene_camera& camera, bool color_shapes,
     const vector<vec3f>& cell_colors) {
