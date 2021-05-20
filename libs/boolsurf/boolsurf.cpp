@@ -594,6 +594,7 @@ static void compute_cycles(const vector<mesh_cell>& cells, int node,
 
 inline vector<vector<vec2i>> compute_graph_cycles(
     const vector<mesh_cell>& cells) {
+  PROFILE();
   auto visited        = vector<int>(cells.size(), 0);
   auto parents        = vector<vec2i>(cells.size(), {0, 0});
   auto cycles         = vector<vector<vec2i>>();
@@ -643,6 +644,7 @@ inline vector<vector<int>> compute_components(
 static vector<vector<int>> propagate_cell_labels(const vector<mesh_cell>& cells,
     const vector<int>& start, const vector<vector<vec2i>>& cycles,
     const hash_set<int>& skip_polygons, int num_polygons) {
+  PROFILE();
   // Inizializziamo le label delle celle a 0.
   auto& labels = global_state->labels;
   labels = vector<vector<int>>(cells.size(), vector<int>(num_polygons, 0));
@@ -1222,6 +1224,7 @@ static bool_borders border_tags(
 
 static vector<int> find_ambient_cells(
     bool_state& state, hash_set<int>& cycle_nodes) {
+  PROFILE();
   auto roots   = find_roots(state.cells);
   auto queue   = deque<int>(roots.begin(), roots.end());
   auto parents = vector<vector<vector<int>>>(state.cells.size());
@@ -1636,32 +1639,17 @@ void compute_bool_operation(bool_state& state, const bool_operation& op) {
     if (aa[i]) c.cells.insert(i);
 }
 
-void compute_symmetrical_difference(
-    bool_state& state, const vector<int>& indices) {
-  auto& first  = state.shapes[indices[0]];
-  auto  result = vector<bool>(state.cells.size(), false);
-  for (auto& c : first.cells) result[c] = true;
-  first.is_root = false;
-
-  for (auto s = 1; s < indices.size(); s++) {
-    auto& second   = state.shapes[indices[s]];
-    second.is_root = false;
-
-    auto ss = vector<bool>(state.cells.size(), false);
-    for (auto& c : second.cells) ss[c] = true;
-
-    for (auto i = 0; i < result.size(); i++) result[i] = result[i] != ss[i];
+void compute_bool_operations(
+    bool_state& state, const vector<bool_operation>& ops) {
+  PROFILE();
+  for (auto& op : ops) {
+    compute_bool_operation(state, op);
   }
+}
 
-  auto  shape_id = state.shapes.size();
-  auto& c        = state.shapes.emplace_back();
-  c.color        = state.shapes[indices[0]].color;
-  auto sorting   = find_idx(state.shapes_sorting, indices[0]);
-
-  insert(state.shapes_sorting, sorting, (int)shape_id);
-
-  for (auto i = 0; i < result.size(); i++)
-    if (result[i]) c.cells.insert(i);
+void compute_symmetrical_difference(
+    bool_state& state, const vector<int>& shapes) {
+  auto& c = state.shapes.emplace_back();
 }
 
 mesh_point intersect_mesh(const bool_mesh& mesh, const shape_bvh& bvh,
