@@ -33,6 +33,7 @@ struct app_state {
   bool           color_shapes         = false;
   bool           color_hashgrid       = false;
   bool           show_polygons        = true;
+  bool           show_arrows          = true;
   bool           use_projection       = false;
   scene_camera   camera               = {};
 

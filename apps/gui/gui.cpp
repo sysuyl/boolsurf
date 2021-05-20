@@ -205,7 +205,14 @@ void draw_widgets(app_state* app, const gui_input& input) {
       for (auto i : app->polygon_shapes) {
         i->hidden = !app->show_polygons;
       }
+
       if (app->show_polygons) update_polygons(app);
+    }
+
+    if (draw_checkbox(widgets, "arrows", app->show_arrows)) {
+      for (auto i : app->arrow_shapes) {
+        i->hidden = !app->show_arrows;
+      }
     }
 
     static auto view_triangulation = false;
