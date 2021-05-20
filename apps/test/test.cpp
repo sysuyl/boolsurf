@@ -127,13 +127,19 @@ int main(int num_args, const char* args[]) {
   auto state = bool_state{};
   if (test.screenspace) {
     while (!stop) {
-      state        = {};
-      auto cdf     = sample_triangles_cdf(mesh.triangles, mesh.positions);
-      auto [t, uv] = sample_triangles(cdf, rand1f(rng), rand2f(rng));
+      state         = {};
+      auto uv       = vec2f{0.5, 0.5};
+      auto cam      = scene_camera{};
+      auto eye      = sample_sphere(rand2f(rng)) * 4;
+      auto position = vec3f{0, 0, 0};
+      cam.frame     = lookat_frame(eye, position, {0, 1, 0});
+      cam.focus     = length(eye - position);
 
-      auto center = mesh_point{t, uv};
+      auto center = intersect_mesh(mesh, cam, uv);
       test.camera = make_camera(mesh, seed);
+
       add_polygons(state, mesh, test.camera, test, center, drawing_size, false);
+      test.camera = cam;
 
       try {
         auto timer = print_timed("[compute_cells]");
