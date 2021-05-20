@@ -125,6 +125,12 @@ geodesic_path compute_geodesic_path(
   return path;
 }
 
+mesh_point eval_geodesic_path(
+    const bool_mesh& mesh, const geodesic_path& path, float t) {
+  return eval_path_point(
+      path, mesh.triangles, mesh.positions, mesh.adjacencies, t);
+}
+
 vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
     const vector<int>& strip, const vector<float>& lerps,
     const mesh_point& start, const mesh_point& end) {
