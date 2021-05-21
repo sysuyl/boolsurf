@@ -514,7 +514,7 @@ static vector<mesh_cell> flood_fill_new(vector<int>& starts,
   return result;
 }
 
-inline vector<mesh_cell> make_mesh_cells(
+vector<mesh_cell> make_mesh_cells(
     const vector<vec3i>& adjacencies, const bool_borders& borders) {
   PROFILE();
   // Iniziamo dall'ultima faccia che sicuramente non e' stata distrutta.
@@ -1325,9 +1325,10 @@ static vector<int> find_ambient_cells(
   return result;
 }
 
-static void slice_mesh(bool_mesh& mesh, bool_state& state) {
+void slice_mesh(bool_mesh& mesh, bool_state& state) {
   PROFILE();
   auto& polygons = state.polygons;
+  global_state   = &state;
 
   // Calcoliamo i vertici nuovi della mesh
   // auto vertices             = add_vertices(mesh, polygons);
@@ -1346,7 +1347,7 @@ static void slice_mesh(bool_mesh& mesh, bool_state& state) {
   mesh.borders = border_tags(mesh, hashgrid, polygons.size());
 }
 
-static void compute_cell_labels(bool_state& state) {
+void compute_cell_labels(bool_state& state) {
   PROFILE();
   global_state = &state;
 
