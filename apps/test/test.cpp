@@ -10,22 +10,22 @@
 using namespace yocto;
 
 struct test_stats {
-  string model_filename         = ""s;
-  int    model_triangles        = 0;
-  int    genus                  = 0;
-  double triangulation_nanosecs = 0.0;
-  double flood_fill_nanosecs    = 0.0;
-  double labelling_nanosecs     = 0.0;
-  double boolean_nanosecs       = 0.0;
-  double total_nanosecs         = 0.0;
-  int    polygons               = 0;
-  int    control_points         = 0;
-  int    added_points           = 0;
-  int    sliced_triangles       = 0;
-  int    added_triangles        = 0;
-  int    graph_nodes            = 0;
-  int    graph_edges            = 0;
-  int    graph_cycles           = 0;
+  string model_filename   = ""s;
+  int    model_triangles  = 0;
+  int    genus            = 0;
+  double triangulation_ns = 0.0;
+  double flood_fill_ns    = 0.0;
+  double labelling_ns     = 0.0;
+  double boolean_ns       = 0.0;
+  double total_ns         = 0.0;
+  int    polygons         = 0;
+  int    control_points   = 0;
+  int    added_points     = 0;
+  int    sliced_triangles = 0;
+  int    added_triangles  = 0;
+  int    graph_nodes      = 0;
+  int    graph_edges      = 0;
+  int    graph_cycles     = 0;
 };
 
 void save_image(const string& output_image_filename, const bool_mesh& mesh,
@@ -218,7 +218,7 @@ int main(int num_args, const char* args[]) {
   if (stats_filename.size() && !append_stats) {
     auto stats_file = fopen(stats_filename.c_str(), "w");
     fprintf(stats_file,
-        "model, model_triangles, genus, triangulation_secs, flood_fill_secs, labelling_secs, boolean_secs, total_secs, polygons, control_points, added_points, sliced_triangles, added_triangles, graph_nodes, graph_edges, graph_cycles\n");
+        "model, model_triangles, genus, triangulation_ns, flood_fill_ns, labelling_ns, boolean_ns, total_ns, polygons, control_points, added_points, sliced_triangles, added_triangles, graph_nodes, graph_edges, graph_cycles\n");
     fclose(stats_file);
   }
 
@@ -256,20 +256,19 @@ int main(int num_args, const char* args[]) {
   auto triangulation_timer = simple_timer{};
   slice_mesh(mesh, state);
 
-  stats.triangulation_nanosecs = elapsed_nanoseconds(triangulation_timer);
-  stats.total_nanosecs += stats.triangulation_nanosecs;
+  stats.triangulation_ns = elapsed_nanoseconds(triangulation_timer);
+  stats.total_ns += stats.triangulation_ns;
   stats.sliced_triangles = (int)mesh.triangulated_faces.size();
   for (auto& [face, triangles] : mesh.triangulated_faces)
     stats.added_triangles += triangles.size();
-  printf("Triangulation: %d\n", stats.sliced_triangles);
 
   // Flood-fill for graph creation
   auto flood_fill_timer = simple_timer{};
   state.cells           = make_mesh_cells(mesh.adjacencies, mesh.borders);
   update_virtual_adjacencies(state.cells, mesh.borders);
 
-  stats.flood_fill_nanosecs = elapsed_nanoseconds(flood_fill_timer);
-  stats.total_nanosecs += stats.flood_fill_nanosecs;
+  stats.flood_fill_ns = elapsed_nanoseconds(flood_fill_timer);
+  stats.total_ns += stats.flood_fill_ns;
   stats.graph_nodes = state.cells.size();
   for (auto& cell : state.cells) stats.graph_edges += cell.adjacency.size();
   stats.graph_edges /= 2;
@@ -278,8 +277,8 @@ int main(int num_args, const char* args[]) {
   auto labelling_timer = simple_timer{};
   compute_cell_labels(state);
 
-  stats.labelling_nanosecs = elapsed_nanoseconds(labelling_timer);
-  stats.total_nanosecs += stats.labelling_nanosecs;
+  stats.labelling_ns = elapsed_nanoseconds(labelling_timer);
+  stats.total_ns += stats.labelling_ns;
 
   compute_shapes(state);
 
@@ -306,8 +305,8 @@ int main(int num_args, const char* args[]) {
     for (auto& operation : test.operations) {
       compute_bool_operation(state, operation);
     }
-    stats.boolean_nanosecs = elapsed_nanoseconds(booleans_timer);
-    stats.total_nanosecs += stats.boolean_nanosecs;
+    stats.boolean_ns = elapsed_nanoseconds(booleans_timer);
+    stats.total_ns += stats.boolean_ns;
   }
 
   // output timings and stats:
@@ -316,16 +315,14 @@ int main(int num_args, const char* args[]) {
   // total_secs, polygons, control_points, added_points, sliced_triangles,
   // added_triangles, graph_nodes, graph_edges, graph_cycles
   if (stats_filename.size()) {
-    printf("Adding statistics\n");
     auto stats_file = fopen(stats_filename.c_str(), "a");
     fprintf(stats_file,
         "%s, %d, %d, %f, %f, %f, %f, %f, %d, %d, %d, %d, %d, %d, %d, %d\n",
         stats.model_filename.c_str(), stats.model_triangles, stats.genus,
-        stats.triangulation_nanosecs, stats.flood_fill_nanosecs,
-        stats.labelling_nanosecs, stats.boolean_nanosecs, stats.total_nanosecs,
-        stats.polygons, stats.control_points, stats.added_points,
-        stats.sliced_triangles, stats.added_triangles, stats.graph_nodes,
-        stats.graph_edges, stats.graph_cycles);
+        stats.triangulation_ns, stats.flood_fill_ns, stats.labelling_ns,
+        stats.boolean_ns, stats.total_ns, stats.polygons, stats.control_points,
+        stats.added_points, stats.sliced_triangles, stats.added_triangles,
+        stats.graph_nodes, stats.graph_edges, stats.graph_cycles);
     fclose(stats_file);
   }
 }
