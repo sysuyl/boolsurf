@@ -59,9 +59,9 @@ void debug_cell_flood_fill(app_state* app) {
 #endif
 
 void add_polygons(app_state* app, bool_test& test, const mesh_point& center,
-    bool screenspace) {
+    bool screenspace, bool straight_up = true) {
   add_polygons(app->state, app->mesh, app->camera, test, center, app->svg_size,
-      screenspace);
+      screenspace, straight_up);
 
   for (auto p = app->last_svg.previous_polygons; p < app->state.polygons.size();
        p++) {
@@ -77,7 +77,7 @@ void load_svg(app_state* app) {
   auto script_path = normalize_path("scripts/svg_parser.py"s);
   auto test_json   = normalize_path("data/tests/tmp.json"s);
   auto cmd = "python3 "s + script_path + " "s + app->svg_filename + " "s +
-             test_json + " "s + "2";
+             test_json + " "s + to_string(app->svg_subdivs);
 
   printf("%s\n", cmd.c_str());
   auto ret_value = system(cmd.c_str());
@@ -111,7 +111,7 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
     update_svg(app);
   };
 
-  if (draw_slider(widgets, "subdivs##svg_subdivs", app->svg_subdivs, 2, 16)) {
+  if (draw_slider(widgets, "subdivs##svg_subdivs", app->svg_subdivs, 0, 16)) {
     app->state.polygons.resize(app->last_svg.previous_polygons);
     update_svg(app);
   };
@@ -888,6 +888,7 @@ int main(int argc, const char* argv[]) {
 
   if (app->test_filename != "") {
     init_from_test(app);
+    update_polygons(app);
   }
   app->state.polygons.push_back({});
   add_polygon_shape(app, {}, 0);

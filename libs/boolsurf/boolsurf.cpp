@@ -674,7 +674,7 @@ static vector<vector<int>> propagate_cell_labels(const vector<mesh_cell>& cells,
 
     for (auto& [neighbor, polygon] : cell.adjacency) {
       auto polygon_unsigned = uint(yocto::abs(polygon));
-
+      if (neighbor == cell_id) continue;
       auto is_cycle_edge = contains(skip_polygons, (int)polygon_unsigned);
 
       if (polygon < 0 && visited[neighbor]) continue;
@@ -1238,13 +1238,23 @@ static vector<int> find_ambient_cells(
 
     for (auto& [neighbor, polygon] : state.cells[node].adjacency) {
       if (polygon < 0) continue;
-      if (contains(cycle_nodes, node) && contains(cycle_nodes, neighbor)) {
-        parents[neighbor] = parents[node];
-        queue.push_back(neighbor);
-        continue;
+      // if (contains(cycle_nodes, node) && contains(cycle_nodes, neighbor)) {
+      //   parents[neighbor] = parents[node];
+      //   queue.push_back(neighbor);
+      //   continue;
+      // }
+      if (node == neighbor) continue;
+      bool cycle = false;
+      for (auto& p : parents[node]) {
+        if (contains(p, neighbor)) {
+          cycle = true;
+          break;
+        }
       }
+      if (cycle) continue;
 
-      for (auto p : parents[node]) {
+      for (int i = 0; i < parents[node].size(); i++) {
+        auto p = parents[node][i];
         p += node;
         parents[neighbor] += p;
       }

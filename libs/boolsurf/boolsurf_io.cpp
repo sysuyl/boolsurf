@@ -121,8 +121,25 @@ bool_state state_from_test(const bool_mesh& mesh, const bool_test& test,
 
 void add_polygons(bool_state& state, const bool_mesh& mesh,
     const scene_camera& camera, const bool_test& test, const mesh_point& center,
-    float svg_size, bool screenspace) {
+    float svg_size, bool screenspace, bool straight_up) {
   auto polygons = test.polygons_screenspace;
+
+  auto make_straight_up = [&](vec2f& uv) {
+    if (!straight_up) return;
+    uv         = -uv;
+    auto frame = mat3f{};
+
+    auto p0  = eval_position(mesh, {center.face, {0, 0}});
+    auto p1  = eval_position(mesh, {center.face, {1, 0}});
+    frame.x  = normalize(p1 - p0);
+    frame.z  = eval_normal(mesh, center.face);
+    frame.y  = normalize(cross(frame.z, frame.x));
+    auto up  = normalize(vec3f{0, 1, -0.35});
+    auto v   = normalize(vec2f{dot(up, frame.x), dot(up, frame.y)});
+    auto rot = mat2f{{v.x, v.y}, {-v.y, v.x}};
+    uv       = rot * uv;
+  };
+
   for (auto& polygon : polygons) {
     for (auto& uv : polygon) {
       uv *= svg_size;
@@ -145,6 +162,7 @@ void add_polygons(bool_state& state, const bool_mesh& mesh,
   };
 
   auto get_mapped_point = [&](vec2f uv) {
+    make_straight_up(uv);
     uv /= camera.film;
     auto path     = straightest_path(mesh, center, uv);
     path.end.uv.x = clamp(path.end.uv.x, 0.0f, 1.0f);
