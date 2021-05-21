@@ -172,10 +172,10 @@ void draw_widgets(app_state* app, const gui_input& input) {
   continue_line(widgets);
 
   if (draw_button(widgets, "save scene")) {
-    auto cell_colors = vector<vec3f>(app->state.cells.size());
-    for (int i = 0; i < cell_colors.size(); i++) {
-      cell_colors[i] = app->cell_shapes[i]->material->color;
-    }
+    auto& cell_colors = app->test.cell_colors;
+    // for (int i = 0; i < cell_colors.size(); i++) {
+    //   cell_colors[i] = app->cell_shapes[i]->material->color;
+    // }
     auto scene = make_scene(
         app->mesh, app->state, app->camera, app->color_shapes, cell_colors);
     auto error = string{};
@@ -317,8 +317,9 @@ void draw_widgets(app_state* app, const gui_input& input) {
       s += to_string(app->state.labels[cell_id][p]) + " ";
     draw_label(widgets, "label", s);
 
-    draw_coloredit(
-        widgets, "color", app->cell_shapes[cell_id]->material->color);
+    if (draw_coloredit(widgets, "color", app->test.cell_colors[cell_id])) {
+      update_cell_colors(app);
+    }
 
     end_header(widgets);
   }

@@ -445,14 +445,15 @@ inline void update_cell_shapes(app_state* app) {
 
 inline void update_cell_colors(app_state* app) {
   auto& state = app->state;
-  //  if (app->color_shapes) {
-  //    for (int i = 0; i < state.cells.size(); i++) {
-  //      app->cell_shapes[i]->material->color = state.shapes[i].color;
-  //    }
-  //  } else {
+  if (app->test.cell_colors.empty()) {
+    app->test.cell_colors.resize(state.cells.size());
+    for (int i = 0; i < state.cells.size(); i++) {
+      app->test.cell_colors[i] = get_cell_color(state, i, app->color_shapes);
+    }
+  }
+
   for (int i = 0; i < state.cells.size(); i++) {
-    app->cell_shapes[i]->material->color = get_cell_color(
-        state, i, app->color_shapes);
+    app->cell_shapes[i]->material->color = app->test.cell_colors[i];
   }
 }
 

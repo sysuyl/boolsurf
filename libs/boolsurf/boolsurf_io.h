@@ -19,6 +19,14 @@ inline void from_json(const json& j, vec2f& value) {
   nlohmann::from_json(j, (array<float, 2>&)value);
 }
 
+inline void to_json(json& j, const vec3f& value) {
+  nlohmann::to_json(j, (const array<float, 3>&)value);
+}
+
+inline void from_json(const json& j, vec3f& value) {
+  nlohmann::from_json(j, (array<float, 3>&)value);
+}
+
 inline void to_json(json& j, const frame3f& value) {
   nlohmann::to_json(j, (const array<float, 12>&)value);
 }
@@ -80,6 +88,7 @@ struct bool_test {
   vector<vector<vec2f>> polygons_screenspace;
 
   vector<bool_operation> operations  = {};
+  vector<vec3f>          cell_colors = {};
   scene_camera           camera      = {};
   bool                   has_camera  = false;
   bool                   screenspace = false;

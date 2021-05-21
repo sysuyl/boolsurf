@@ -25,12 +25,13 @@ bool load_json(const string& filename, json& js) {
 }
 
 bool save_test(const bool_test& test, const string& filename) {
-  auto js          = json{};
-  js["points"]     = test.points;
-  js["polygons"]   = test.polygons;
-  js["model"]      = test.model;
-  js["operations"] = test.operations;
-  js["camera"]     = test.camera;
+  auto js           = json{};
+  js["points"]      = test.points;
+  js["polygons"]    = test.polygons;
+  js["model"]       = test.model;
+  js["operations"]  = test.operations;
+  js["camera"]      = test.camera;
+  js["cell_colors"] = test.cell_colors;
 
   auto error = ""s;
   if (!save_text(filename, js.dump(2), error)) {
@@ -44,6 +45,10 @@ bool load_test(bool_test& test, const string& filename) {
   auto js = json{};
   if (!load_json(filename, js)) {
     return false;
+  }
+
+  if (js.find("cell_colors") != js.end()) {
+    test.cell_colors = js["cell_colors"].get<vector<vec3f>>();
   }
 
   try {
