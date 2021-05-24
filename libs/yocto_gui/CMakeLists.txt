@@ -64,7 +64,7 @@ endif()
   endif()
   
   if(UNIX AND NOT APPLE)
-    target_link_libraries(yocto_gui dl)
+    target_link_libraries(yocto_gui PRIVATE dl)
   endif(UNIX AND NOT APPLE)
 endif(YOCTO_OPENGL)
 
