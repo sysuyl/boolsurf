@@ -406,7 +406,8 @@ static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
   return hashgrid;
 }
 
-static hash_map<int, int> compute_control_points(vector<mesh_polygon>& polygons,
+[[maybe_unused]] static hash_map<int, int> compute_control_points(
+    vector<mesh_polygon>&             polygons,
     const vector<vector<vector<int>>> vertices) {
   auto control_points = hash_map<int, int>();
   for (auto p = 0; p < vertices.size(); p++) {
@@ -751,7 +752,7 @@ static void add_polygon_intersection_points(bool_state& state,
           auto uv                      = lerp(start1, end1, l.y);
           auto point                   = mesh_point{face, uv};
           auto vertex                  = add_vertex(mesh, hashgrid, point, -1);
-          state.control_points[vertex] = state.points.size();
+          state.control_points[vertex] = (int)state.points.size();
           state.isecs_generators[vertex] = {poly.polygon, poly.polygon};
 
           state.points.push_back(point);
@@ -789,7 +790,7 @@ static void add_polygon_intersection_points(bool_state& state,
             auto uv     = lerp(start1, end1, l.y);
             auto point  = mesh_point{face, uv};
             auto vertex = add_vertex(mesh, hashgrid, point, -1);
-            state.control_points[vertex]   = state.points.size();
+            state.control_points[vertex]   = (int)state.points.size();
             state.isecs_generators[vertex] = {poly0.polygon, poly1.polygon};
 
             state.points.push_back(point);
@@ -1085,8 +1086,8 @@ inline bool check_tags(
     for (int k = 0; k < 3; k++) {
       auto neighbor = mesh.adjacencies[face][k];
       if (neighbor < 0) continue;
-      auto n0 = mesh.adjacencies[face];
-      auto n1 = mesh.adjacencies[neighbor];
+      // auto n0 = mesh.adjacencies[face];
+      // auto n1 = mesh.adjacencies[neighbor];
       auto kk = find_in_vec(mesh.adjacencies[neighbor], face);
       assert(kk != -1);
 
@@ -1105,10 +1106,8 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
     // Calcola le info per la triangolazione, i.e. (nodi ed edge constraints).
     auto info = compute_triangulation_constraints(mesh, face, polylines);
 
-#ifdef MY_DEBUG
     debug_nodes()[face]   = info.nodes;
     debug_indices()[face] = info.indices;
-#endif
 
     // Se la faccia contiene solo segmenti corrispondenti ad edge del triangolo
     // stesso, non serve nessuna triangolazione.
@@ -1131,10 +1130,8 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
           info.nodes, info.edges);
     }
 
-#ifdef MY_DEBUG
     debug_edges()[face]     = info.edges;
     debug_triangles()[face] = triangles;
-#endif
 
     // Calcoliamo l'adiacenza locale e la trasformiamo in globale.
     // auto adjacency = face_adjacencies_fast(triangles);
@@ -1181,7 +1178,7 @@ static bool_borders border_tags(
   auto virtual_tag_map = hash_map<unordered_set<int>, int>();
   for (auto& [key, value] : border_map) {
     if (value.size() > 1 && !contains(virtual_tag_map, value)) {
-      virtual_tag_map[value] = num_polygons + virtual_tag_map.size();
+      virtual_tag_map[value] = num_polygons + (int)virtual_tag_map.size();
     }
   }
 
@@ -1362,7 +1359,7 @@ static void slice_mesh(bool_mesh& mesh, bool_state& state) {
   update_face_adjacencies(mesh);
 
   // Calcola i border_tags per le facce triangolata.
-  mesh.borders = border_tags(mesh, hashgrid, polygons.size());
+  mesh.borders = border_tags(mesh, hashgrid, (int)polygons.size());
 }
 
 static void compute_cell_labels(bool_state& state) {
@@ -1395,7 +1392,7 @@ static void compute_cell_labels(bool_state& state) {
   print("ambient cells", state.ambient_cells);
 
   state.labels = propagate_cell_labels(state.cells, state.ambient_cells, cycles,
-      skip_polygons, state.polygons.size());
+      skip_polygons, (int)state.polygons.size());
 
   // Applichiamo la even-odd rule nel caso in cui le label > 1 (Nelle self
   // intersections posso entrare in un poligono più volte senza esserne prima
@@ -1659,7 +1656,7 @@ void compute_bool_operations(
 
 void compute_symmetrical_difference(
     bool_state& state, const vector<int>& shapes) {
-  auto& c = state.shapes.emplace_back();
+  state.shapes.emplace_back();
 }
 
 mesh_point intersect_mesh(const bool_mesh& mesh, const shape_bvh& bvh,

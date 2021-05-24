@@ -6,7 +6,6 @@ using namespace yocto;
 
 #include "../../libs/yocto_gui/ext/imgui/imgui.h"
 
-#ifdef MY_DEBUG
 void debug_draw(app_state* app, int face, const string& header = "") {
   static int count = 0;
 
@@ -56,7 +55,6 @@ void debug_cell_flood_fill(app_state* app) {
 //   app->current_border = (app->current_border + 1) %
 //   app->state.polygons.size();
 // }
-#endif
 
 void add_polygons(app_state* app, bool_test& test, const mesh_point& center,
     bool screenspace, bool straight_up = true) {
@@ -484,9 +482,7 @@ void mouse_input(app_state* app, const gui_input& input) {
     }
   }
 
-#ifdef MY_DEBUG
   debug_restart() = true;
-#endif
 
   if (input.modifier_alt) {
     commit_state(app);
@@ -588,11 +584,10 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key('I'): {
-#ifdef MY_DEBUG
         debug_triangles().clear();
         debug_nodes().clear();
         debug_indices().clear();
-#endif
+
         // remove trailing empty polygons.
         while (app->state.polygons.back().points.empty()) {
           app->state.polygons.pop_back();
@@ -721,7 +716,6 @@ void key_input(app_state* app, const gui_input& input) {
       case (int)gui_key('S'): {
       } break;
 
-#ifdef MY_DEBUG
       case (int)gui_key('N'): {
         debug_cells(app);
       } break;
@@ -782,8 +776,6 @@ void key_input(app_state* app, const gui_input& input) {
         }
         app->temp_patch->depth_test = ogl_depth_test::always;
       } break;
-
-#endif
 
       case (int)gui_key('C'): {
         auto old_camera = app->glcamera;

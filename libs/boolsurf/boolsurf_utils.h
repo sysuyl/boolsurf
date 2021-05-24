@@ -14,9 +14,6 @@
 #include <deque>
 using namespace yocto;
 
-// TODO(giacomo): Define only in debug!
-#define MY_DEBUG
-
 #define _PRINT_CALL(function, file, line) \
   printf("%s() at %s, line %d\n", function, file, line)
 
@@ -388,7 +385,6 @@ struct std::hash<std::unordered_set<int>> {
   }
 };
 
-#ifdef MY_DEBUG
 hash_map<int, vector<vec3i>>& debug_triangles();
 hash_map<int, vector<vec2i>>& debug_edges();
 hash_map<int, vector<vec2f>>& debug_nodes();
@@ -398,4 +394,3 @@ vector<int>&  debug_result();
 vector<bool>& debug_visited();
 vector<int>&  debug_stack();
 bool&         debug_restart();
-#endif
