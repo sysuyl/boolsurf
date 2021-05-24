@@ -984,6 +984,7 @@ static pair<vector<vec3i>, vector<vec3i>> constrained_triangulation(
     auto& c           = nodes[verts.z];
     auto  orientation = cross(b - a, c - b);
     if (fabs(orientation) < 0.00001) {
+      global_state->failed = true;
       printf("Collinear (ma serve?)\n");
       continue;
     }
@@ -1392,18 +1393,32 @@ void compute_cell_labels(bool_state& state) {
 
 void update_virtual_adjacencies(
     vector<mesh_cell>& cells, const bool_borders& borders) {
-  // Update with void cells
-  for (auto c = 0; c < cells.size(); c++) {
-    auto& left                 = cells[c];
-    auto  added_left_adjacency = hash_set<vec2i>();
+  // Precomputing total cell number
+  auto num_virtual_cells = 0;
+  for (auto& cell : cells) {
+    for (auto [neighbor, polygon] : cell.adjacency) {
+      if (polygon < borders.num_polygons) continue;
+      num_virtual_cells += 1;
+    }
+  }
 
-    //    for (const auto it = left.adjacency.begin(); it !=
-    //    left.adjacency.end(); it++) {
-    for (auto& [neighbor, polygon] : left.adjacency) {
+  // Update with void cells
+  auto num_cells = (int)cells.size();
+  cells.reserve(num_cells + num_virtual_cells);
+  for (auto c = 0; c < num_cells; c++) {
+    auto& left                 = cells[c];
+    auto  size                 = left.adjacency.size();
+    auto  added_left_adjacency = hash_set<vec2i>();
+    // auto added_right_adjacency = hash_map<int, hash_set<vec2i>>();
+
+    // for (auto it = left.adjacency.begin(); it != left.adjacency.end(); it++)
+    // {
+    //   auto [neighbor, polygon] = *it;
+    for (auto [neighbor, polygon] : left.adjacency) {
       if (polygon < borders.num_polygons) continue;
 
-      auto  virtual_cell_id = (int)cells.size();
-      auto& virtual_cell    = cells.emplace_back();
+      auto virtual_cell_id = (int)cells.size();
+      auto virtual_cell    = mesh_cell{};
 
       auto& right    = cells[neighbor];
       auto& polygons = borders.virtual_tags[polygon - borders.num_polygons];
@@ -1417,27 +1432,31 @@ void update_virtual_adjacencies(
           added_left_adjacency.insert({virtual_cell_id, p});
         }
       }
+      cells.push_back(virtual_cell);
     }
 
-    for (auto it = cells[c].adjacency.begin();
-         it != cells[c].adjacency.end();) {
+    for (auto it = left.adjacency.begin(); it != left.adjacency.end();) {
       auto [neighbor, polygon] = *it;
       if (polygon >= borders.num_polygons)
-        it = cells[c].adjacency.erase(it);
+        it = left.adjacency.erase(it);
       else
         it++;
     }
 
-    cells[c].adjacency.insert(
+    left.adjacency.insert(
         added_left_adjacency.begin(), added_left_adjacency.end());
+    // for (auto& [neighbor, values] : added_right_adjacency)
+    //   right.adjacency.insert(values.begin(), values.end());
   }
 }
 
-void compute_cells(bool_mesh& mesh, bool_state& state) {
+bool compute_cells(bool_mesh& mesh, bool_state& state) {
   // Triangola mesh in modo da embeddare tutti i poligoni come mesh-edges.
   PROFILE();
   global_state = &state;
   slice_mesh(mesh, state);
+
+  if (global_state->failed) return false;
 
   // Trova celle e loro adiacenza via flood-fill.
   state.cells = make_mesh_cells(mesh.adjacencies, mesh.borders);
@@ -1445,6 +1464,7 @@ void compute_cells(bool_mesh& mesh, bool_state& state) {
 
   // Calcola i label delle celle con una visita sulla loro adiacenza.
   compute_cell_labels(state);
+  return true;
 }
 
 void compute_shapes(bool_state& state) {

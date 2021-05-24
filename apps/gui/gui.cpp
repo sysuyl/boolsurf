@@ -60,8 +60,8 @@ void debug_cell_flood_fill(app_state* app) {
 
 void add_polygons(app_state* app, bool_test& test, const mesh_point& center,
     bool screenspace) {
-  add_polygons(app->state, app->mesh, app->camera, test, center, app->svg_size,
-      screenspace);
+  add_polygons(app->state, app->mesh, app->camera, test, center,
+      app->drawing_size, screenspace);
 
   for (auto p = app->last_svg.previous_polygons; p < app->state.polygons.size();
        p++) {
@@ -106,7 +106,7 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
   draw_checkbox(widgets, "project points", app->project_points);
   draw_label(widgets, "filename##svg-filename", app->svg_filename);
 
-  if (draw_slider(widgets, "size##svg_size", app->svg_size, 0.0, 0.1)) {
+  if (draw_slider(widgets, "size##svg_size", app->drawing_size, 0.0, 0.1)) {
     app->state.polygons.resize(app->last_svg.previous_polygons);
     update_svg(app);
   };
@@ -840,7 +840,7 @@ int main(int argc, const char* argv[]) {
   add_option(cli, "svg-subdivs", app->svg_subdivs, "Svg subdivisions.");
 
   // add_option(cli, "svg-size", app->svg_size, "Svg size.");
-  add_option(cli, "drawing-size", app->svg_size, "Size of mapped drawing.");
+  add_option(cli, "drawing-size", app->drawing_size, "Size of mapped drawing.");
   add_option(cli, "color-shapes", app->color_shapes, "Color shapes.");
   add_option(cli, "color-hashgrid", app->color_hashgrid, "Color hashgrid.");
   parse_cli(cli, argc, argv);

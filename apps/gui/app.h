@@ -23,8 +23,8 @@ struct app_state {
   string         model_filename       = "";
   string         test_filename        = "";
   string         svg_filename         = "";
-  int            svg_subdivs          = 4;
-  float          svg_size             = 0.01;
+  int            svg_subdivs          = 2;
+  float          drawing_size         = 0.01;
   bool           project_points       = false;
   int            num_sampled_polygons = 200;
   bool_test      test                 = {};
@@ -458,7 +458,7 @@ inline void update_cell_colors(app_state* app) {
 
 void update_svg(app_state* app) {
   init_from_svg(app->state, app->mesh, app->last_clicked_point,
-      app->last_svg.svg, app->svg_size, app->svg_subdivs);
+      app->last_svg.svg, app->drawing_size, app->svg_subdivs);
 
   for (auto p = app->last_svg.previous_polygons; p < app->state.polygons.size();
        p++) {
@@ -501,8 +501,15 @@ void init_from_test(app_state* app) {
     app->glcamera->focus    = app->test.camera.focus;
   }
 
-  app->state = state_from_test(
-      app->mesh, app->test, app->svg_size, app->use_projection);
+  // Init bool_state
+  if (app->test.screenspace) {
+    app->state = state_from_screenspace_test(
+        app->mesh, app->test, app->drawing_size, app->use_projection);
+  } else {
+    app->state = state_from_test(
+        app->mesh, app->test, app->drawing_size, app->use_projection);
+  }
+
   for (int i = 0; i < app->state.polygons.size(); i++) {
     auto& polygon = app->state.polygons[i];
     add_polygon_shape(app, polygon, i);

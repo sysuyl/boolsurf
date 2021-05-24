@@ -90,6 +90,9 @@ bool load_test(bool_test& test, const string& filename);
 bool_state state_from_test(const bool_mesh& mesh, const bool_test& test,
     float drawing_size, bool use_projection);
 
+bool_state state_from_screenspace_test(
+    bool_mesh& mesh, bool_test& test, float drawing_size, bool use_projection);
+
 void add_polygons(bool_state& state, const bool_mesh& mesh,
     const scene_camera& camera, const bool_test& test, const mesh_point& center,
     float svg_size, bool screenspace);
