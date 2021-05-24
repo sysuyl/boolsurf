@@ -140,7 +140,7 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
       }
     }
 
-    auto num_polygons = app->state.polygons.size();
+    // auto num_polygons = app->state.polygons.size();
     for (int i = 0; i < points.size(); i++) {
       auto& point = points[i];
       add_polygons(app, app->temp_test, point, app->project_points);
@@ -424,7 +424,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     app->state.points.resize(app->state.points.size() - 4);
     polygon.points.resize(polygon.points.size() - 4);
     for (int i = 0; i < bezier.size(); i++) {
-      polygon.points.push_back(app->state.points.size() + i);
+      polygon.points.push_back((int)app->state.points.size() + i);
     }
     app->state.points += bezier;
     update_polygon(app, polygon_id);
@@ -499,7 +499,7 @@ void mouse_input(app_state* app, const gui_input& input) {
 
     // Add point to state.
     app->state.points.push_back(point);
-    auto polygon_points = app->state.polygons[polygon_id].points.size();
+    auto polygon_points = (int)app->state.polygons[polygon_id].points.size();
 
     // TODO(giacomo): recomputing all paths of the polygon at every click is
     // bad
@@ -748,8 +748,8 @@ void key_input(app_state* app, const gui_input& input) {
         auto visited = debug_result();
 
         for (int i = 0; i < visited.size(); i++) {
-          auto tag = app->mesh.borders.tags[visited[i]];
-          auto adj = app->mesh.adjacencies[visited[i]];
+          // auto tag = app->mesh.borders.tags[visited[i]];
+          // auto adj = app->mesh.adjacencies[visited[i]];
           // printf("%d: tag(%d %d %d) adj(%d %d %d)\n", visited[i], tag[0],
           //     tag[1], tag[2], adj[0], adj[1], adj[2]);
         }
