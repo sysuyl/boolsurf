@@ -6,7 +6,6 @@ using namespace yocto;
 
 #include "../../libs/yocto_gui/ext/imgui/imgui.h"
 
-#ifdef MY_DEBUG
 void debug_draw(app_state* app, int face, const string& header = "") {
   static int count = 0;
 
@@ -56,7 +55,6 @@ void debug_cell_flood_fill(app_state* app) {
 //   app->current_border = (app->current_border + 1) %
 //   app->state.polygons.size();
 // }
-#endif
 
 void add_polygons(app_state* app, bool_test& test, const mesh_point& center,
     bool screenspace, bool straight_up = true) {
@@ -140,7 +138,7 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
       }
     }
 
-    auto num_polygons = app->state.polygons.size();
+    // auto num_polygons = app->state.polygons.size();
     for (int i = 0; i < points.size(); i++) {
       auto& point = points[i];
       add_polygons(app, app->temp_test, point, app->project_points);
@@ -424,7 +422,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     app->state.points.resize(app->state.points.size() - 4);
     polygon.points.resize(polygon.points.size() - 4);
     for (int i = 0; i < bezier.size(); i++) {
-      polygon.points.push_back(app->state.points.size() + i);
+      polygon.points.push_back((int)app->state.points.size() + i);
     }
     app->state.points += bezier;
     update_polygon(app, polygon_id);
@@ -484,9 +482,7 @@ void mouse_input(app_state* app, const gui_input& input) {
     }
   }
 
-#ifdef MY_DEBUG
   debug_restart() = true;
-#endif
 
   if (input.modifier_alt) {
     commit_state(app);
@@ -499,7 +495,7 @@ void mouse_input(app_state* app, const gui_input& input) {
 
     // Add point to state.
     app->state.points.push_back(point);
-    auto polygon_points = app->state.polygons[polygon_id].points.size();
+    auto polygon_points = (int)app->state.polygons[polygon_id].points.size();
 
     // TODO(giacomo): recomputing all paths of the polygon at every click is
     // bad
@@ -588,11 +584,10 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key('I'): {
-#ifdef MY_DEBUG
         debug_triangles().clear();
         debug_nodes().clear();
         debug_indices().clear();
-#endif
+
         // remove trailing empty polygons.
         while (app->state.polygons.back().points.empty()) {
           app->state.polygons.pop_back();
@@ -721,7 +716,6 @@ void key_input(app_state* app, const gui_input& input) {
       case (int)gui_key('S'): {
       } break;
 
-#ifdef MY_DEBUG
       case (int)gui_key('N'): {
         debug_cells(app);
       } break;
@@ -748,8 +742,8 @@ void key_input(app_state* app, const gui_input& input) {
         auto visited = debug_result();
 
         for (int i = 0; i < visited.size(); i++) {
-          auto tag = app->mesh.borders.tags[visited[i]];
-          auto adj = app->mesh.adjacencies[visited[i]];
+          // auto tag = app->mesh.borders.tags[visited[i]];
+          // auto adj = app->mesh.adjacencies[visited[i]];
           // printf("%d: tag(%d %d %d) adj(%d %d %d)\n", visited[i], tag[0],
           //     tag[1], tag[2], adj[0], adj[1], adj[2]);
         }
@@ -782,8 +776,6 @@ void key_input(app_state* app, const gui_input& input) {
         }
         app->temp_patch->depth_test = ogl_depth_test::always;
       } break;
-
-#endif
 
       case (int)gui_key('C'): {
         auto old_camera = app->glcamera;

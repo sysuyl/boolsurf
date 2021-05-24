@@ -256,9 +256,6 @@ void init_edges_and_vertices_shapes_and_points(
 }
 
 void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh) {
-  // handle progress
-  auto progress = vec2i{0, 4};
-
   // init scene
   init_scene(glscene, true);
 

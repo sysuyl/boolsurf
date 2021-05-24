@@ -221,7 +221,6 @@ static vector<int> flood_fill(const bool_mesh& mesh, const vector<int>& start,
 template <typename F>
 static vector<int> flood_fill(
     const bool_mesh& mesh, const vector<int>& start, F&& check) {
-#ifdef MY_DEBUG
   auto visited = vector<bool>(mesh.adjacencies.size(), false);
 
   auto result = vector<int>();
@@ -243,13 +242,11 @@ static vector<int> flood_fill(
   }
 
   return result;
-#endif
 }
 
 template <typename F>
 static void flood_fill_debug(
     const bool_mesh& mesh, const vector<int>& start, F&& check) {
-#ifdef MY_DEBUG
   int face = -1;
   if (debug_stack().empty()) {
     debug_restart() = true;
@@ -285,5 +282,4 @@ static void flood_fill_debug(
     printf("no   %d: tag(%d %d %d) adj(%d %d %d)\n", neighbor, tag[0], tag[1],
         tag[2], adj[0], adj[1], adj[2]);
   }
-#endif
 }
