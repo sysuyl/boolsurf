@@ -1,5 +1,4 @@
 if(YOCTO_OPENGL)
-  add_definitions(-DYOCTO_OPENGL)
   find_package(OpenGL REQUIRED)
 
 if (WIN32)
@@ -43,17 +42,23 @@ endif()
   # find_library(GLFW_LIBRARY NAMES glfw3 glfw PATHS /usr/local/lib)
   #find_package(Freetype REQUIRED)
 
-  target_link_directories(yocto_gui PRIVATE /usr/local/lib)
   target_include_directories(yocto_gui PRIVATE .)
+  target_include_directories(yocto_gui PRIVATE ./ext)
   target_include_directories(yocto_gui PRIVATE ${FREETYPE_INCLUDE_DIRS})
   target_include_directories(yocto_gui PUBLIC ${CMAKE_SOURCE_DIR}/libs)
   target_compile_definitions(yocto_gui PRIVATE -DIMGUI_IMPL_OPENGL_LOADER_GLAD)
+  target_compile_definitions(yocto_gui PUBLIC -DYOCTO_OPENGL)
   set_target_properties(yocto_gui PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES)
-  
-  target_include_directories(yocto_gui PRIVATE ${CMAKE_SOURCE_DIR}/exts/glfw/include)
-  #target_link_libraries(yocto_gui glfw ${OPENGL_gl_LIBRARY} ${FREETYPE_LIBRARIES})
-  target_link_libraries(yocto_gui glfw ${OPENGL_gl_LIBRARY})
 
+  target_link_libraries(yocto_gui PUBLIC yocto)
+
+  target_include_directories(yocto_gui PRIVATE ${CMAKE_SOURCE_DIR}/exts/glfw/include)
+  target_link_libraries(yocto_gui PUBLIC glfw ${OPENGL_gl_LIBRARY})
+
+  if(UNIX AND NOT APPLE)
+    target_link_libraries(yocto_gui PUBLIC dl)
+  endif(UNIX AND NOT APPLE)
+  
   if(WIN32)
     #target_include_directories(yocto_gui PRIVATE ${CMAKE_SOURCE_DIR}/exts/freetype2/include)
   else()
@@ -63,9 +68,8 @@ endif()
 
   if(WIN32)
     #link_directories(yocto_gui PRIVATE ${CMAKE_SOURCE_DIR}/exts/freetype2/release dll/win64)
-    target_link_libraries(yocto_gui glfw ${OPENGL_gl_LIBRARY}) #freetype2)
   else()
-    target_link_libraries(yocto_gui glfw ${OPENGL_gl_LIBRARY} ${FREETYPE_LIBRARIES})
+    target_link_libraries(yocto_gui PUBLIC ${FREETYPE_LIBRARIES})
   endif()
   
   if(UNIX AND NOT APPLE)
