@@ -84,9 +84,10 @@ struct bool_state {
   hash_map<int, int>   control_points      = {};
   hash_map<int, vec2i> isecs_generators    = {};
 
-  vector<mesh_cell>   cells         = {};
-  vector<int>         ambient_cells = {};
-  vector<vector<int>> labels        = {};
+  vector<mesh_cell>     cells         = {};
+  vector<int>           ambient_cells = {};
+  vector<vector<vec2i>> cycles        = {};
+  vector<vector<int>>   labels        = {};
 
   vector<mesh_shape> shapes         = {};
   vector<int>        shapes_sorting = {};

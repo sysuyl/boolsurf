@@ -23,9 +23,12 @@ def svg(bin, dirname, svg):
 
     output = f'{dirname}/output'
     images_dir = f'{output}/images'
+    scenes_dir = f'{output}/scenes'
+
     try:
         os.mkdir(output)
         os.mkdir(images_dir)
+        os.mkdir(scenes_dir)
     except:
         pass
 
@@ -43,7 +46,7 @@ def svg(bin, dirname, svg):
         msg = f'[{mesh_id}/{mesh_num}] {mesh_name}'
         print(msg + ' ' * max(0, 78-len(msg)))
 
-        cmd = f'{bin} --model {mesh_name} --output_image {images_dir}/{name}.png --stats {dirname}/stats.csv {append} {svg}'
+        cmd = f'{bin} --model {mesh_name} --output_image {images_dir}/{name}.png --output_scene {scenes_dir}/{name}.json --stats {dirname}/stats.csv {append} {svg}'
         print(cmd)
         if append == '':
             append = '--append-stats'

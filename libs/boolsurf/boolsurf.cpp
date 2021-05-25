@@ -1370,14 +1370,14 @@ void compute_cell_labels(bool_state& state) {
 
   // Calcoliamo possibili cicli all'interno del grafo delle adiacenze della
   // mesh. In modo da eliminare gli archi corrispondenti.
-  auto cycles = compute_graph_cycles(state.cells);
+  state.cycles = compute_graph_cycles(state.cells);
 
   // (marzia) Sicuro si può fare meglio
   auto skip_polygons = hash_set<int>();
   auto cycle_nodes   = hash_set<int>();
-  print("cycles", cycles);
+  print("cycles", state.cycles);
 
-  for (auto& cycle : cycles) {
+  for (auto& cycle : state.cycles) {
     for (auto& [node, polygon] : cycle) {
       cycle_nodes.insert(node);
       skip_polygons.insert(polygon);
@@ -1393,8 +1393,8 @@ void compute_cell_labels(bool_state& state) {
 
   print("ambient cells", state.ambient_cells);
 
-  state.labels = propagate_cell_labels(state.cells, state.ambient_cells, cycles,
-      skip_polygons, (int)state.polygons.size());
+  state.labels = propagate_cell_labels(state.cells, state.ambient_cells,
+      state.cycles, skip_polygons, (int)state.polygons.size());
 
   // Applichiamo la even-odd rule nel caso in cui le label > 1 (Nelle self
   // intersections posso entrare in un poligono più volte senza esserne prima

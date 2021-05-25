@@ -10,22 +10,23 @@
 using namespace yocto;
 
 struct test_stats {
-  string model_filename   = ""s;
-  int    model_triangles  = 0;
-  int    genus            = 0;
-  double triangulation_ns = 0.0;
-  double flood_fill_ns    = 0.0;
-  double labelling_ns     = 0.0;
-  double boolean_ns       = 0.0;
-  double total_ns         = 0.0;
-  int    polygons         = 0;
-  int    control_points   = 0;
-  int    added_points     = 0;
-  int    sliced_triangles = 0;
-  int    added_triangles  = 0;
-  int    graph_nodes      = 0;
-  int    graph_edges      = 0;
-  int    graph_cycles     = 0;
+  string model_filename      = ""s;
+  int    model_triangles     = 0;
+  int    genus               = 0;
+  double triangulation_ns    = 0.0;
+  double flood_fill_ns       = 0.0;
+  double labelling_ns        = 0.0;
+  double boolean_ns          = 0.0;
+  double total_ns            = 0.0;
+  int    polygons            = 0;
+  int    control_points      = 0;
+  int    added_points        = 0;
+  int    sliced_triangles    = 0;
+  int    added_triangles     = 0;
+  int    graph_nodes         = 0;
+  int    graph_edges         = 0;
+  int    graph_cycles        = 0;
+  int    graph_ambient_cells = 0;
 };
 
 void save_image(const string& output_image_filename, const bool_mesh& mesh,
@@ -122,7 +123,7 @@ int main(int num_args, const char* args[]) {
   if (stats_filename.size() && !append_stats) {
     auto stats_file = fopen(stats_filename.c_str(), "w");
     fprintf(stats_file,
-        "model, model_triangles, genus, triangulation_ns, flood_fill_ns, labelling_ns, boolean_ns, total_ns, polygons, control_points, added_points, sliced_triangles, added_triangles, graph_nodes, graph_edges, graph_cycles\n");
+        "model, model_triangles, genus, triangulation_ns, flood_fill_ns, labelling_ns, boolean_ns, total_ns, polygons, control_points, added_points, sliced_triangles, added_triangles, graph_nodes, graph_edges, graph_cycles, graph_ambient_cells\n");
     fclose(stats_file);
   }
 
@@ -181,6 +182,8 @@ int main(int num_args, const char* args[]) {
   // Label propagation
   auto labelling_timer = simple_timer{};
   compute_cell_labels(state);
+  stats.graph_cycles        = (int)state.cycles.size();
+  stats.graph_ambient_cells = (int)state.ambient_cells.size();
 
   stats.labelling_ns = elapsed_nanoseconds(labelling_timer);
   stats.total_ns += stats.labelling_ns;
@@ -199,11 +202,12 @@ int main(int num_args, const char* args[]) {
   // Saving render and cell adjacency graph
   save_image(
       output_image_filename, mesh, state, test.camera, color_shapes, spp);
-  auto graph_dir      = path_dirname(output_image_filename);
-  auto graph_filename = path_basename(output_image_filename) +
-                        string("_graph.png");
-  auto graph_outfile = path_join(graph_dir, graph_filename);
-  save_tree_png(state, graph_outfile.c_str(), "", color_shapes);
+
+  // auto graph_dir      = path_dirname(output_image_filename);
+  // auto graph_filename = path_basename(output_image_filename) +
+  //                       string("_graph.png");
+  // auto graph_outfile = path_join(graph_dir, graph_filename);
+  // save_tree_png(state, graph_outfile.c_str(), "", color_shapes);
 
   if (color_shapes) {
     auto booleans_timer = simple_timer{};
@@ -218,16 +222,18 @@ int main(int num_args, const char* args[]) {
   // model, model_triangles, genus,
   // triangulation_secs, flood_fill_secs, labelling_secs, boolean_secs,
   // total_secs, polygons, control_points, added_points, sliced_triangles,
-  // added_triangles, graph_nodes, graph_edges, graph_cycles
+  // added_triangles, graph_nodes, graph_edges, graph_cycles,
+  // graph_ambient_cells
   if (stats_filename.size()) {
     auto stats_file = fopen(stats_filename.c_str(), "a");
     fprintf(stats_file,
-        "%s, %d, %d, %f, %f, %f, %f, %f, %d, %d, %d, %d, %d, %d, %d, %d\n",
+        "%s, %d, %d, %f, %f, %f, %f, %f, %d, %d, %d, %d, %d, %d, %d, %d %d\n",
         stats.model_filename.c_str(), stats.model_triangles, stats.genus,
         stats.triangulation_ns, stats.flood_fill_ns, stats.labelling_ns,
         stats.boolean_ns, stats.total_ns, stats.polygons, stats.control_points,
         stats.added_points, stats.sliced_triangles, stats.added_triangles,
-        stats.graph_nodes, stats.graph_edges, stats.graph_cycles);
+        stats.graph_nodes, stats.graph_edges, stats.graph_cycles,
+        stats.graph_ambient_cells);
     fclose(stats_file);
   }
 }
