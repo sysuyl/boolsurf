@@ -54,6 +54,26 @@ void save_image(
   save_image(output_image_filename, image, error);
 }
 
+void save_test(const bool_state& state, const scene_camera& camera,
+    const string& filename) {
+  auto test     = bool_test{};
+  test.points   = state.points;
+  test.polygons = {{}};
+  for (auto& mesh_polygon : state.polygons) {
+    if (mesh_polygon.points.size()) {
+      test.polygons.push_back(mesh_polygon.points);
+    }
+  }
+  test.camera.frame    = camera.frame;
+  test.camera.lens     = camera.lens;
+  test.camera.aspect   = camera.aspect;
+  test.camera.film     = camera.film;
+  test.camera.aperture = camera.aperture;
+  test.camera.focus    = camera.focus;
+
+  save_test(test, filename);
+}
+
 int compute_mesh_genus(const bool_mesh& mesh) {
   auto edges = hash_set<vec2i>();
   for (auto& [a, b, c] : mesh.triangles) {
@@ -71,6 +91,7 @@ int main(int num_args, const char* args[]) {
   auto test_filename         = ""s;
   auto output_image_filename = "data/render.png"s;
   auto output_scene_filename = ""s;
+  auto output_test_filename  = ""s;
   auto spp                   = 4;
   auto model_filename        = ""s;
   auto svg_filename          = ""s;
@@ -88,6 +109,7 @@ int main(int num_args, const char* args[]) {
   add_option(cli, "output_image", output_image_filename,
       "Output image filename (.png).");
   add_option(cli, "output_scene", output_scene_filename, "");
+  add_option(cli, "output_test", output_test_filename, "");
   add_option(cli, "spp", spp, "Samples per pixel.");
   add_option(cli, "model", model_filename, "Input model filename.");
   add_option(cli, "svg", svg_filename, "Input svg filename.");
@@ -150,6 +172,10 @@ int main(int num_args, const char* args[]) {
     state = state_from_screenspace_test(mesh, test, drawing_size, false);
   } else {
     state = state_from_test(mesh, test, drawing_size, false);
+  }
+
+  if (output_test_filename.size()) {
+    save_test(state, test.camera, output_test_filename);
   }
 
   stats.polygons = (int)state.polygons.size();
