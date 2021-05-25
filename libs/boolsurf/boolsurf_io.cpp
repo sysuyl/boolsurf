@@ -197,7 +197,7 @@ bool_state state_from_screenspace_test(
   auto mesh_original = mesh;
 
   while (!stop) {
-    for (auto trial = 0; trial < 1; trial++) {
+    for (auto trial = 0; trial < 20; trial++) {
       state    = {};
       auto cam = scene_camera{};
       auto eye = sample_sphere(rand2f(rng)) * 2.5;
@@ -228,7 +228,7 @@ bool_state state_from_screenspace_test(
       if (stop) break;
     }
 
-    drawing_size -= 0.01;
+    drawing_size -= 0.001f;
   }
   return state;
 }
