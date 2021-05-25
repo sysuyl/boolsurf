@@ -220,9 +220,7 @@ bool_state state_from_screenspace_test(
       test.camera = cam;
 
       try {
-        auto timer = print_timed("[compute_cells]");
-        stop       = compute_cells(mesh, state);
-        printf("Stopping: %d\n", stop);
+        stop = compute_cells(mesh, state);
         compute_shapes(state);
 
         stop = stop && check_ambient_cell(state);

@@ -756,8 +756,8 @@ static void add_polygon_intersection_points(bool_state& state,
           state.isecs_generators[vertex] = {poly.polygon, poly.polygon};
 
           state.points.push_back(point);
-          printf("self-intersection: polygon %d, vertex %d\n", poly.polygon,
-              vertex);
+          // printf("self-intersection: polygon %d, vertex %d\n", poly.polygon,
+          //     vertex);
 
           insert(poly.points, s0 + 1, uv);
           insert(poly.vertices, s0 + 1, vertex);
@@ -1375,7 +1375,7 @@ void compute_cell_labels(bool_state& state) {
   // (marzia) Sicuro si può fare meglio
   auto skip_polygons = hash_set<int>();
   auto cycle_nodes   = hash_set<int>();
-  print("cycles", state.cycles);
+  print("Cycles", state.cycles.size());
 
   for (auto& cycle : state.cycles) {
     for (auto& [node, polygon] : cycle) {
@@ -1391,7 +1391,7 @@ void compute_cell_labels(bool_state& state) {
   if (state.ambient_cells.empty())
     state.ambient_cells = vector<int>(cycle_nodes.begin(), cycle_nodes.end());
 
-  print("ambient cells", state.ambient_cells);
+  print("Ambient cells", state.ambient_cells.size());
 
   state.labels = propagate_cell_labels(state.cells, state.ambient_cells,
       state.cycles, skip_polygons, (int)state.polygons.size());
