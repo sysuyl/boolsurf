@@ -16,7 +16,8 @@ def cli():
 @cli.command()
 @click.argument('bin')
 @click.argument('dirname')
-def svg(bin, dirname):
+@click.argument('svg')
+def svg(bin, dirname, svg):
     mesh_names = glob.glob(f'{dirname}/meshes/*.ply')
     mesh_num = len(mesh_names)
 
@@ -42,10 +43,10 @@ def svg(bin, dirname):
         msg = f'[{mesh_id}/{mesh_num}] {mesh_name}'
         print(msg + ' ' * max(0, 78-len(msg)))
 
-        cmd = f'{bin} --model {mesh_name} --output {images_dir}/{name}.png data/svgs/abc.json'
+        cmd = f'{bin} --model {mesh_name} --output_image {images_dir}/{name}.png --stats {dirname}/stats.csv {append} {svg}'
         print(cmd)
         if append == '':
-            append = '--append-timings'
+            append = '--append-stats'
 
         try:
             retcode = subprocess.run(cmd, timeout=60, shell=True).returncode
@@ -58,16 +59,6 @@ def svg(bin, dirname):
         except:
             result['num_errors'] += 1
             result['errors'] += [mesh_name]
-        
-        # except OSError:
-        #     result['num_errors'] += 1
-        #     result['errors'] += [mesh_name]
-
-        # except subprocess.TimeoutExpired:
-        #     result['num_errors'] += 1
-        #     result['errors'] += [mesh_name]
-
-
 
     with open(f'{output}/trace-result.json', 'wt') as f:
         json.dump(result, f, indent=2)
@@ -82,6 +73,7 @@ def jsons(bin, dirname):
 
     output = f'{dirname}/output'
     images_dir = f'{output}/images'
+
     try:
         os.mkdir(output)
         os.mkdir(images_dir)
@@ -102,10 +94,10 @@ def jsons(bin, dirname):
         msg = f'[{json_id}/{jsons_num}] {json_name}'
         print(msg + ' ' * max(0, 78-len(msg)))
 
-        cmd = f'{bin} {json_name} --output {images_dir}/{name}.png'
+        cmd = f'{bin} {json_name} --output_image {images_dir}/{name}.png --stats {dirname}/stats.csv {append}'
         print(cmd)
         if append == '':
-            append = '--append-timings'
+            append = '--append-stats'
 
         try:
             retcode = subprocess.run(cmd, timeout=60, shell=True).returncode
@@ -115,12 +107,7 @@ def jsons(bin, dirname):
             else:
                 result['num_errors'] += 1
                 result['errors'] += [json_name]
-
-        except OSError:
-            result['num_errors'] += 1
-            result['errors'] += [json_name]
-
-        except subprocess.TimeoutExpired:
+        except:
             result['num_errors'] += 1
             result['errors'] += [json_name]
 

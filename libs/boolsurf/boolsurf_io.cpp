@@ -124,6 +124,120 @@ bool_state state_from_test(const bool_mesh& mesh, const bool_test& test,
   return state;
 }
 
+// marzia: not the perfect spot
+bool check_ambient_cell(const bool_state& state) {
+  if (state.cells.size() == 1) return false;
+
+  // Getting max faces in ambient cell
+  auto zero               = vector<int>(state.labels[0].size(), 0);
+  auto ambient_cell_faces = 0;
+  for (int c = 0; c < state.cells.size(); c++) {
+    auto& cell = state.cells[c];
+    if (state.labels[c] != zero) continue;
+    ambient_cell_faces = max(ambient_cell_faces, (int)cell.faces.size());
+  }
+
+  printf("ambient_cell_faces: %d\n", ambient_cell_faces);
+  for (auto& cell : state.cells) {
+    if (cell.faces.size() > ambient_cell_faces) return false;
+  }
+
+  return true;
+}
+
+vector<mesh_cell> make_cell_graph_fruit() {
+  auto graph = vector<mesh_cell>();
+  auto cell0 = mesh_cell();
+  cell0.adjacency.insert({1, 2});
+  cell0.adjacency.insert({3, 1});
+  graph.push_back(cell0);
+
+  auto cell1 = mesh_cell();
+  cell1.adjacency.insert({2, 1});
+  cell1.adjacency.insert({0, -2});
+  graph.push_back(cell1);
+
+  auto cell2 = mesh_cell();
+  cell2.adjacency.insert({1, -1});
+  cell2.adjacency.insert({3, -2});
+  graph.push_back(cell2);
+
+  auto cell3 = mesh_cell();
+  cell3.adjacency.insert({2, 2});
+  cell3.adjacency.insert({0, -1});
+  graph.push_back(cell3);
+  return graph;
+}
+
+bool check_cell_adjacency(const vector<mesh_cell>& cells) {
+  auto correct_cells = make_cell_graph_fruit();
+  if (cells.size() != correct_cells.size()) return false;
+
+  auto cells_degree         = hash_map<int, int>();
+  auto correct_cells_degree = hash_map<int, int>();
+
+  for (auto c = 0; c < cells.size(); c++) {
+    auto cell_degree = cells[c].adjacency.size();
+    cells_degree[cell_degree] += 1;
+
+    auto correct_cell_degree = correct_cells[c].adjacency.size();
+    correct_cells_degree[correct_cell_degree] += 1;
+  }
+
+  for (auto& [key, value] : cells_degree) {
+    if (!contains(correct_cells_degree, key)) return false;
+    if (cells_degree[key] != correct_cells_degree[key]) return false;
+  }
+
+  // (Marzia): Aggiungi altri check sul grafo
+  return true;
+}
+
+bool_state state_from_screenspace_test(
+    bool_mesh& mesh, bool_test& test, float drawing_size, bool use_projection) {
+  int  seed          = 0;
+  auto stop          = false;
+  auto rng           = make_rng(seed);
+  auto state         = bool_state{};
+  auto mesh_original = mesh;
+
+  while (!stop) {
+    for (auto trial = 0; trial < 20; trial++) {
+      state    = {};
+      auto cam = scene_camera{};
+      auto eye = sample_sphere(rand2f(rng)) * 2.5;
+
+      auto position = vec3f{0, 0, 0};
+      cam.frame     = lookat_frame(eye, position, {0, 1, 0});
+      cam.focus     = length(eye - position);
+
+      auto center = intersect_mesh(mesh, cam, vec2f{0.5, 0.5});
+      test.camera = make_camera(mesh, seed);
+
+      add_polygons(state, mesh, test.camera, test, center, drawing_size, false);
+      test.camera = cam;
+
+      try {
+        auto timer = print_timed("[compute_cells]");
+        stop       = compute_cells(mesh, state);
+        printf("Stopping: %d\n", stop);
+        compute_shapes(state);
+
+        stop = stop && check_ambient_cell(state);
+        stop = stop && check_cell_adjacency(state.cells);
+      } catch (const std::exception&) {
+        stop = true;
+      }
+
+      mesh = mesh_original;
+      if (stop) break;
+    }
+
+    drawing_size -= 0.001f;
+  }
+  return state;
+}
+
 void add_polygons(bool_state& state, const bool_mesh& mesh,
     const scene_camera& camera, const bool_test& test, const mesh_point& center,
     float svg_size, bool screenspace, bool straight_up) {

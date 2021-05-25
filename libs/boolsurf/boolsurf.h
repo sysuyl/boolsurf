@@ -90,6 +90,8 @@ struct bool_state {
 
   vector<mesh_shape> shapes         = {};
   vector<int>        shapes_sorting = {};
+
+  bool failed = false;
 };
 
 namespace yocto {  // TODO(giacomo): Fix this.
@@ -114,7 +116,14 @@ void reset_mesh(bool_mesh& mesh);
 
 void update_polygon(bool_state& state, const bool_mesh& mesh, int polygon_id);
 
-void compute_cells(bool_mesh& mesh, bool_state& state);
+void              slice_mesh(bool_mesh& mesh, bool_state& state);
+vector<mesh_cell> make_mesh_cells(
+    const vector<vec3i>& adjacencies, const bool_borders& borders);
+void update_virtual_adjacencies(
+    vector<mesh_cell>& cells, const bool_borders& borders);
+void compute_cell_labels(bool_state& state);
+
+bool compute_cells(bool_mesh& mesh, bool_state& state);
 void compute_shapes(bool_state& state);
 void compute_shape_borders(const bool_mesh& mesh, bool_state& state);
 void compute_bool_operation(bool_state& state, const bool_operation& op);

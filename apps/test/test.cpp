@@ -9,11 +9,29 @@
 #include "serialize/serialize.h"
 using namespace yocto;
 
+struct test_stats {
+  string model_filename   = ""s;
+  int    model_triangles  = 0;
+  int    genus            = 0;
+  double triangulation_ns = 0.0;
+  double flood_fill_ns    = 0.0;
+  double labelling_ns     = 0.0;
+  double boolean_ns       = 0.0;
+  double total_ns         = 0.0;
+  int    polygons         = 0;
+  int    control_points   = 0;
+  int    added_points     = 0;
+  int    sliced_triangles = 0;
+  int    added_triangles  = 0;
+  int    graph_nodes      = 0;
+  int    graph_edges      = 0;
+  int    graph_cycles     = 0;
+};
+
 void save_image(const string& output_image_filename, const bool_mesh& mesh,
     const bool_state& state, const scene_camera& camera, bool color_shapes,
     int spp) {
   if (output_image_filename == "no-output") return;
-
   auto scene = make_scene(mesh, state, camera, color_shapes);
 
   auto params    = trace_params{};
@@ -35,26 +53,6 @@ void save_image(
   save_image(output_image_filename, image, error);
 }
 
-bool check_ambient_cell(const bool_state& state) {
-  if (state.cells.size() == 1) return false;
-
-  // Getting max faces in ambient cell
-  auto zero               = vector<int>(state.labels[0].size(), 0);
-  auto ambient_cell_faces = 0;
-  for (int c = 0; c < state.cells.size(); c++) {
-    auto& cell = state.cells[c];
-    if (state.labels[c] != zero) continue;
-    ambient_cell_faces = max(ambient_cell_faces, (int)cell.faces.size());
-  }
-
-  printf("ambient_cell_faces: %d\n", ambient_cell_faces);
-  for (auto& cell : state.cells) {
-    if (cell.faces.size() > ambient_cell_faces) return false;
-  }
-
-  return true;
-}
-
 int main(int num_args, const char* args[]) {
   auto test_filename         = ""s;
   auto output_image_filename = "data/render.png"s;
@@ -63,8 +61,11 @@ int main(int num_args, const char* args[]) {
   auto model_filename        = ""s;
   auto svg_filename          = ""s;
   auto svg_subdivs           = 2;
-  auto drawing_size          = 0.005f;
+  auto drawing_size          = 0.01f;
   auto color_shapes          = false;
+  auto stats_filename        = ""s;
+  auto append_stats          = false;
+  auto stats                 = test_stats{};
 
   // parse command line
   auto cli = make_cli("test", "test boolsurf algorithms");
@@ -79,6 +80,8 @@ int main(int num_args, const char* args[]) {
   add_option(cli, "svg-subdivs", svg_subdivs, "Svg subdivisions.");
   add_option(cli, "drawing-size", drawing_size, "Size of mapped drawing.");
   add_option(cli, "color-shapes", color_shapes, "Color shapes.");
+  add_option(cli, "stats", stats_filename, "output stats");
+  add_option(cli, "append-stats", append_stats, "append statistics");
   parse_cli(cli, num_args, args);
 
   if (!test_filename.size()) print_fatal("No input filename");
@@ -101,11 +104,18 @@ int main(int num_args, const char* args[]) {
   }
 
   if (model_filename.size()) test.model = model_filename;
+  stats.model_filename = test.model;
+
+  if (stats_filename.size() && !append_stats) {
+    auto stats_file = fopen(stats_filename.c_str(), "w");
+    fprintf(stats_file,
+        "model, model_triangles, genus, triangulation_ns, flood_fill_ns, labelling_ns, boolean_ns, total_ns, polygons, control_points, added_points, sliced_triangles, added_triangles, graph_nodes, graph_edges, graph_cycles\n");
+    fclose(stats_file);
+  }
 
   // Init mesh.
-  auto error         = string{};
-  auto mesh          = bool_mesh{};
-  auto mesh_original = bool_mesh{};
+  auto error = string{};
+  auto mesh  = bool_mesh{};
   {
     if (!load_shape(test.model, mesh, error)) {
       printf("%s\n", error.c_str());
@@ -113,52 +123,55 @@ int main(int num_args, const char* args[]) {
     }
 
     init_mesh(mesh);
+    stats.model_triangles = (int)mesh.triangles.size();
     printf("triangles: %d\n", (int)mesh.triangles.size());
     printf("positions: %d\n\n", (int)mesh.positions.size());
-    mesh_original = mesh;
   }
-  auto bvh = make_triangles_bvh(mesh.triangles, mesh.positions, {});
 
-  int  seed = 0;
-  auto rng  = make_rng(seed);
-  auto stop = false;
+  auto bvh = make_triangles_bvh(mesh.triangles, mesh.positions, {});
 
   // Init bool_state
   auto state = bool_state{};
   if (test.screenspace) {
-    while (!stop) {
-      state         = {};
-      auto uv       = vec2f{0.5, 0.5};
-      auto cam      = scene_camera{};
-      auto eye      = sample_sphere(rand2f(rng)) * 4;
-      auto position = vec3f{0, 0, 0};
-      cam.frame     = lookat_frame(eye, position, {0, 1, 0});
-      cam.focus     = length(eye - position);
-
-      auto center = intersect_mesh(mesh, cam, uv);
-      test.camera = make_camera(mesh, seed);
-
-      add_polygons(state, mesh, test.camera, test, center, drawing_size, false);
-      test.camera = cam;
-
-      try {
-        auto timer = print_timed("[compute_cells]");
-        compute_cells(mesh, state);
-        compute_shapes(state);
-        stop = check_ambient_cell(state);
-
-      } catch (const std::exception&) {
-        stop = true;
-      }
-
-      if (stop) break;
-      mesh = mesh_original;
-    }
+    state = state_from_screenspace_test(mesh, test, drawing_size, false);
   } else {
-    state = state_from_test(mesh, test, 0.005, false);
-    compute_cells(mesh, state);
-    compute_shapes(state);
+    state = state_from_test(mesh, test, drawing_size, false);
   }
+
+  stats.polygons = (int)state.polygons.size();
+  for (auto& polygon : state.polygons) stats.added_points += polygon.length;
+  stats.control_points = state.points.size();
+  stats.control_points += (int)state.isecs_generators.size();
+
+  // Execute triangulation
+  auto triangulation_timer = simple_timer{};
+  slice_mesh(mesh, state);
+
+  stats.triangulation_ns = elapsed_nanoseconds(triangulation_timer);
+  stats.total_ns += stats.triangulation_ns;
+  stats.sliced_triangles = (int)mesh.triangulated_faces.size();
+  for (auto& [face, triangles] : mesh.triangulated_faces)
+    stats.added_triangles += triangles.size();
+
+  // Flood-fill for graph creation
+  auto flood_fill_timer = simple_timer{};
+  state.cells           = make_mesh_cells(mesh.adjacencies, mesh.borders);
+  update_virtual_adjacencies(state.cells, mesh.borders);
+
+  stats.flood_fill_ns = elapsed_nanoseconds(flood_fill_timer);
+  stats.total_ns += stats.flood_fill_ns;
+  stats.graph_nodes = state.cells.size();
+  for (auto& cell : state.cells) stats.graph_edges += cell.adjacency.size();
+  stats.graph_edges /= 2;
+
+  // Label propagation
+  auto labelling_timer = simple_timer{};
+  compute_cell_labels(state);
+
+  stats.labelling_ns = elapsed_nanoseconds(labelling_timer);
+  stats.total_ns += stats.labelling_ns;
+
+  compute_shapes(state);
 
   // Saving output scene
   auto scene = make_scene(mesh, state, test.camera, color_shapes);
@@ -179,8 +192,28 @@ int main(int num_args, const char* args[]) {
   save_tree_png(state, graph_outfile.c_str(), "", color_shapes);
 
   if (color_shapes) {
+    auto booleans_timer = simple_timer{};
     for (auto& operation : test.operations) {
       compute_bool_operation(state, operation);
     }
+    stats.boolean_ns = elapsed_nanoseconds(booleans_timer);
+    stats.total_ns += stats.boolean_ns;
+  }
+
+  // output timings and stats:
+  // model, model_triangles, genus,
+  // triangulation_secs, flood_fill_secs, labelling_secs, boolean_secs,
+  // total_secs, polygons, control_points, added_points, sliced_triangles,
+  // added_triangles, graph_nodes, graph_edges, graph_cycles
+  if (stats_filename.size()) {
+    auto stats_file = fopen(stats_filename.c_str(), "a");
+    fprintf(stats_file,
+        "%s, %d, %d, %f, %f, %f, %f, %f, %d, %d, %d, %d, %d, %d, %d, %d\n",
+        stats.model_filename.c_str(), stats.model_triangles, stats.genus,
+        stats.triangulation_ns, stats.flood_fill_ns, stats.labelling_ns,
+        stats.boolean_ns, stats.total_ns, stats.polygons, stats.control_points,
+        stats.added_points, stats.sliced_triangles, stats.added_triangles,
+        stats.graph_nodes, stats.graph_edges, stats.graph_cycles);
+    fclose(stats_file);
   }
 }
