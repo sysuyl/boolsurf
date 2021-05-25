@@ -58,7 +58,7 @@ void debug_cell_flood_fill(app_state* app) {
 
 void add_polygons(app_state* app, bool_test& test, const mesh_point& center,
     bool screenspace, bool straight_up = true) {
-  add_polygons(app->state, app->mesh, app->camera, test, center, app->svg_size,
+  add_polygons(app->state, app->mesh, app->camera, test, center, app->drawing_size,
       screenspace, straight_up);
 
   for (auto p = app->last_svg.previous_polygons; p < app->state.polygons.size();
