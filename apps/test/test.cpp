@@ -53,6 +53,19 @@ void save_image(
   save_image(output_image_filename, image, error);
 }
 
+int compute_mesh_genus(const bool_mesh& mesh) {
+  auto edges = hash_set<vec2i>();
+  for (auto& [a, b, c] : mesh.triangles) {
+    edges.insert(make_edge_key({a, b}));
+    edges.insert(make_edge_key({b, c}));
+    edges.insert(make_edge_key({c, a}));
+  }
+
+  auto genus =
+      (2 - mesh.triangles.size() - mesh.positions.size() + edges.size()) / 2;
+  return genus;
+}
+
 int main(int num_args, const char* args[]) {
   auto test_filename         = ""s;
   auto output_image_filename = "data/render.png"s;
@@ -142,6 +155,7 @@ int main(int num_args, const char* args[]) {
   for (auto& polygon : state.polygons) stats.added_points += polygon.length;
   stats.control_points = state.points.size();
   stats.control_points += (int)state.isecs_generators.size();
+  stats.genus = compute_mesh_genus(mesh);
 
   // Execute triangulation
   auto triangulation_timer = simple_timer{};

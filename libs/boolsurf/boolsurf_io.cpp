@@ -214,6 +214,8 @@ bool_state state_from_screenspace_test(
       auto center = intersect_mesh(mesh, cam, vec2f{0.5, 0.5});
       test.camera = make_camera(mesh, seed);
 
+      if (center.face == -1) continue;
+
       add_polygons(state, mesh, test.camera, test, center, drawing_size, false);
       test.camera = cam;
 
