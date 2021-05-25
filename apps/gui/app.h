@@ -502,13 +502,15 @@ void init_from_test(app_state* app) {
   }
 
   // Init bool_state
-  if (app->test.screenspace) {
-    app->state = state_from_screenspace_test(
-        app->mesh, app->test, app->drawing_size, app->use_projection);
-  } else {
-    app->state = state_from_test(
-        app->mesh, app->test, app->drawing_size, app->use_projection);
-  }
+  // if (app->test.screenspace) {
+  //   app->state = state_from_screenspace_test(
+  //       app->mesh, app->test, app->drawing_size, app->use_projection);
+  // } else {
+  //   app->state = state_from_test(
+  //       app->mesh, app->test, app->drawing_size, app->use_projection);
+  // }
+  app->state = state_from_test(
+      app->mesh, app->test, app->drawing_size, app->use_projection);
 
   for (int i = 0; i < app->state.polygons.size(); i++) {
     auto& polygon = app->state.polygons[i];
