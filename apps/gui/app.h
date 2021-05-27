@@ -22,6 +22,7 @@ struct app_state {
   // loading parameters
   string         model_filename       = "";
   string         test_filename        = "";
+  string         output_test_filename = "data/tests/test.json";
   string         svg_filename         = "";
   int            svg_subdivs          = 2;
   float          drawing_size         = 0.01;

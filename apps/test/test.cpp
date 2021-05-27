@@ -91,7 +91,7 @@ int main(int num_args, const char* args[]) {
   auto test_filename         = ""s;
   auto output_image_filename = "data/render.png"s;
   auto output_scene_filename = ""s;
-  auto output_test_filename  = ""s;
+  auto output_json_filename  = ""s;
   auto spp                   = 4;
   auto model_filename        = ""s;
   auto svg_filename          = ""s;
@@ -109,7 +109,7 @@ int main(int num_args, const char* args[]) {
   add_option(cli, "output_image", output_image_filename,
       "Output image filename (.png).");
   add_option(cli, "output_scene", output_scene_filename, "");
-  add_option(cli, "output_test", output_test_filename, "");
+  add_option(cli, "output_test", output_json_filename, "");
   add_option(cli, "spp", spp, "Samples per pixel.");
   add_option(cli, "model", model_filename, "Input model filename.");
   add_option(cli, "svg", svg_filename, "Input svg filename.");
@@ -174,8 +174,8 @@ int main(int num_args, const char* args[]) {
     state = state_from_test(mesh, test, drawing_size, false);
   }
 
-  if (output_test_filename.size()) {
-    save_test(state, test.camera, output_test_filename);
+  if (output_json_filename.size()) {
+    save_test(state, test.camera, output_json_filename);
   }
 
   stats.polygons = (int)state.polygons.size();

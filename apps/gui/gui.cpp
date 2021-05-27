@@ -58,8 +58,8 @@ void debug_cell_flood_fill(app_state* app) {
 
 void add_polygons(app_state* app, bool_test& test, const mesh_point& center,
     bool screenspace, bool straight_up = true) {
-  add_polygons(app->state, app->mesh, app->camera, test, center, app->drawing_size,
-      screenspace, straight_up);
+  add_polygons(app->state, app->mesh, app->camera, test, center,
+      app->drawing_size, screenspace, straight_up);
 
   for (auto p = app->last_svg.previous_polygons; p < app->state.polygons.size();
        p++) {
@@ -158,10 +158,12 @@ void draw_widgets(app_state* app, const gui_input& input) {
   }
   continue_line(widgets);
 
-  static auto test_filename = ""s;
+  auto dir      = path_dirname(app->output_test_filename);
+  auto filename = path_basename(app->output_test_filename) + string(".json");
+
   if (draw_filedialog_button(widgets, "save test", true, "save file",
-          test_filename, true, "data/tests", "test.json", "*.json")) {
-    save_test(app, app->state, test_filename);
+          app->output_test_filename, true, dir, filename, "*.json")) {
+    save_test(app, app->state, app->output_test_filename);
   }
 
   static auto scene_filename = "data/scenes/"s;
@@ -836,6 +838,8 @@ int main(int argc, const char* argv[]) {
   add_option(cli, "drawing-size", app->drawing_size, "Size of mapped drawing.");
   add_option(cli, "color-shapes", app->color_shapes, "Color shapes.");
   add_option(cli, "color-hashgrid", app->color_hashgrid, "Color hashgrid.");
+  add_option(cli, "output-test", app->output_test_filename, "Output test.");
+
   parse_cli(cli, argc, argv);
 
   init_window(window, {1280 + 320, 720}, "boolsurf", true);
@@ -883,6 +887,7 @@ int main(int argc, const char* argv[]) {
     init_from_test(app);
     update_polygons(app);
   }
+
   app->state.polygons.push_back({});
   add_polygon_shape(app, {}, 0);
   add_polygon_shape(app, app->state.polygons.back(), 1);
