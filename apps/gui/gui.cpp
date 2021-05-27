@@ -70,7 +70,8 @@ void add_polygons(app_state* app, bool_test& test, const mesh_point& center,
 
 void load_svg(app_state* app) {
   auto& last_svg             = app->last_svg;
-  last_svg.previous_polygons = (int)app->state.polygons.size() - 1;
+  last_svg.previous_polygons = (int)app->state.polygons.size();
+  if (app->state.polygons.size() > 1) last_svg.previous_polygons -= 1;
 
   auto script_path = normalize_path("scripts/svg_parser.py"s);
   auto test_json   = normalize_path("data/tests/tmp.json"s);
@@ -96,6 +97,7 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
 
   if (draw_button(widgets, "draw")) {
     commit_state(app);
+    printf("Polygons: %d\n", app->state.polygons.size());
     add_polygons(
         app, app->temp_test, app->last_clicked_point, app->project_points);
     update_polygons(app);
@@ -106,6 +108,7 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
 
   if (draw_slider(widgets, "size##svg_size", app->drawing_size, 0.0, 0.1)) {
     app->state.polygons.resize(app->last_svg.previous_polygons);
+
     update_svg(app);
   };
 

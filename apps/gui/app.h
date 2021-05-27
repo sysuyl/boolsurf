@@ -417,21 +417,16 @@ void add_polygon_shape(app_state* app, const mesh_polygon& polygon, int index) {
   if (polygon.length > 0)
     set_polygon_shape(polygon_instance, app->mesh, polygon);
 
-  // polygon_instance->depth_test = ogl_depth_test::always;
+  polygon_instance->depth_test = ogl_depth_test::always;
   app->polygon_shapes += polygon_instance;
 
   auto arrow_shape    = add_shape(app->glscene);
   auto arrow_material = polygon_material;
 
-  // if (polygon.length > 0) set_polygon_shape(polygon_shape, app->mesh,
-  // polygon);
   auto arrow_instance = add_instance(
       app->glscene, identity3x4f, arrow_shape, arrow_material);
-  // arrow_instance->depth_test = ogl_depth_test::always;
+  arrow_instance->depth_test = ogl_depth_test::always;
   app->arrow_shapes += arrow_instance;
-
-  if (polygon.length > 0)
-    set_polygon_shape(polygon_instance, app->mesh, polygon);
 }
 
 inline void update_cell_shapes(app_state* app) {
@@ -464,7 +459,6 @@ void update_svg(app_state* app) {
     auto& polygon = app->state.polygons[p];
     add_polygon_shape(app, polygon, p);
   }
-
   update_polygons(app);
 }
 
