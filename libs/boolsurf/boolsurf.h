@@ -65,9 +65,9 @@ struct mesh_cell {
 };
 
 struct mesh_shape {
-  int   polygon    = 0;
-  vec2i generators = {-1, -1};
-  bool  is_root    = true;
+  int         polygon    = 0;
+  vector<int> generators = {-1, -1};
+  bool        is_root    = true;
 
   vec3f         color = {0, 0, 0};
   hash_set<int> cells = {};

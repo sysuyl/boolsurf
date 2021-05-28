@@ -663,7 +663,7 @@ static vector<vector<int>> propagate_cell_labels(const vector<mesh_cell>& cells,
   for (auto& s : start) visited[s] = true;
 
   while (!queue.empty()) {
-    // print("queue", queue);
+     print("queue", queue);
     auto cell_id = queue.front();
     queue.pop_front();
     static int c = 0;
@@ -673,7 +673,9 @@ static vector<vector<int>> propagate_cell_labels(const vector<mesh_cell>& cells,
 
     auto& cell = cells[cell_id];
 
-    for (auto& [neighbor, polygon] : cell.adjacency) {
+    for (auto& edge : cell.adjacency) {
+        auto neighbor = edge.x;
+        auto polygon = edge.y;
       auto polygon_unsigned = uint(yocto::abs(polygon));
       if (neighbor == cell_id) continue;
       auto is_cycle_edge = contains(skip_polygons, (int)polygon_unsigned);
@@ -1383,6 +1385,7 @@ void compute_cell_labels(bool_state& state) {
       skip_polygons.insert(polygon);
     }
   }
+  save_tree_png(state, "data/graph.png", "", false);
 
   // Calcoliamo il labelling definitivo per effettuare le booleane tra
   // poligoni
@@ -1519,14 +1522,15 @@ void compute_generator_polygons(
 
   // Se la shape non ha generatori allora corrisponde ad una shape di un
   // poligono
-  if (shape.generators == vec2i{-1, -1}) {
+  if (shape.generators.empty()) {
     result.insert(shape.polygon);
     return;
   }
 
   // Calcolo i generatori per le shape che hanno generato quella corrente
-  compute_generator_polygons(state, shape.generators.x, result);
-  compute_generator_polygons(state, shape.generators.y, result);
+  for (auto& generator : shape.generators) {
+    compute_generator_polygons(state, generator, result);
+  }
 }
 
 void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {

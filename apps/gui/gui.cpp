@@ -150,6 +150,25 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
   }
 }
 
+void bezier_last_segment(app_state* app) {
+  commit_state(app);
+  auto& mesh           = app->mesh;
+  auto  control_points = vector<mesh_point>(
+      app->state.points.end() - 4, app->state.points.end());
+  auto bezier = compute_bezier_path(mesh.dual_solver, mesh.triangles,
+      mesh.positions, mesh.adjacencies, control_points, 4);
+
+  auto  polygon_id = (int)app->state.polygons.size() - 1;
+  auto& polygon    = app->state.polygons.back();
+  app->state.points.resize(app->state.points.size() - 4);
+  polygon.points.resize(polygon.points.size() - 4);
+  for (int i = 0; i < bezier.size(); i++) {
+    polygon.points.push_back(app->state.points.size() + i);
+  }
+  app->state.points += bezier;
+  update_polygon(app, polygon_id);
+}
+
 void draw_widgets(app_state* app, const gui_input& input) {
   auto widgets = &app->widgets;
   begin_imgui(widgets, "boolsurf", {0, 0}, {320, 720});
@@ -415,22 +434,41 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
   if (draw_button(widgets, "bezier")) {
+    bezier_last_segment(app);
+  }
+  continue_line(widgets);
+  if (draw_button(widgets, "bezier polygons")) {
     commit_state(app);
-    auto& mesh           = app->mesh;
-    auto  control_points = vector<mesh_point>(
-        app->state.points.end() - 4, app->state.points.end());
-    auto bezier = compute_bezier_path(mesh.dual_solver, mesh.triangles,
-        mesh.positions, mesh.adjacencies, control_points, 4);
-
-    auto  polygon_id = (int)app->state.polygons.size() - 1;
-    auto& polygon    = app->state.polygons.back();
-    app->state.points.resize(app->state.points.size() - 4);
-    polygon.points.resize(polygon.points.size() - 4);
-    for (int i = 0; i < bezier.size(); i++) {
-      polygon.points.push_back((int)app->state.points.size() + i);
+    auto& mesh       = app->mesh;
+    auto  polygon_id = app->selected_polygon;
+    for (int polygon_id = 0; polygon_id < app->state.polygons.size();
+         polygon_id++) {
+      auto& polygon = app->state.polygons[polygon_id];
+      //    auto  _control_points = vector<mesh_point>(polygon.points.size());
+      auto control_points = vector<mesh_point>{};
+      for (int i = 0; i < polygon.points.size(); i++) {
+        auto point = app->state.points[polygon.points[i]];
+        // if (i % 2) {
+        //   auto a    = point;
+        //   auto b    = control_points.back();
+        //   auto path = compute_geodesic_path(app->mesh, a, b);
+        //   control_points += eval_geodesic_path(app->mesh, path, 0.5);
+        // }
+        control_points += point;
+      }
+      //    for (int i = 0; i < control_points.size(); i++) {
+      //      control_points[i] = app->state.points[polygon.points[i]];
+      //    }
+      auto bezier = compute_bezier_path(mesh.dual_solver, mesh.triangles,
+          mesh.positions, mesh.adjacencies, control_points, 4);
+      // bezier      = control_points;
+      polygon.points.resize(bezier.size());
+      for (int i = 0; i < bezier.size(); i++) {
+        polygon.points[i] = app->state.points.size() + i;
+      }
+      app->state.points += bezier;
+      update_polygon(app, polygon_id);
     }
-    app->state.points += bezier;
-    update_polygon(app, polygon_id);
   }
 
   end_imgui(widgets);
@@ -568,23 +606,7 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key('B'): {
-        auto& mesh           = app->mesh;
-        auto  control_points = vector<mesh_point>{};
-        auto& polygon        = app->state.polygons.back();
-        for (auto& p : polygon.points) {
-          control_points.push_back(app->state.points[p]);
-        }
-        auto points = compute_bezier_path(mesh.dual_solver, mesh.triangles,
-            mesh.positions, mesh.adjacencies, control_points);
-
-        polygon.points = {};
-        polygon.edges  = {};
-        for (auto& p : points) {
-          polygon.points += (int)app->state.points.size();
-          app->state.points += p;
-        }
-
-        update_polygons(app);
+        bezier_last_segment(app);
 
       } break;
 
