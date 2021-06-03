@@ -60,6 +60,7 @@ struct app_state {
 
   vector<bool_state> history          = {};
   int                history_index    = -1;
+  int                selected_point   = -1;
   int                selected_cell    = -1;
   int                selected_shape   = -1;
   int                selected_polygon = 0;

@@ -173,6 +173,7 @@ void bezier_last_segment(app_state* app) {
 void draw_widgets(app_state* app, const gui_input& input) {
   auto widgets = &app->widgets;
   begin_imgui(widgets, "boolsurf", {0, 0}, {320, 720});
+  draw_label(widgets, "selected", std::to_string(app->selected_point));
 
   if (draw_filedialog_button(widgets, "load test", true, "load file",
           app->test_filename, false, "data/tests/", "test.json", "*.json")) {
@@ -492,6 +493,7 @@ void mouse_input(app_state* app, const gui_input& input) {
   auto point = intersect_mesh(app, input);
   if (point.face == -1) return;
   app->last_clicked_point = point;
+  auto point_pos          = eval_position(app->mesh, point);
 
   auto point_original              = intersect_mesh_original(app, input);
   app->last_clicked_point_original = point_original;
@@ -503,6 +505,31 @@ void mouse_input(app_state* app, const gui_input& input) {
       app->selected_cell = i;
       break;
     }
+  }
+
+  if (!input.modifier_ctrl) {
+    for (int i = 0; i < app->state.points.size(); i++) {
+      auto radius            = length(point_pos - app->camera.frame.o) / 50;
+      auto control_point_pos = eval_position(app->mesh, app->state.points[i]);
+      if (length(control_point_pos - point_pos) < radius) {
+        // if (app->selected_point == -1) {
+        app->selected_point = i;
+        //   continue;
+        // }
+        // auto dist    = length(control_point_pos - app->camera.frame.o);
+        // auto min_pos = eval_position(
+        //     app->mesh, app->state.points[app->selected_point]);
+        // auto min_dist = length(min_pos - app->camera.frame.o);
+        // if (dist < min_dist) {
+        //   app->selected_point = i;
+        // }
+      }
+    }
+  }
+
+  if (input.modifier_ctrl && app->selected_point != -1) {
+    app->state.points[app->selected_point] = point;
+    update_polygons(app);
   }
 
   if (app->selected_cell != -1) {
