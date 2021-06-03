@@ -86,8 +86,9 @@ struct app_state {
     shade_material* white = nullptr;
   } materials;
 
-  vector<shade_material*> cell_materials = {};
-  vector<shade_instance*> instances      = {};
+  vector<shade_material*> cell_materials       = {};
+  vector<shade_instance*> instances            = {};
+  shade_instance*         selected_point_shape = nullptr;
 
   //(marzia) Useful while debugging!
   vector<int> cell_patches   = {};

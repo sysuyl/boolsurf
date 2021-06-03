@@ -507,22 +507,37 @@ void mouse_input(app_state* app, const gui_input& input) {
     }
   }
 
+  auto update_selcted_point_shape = [&]() {
+    if (!app->selected_point_shape) {
+      app->selected_point_shape = add_instance(app->glscene);
+    }
+    app->selected_point_shape->hidden = (app->selected_point == -1);
+    if (!app->selected_point_shape->shape) {
+      app->selected_point_shape->shape = add_shape(app->glscene);
+      auto sphere                      = make_sphere(8, 0.002);
+      auto glshape                     = app->selected_point_shape->shape;
+      set_quads(glshape, sphere.quads);
+      set_positions(glshape, sphere.positions);
+      set_instances(glshape, {});
+    }
+    if (!app->selected_point_shape->material) {
+      app->selected_point_shape->material        = add_material(app->glscene);
+      app->selected_point_shape->material->color = {0.1, 0, 0.9};
+    }
+    auto center = eval_position(
+        app->mesh, app->state.points[app->selected_point]);
+    app->selected_point_shape->frame.o = center;
+  };
+
   if (!input.modifier_ctrl) {
+    float min_dist = flt_max;
     for (int i = 0; i < app->state.points.size(); i++) {
       auto radius            = length(point_pos - app->camera.frame.o) / 50;
       auto control_point_pos = eval_position(app->mesh, app->state.points[i]);
-      if (length(control_point_pos - point_pos) < radius) {
-        // if (app->selected_point == -1) {
+      auto dist              = length(control_point_pos - point_pos);
+      if (dist < radius && dist < min_dist) {
         app->selected_point = i;
-        //   continue;
-        // }
-        // auto dist    = length(control_point_pos - app->camera.frame.o);
-        // auto min_pos = eval_position(
-        //     app->mesh, app->state.points[app->selected_point]);
-        // auto min_dist = length(min_pos - app->camera.frame.o);
-        // if (dist < min_dist) {
-        //   app->selected_point = i;
-        // }
+        min_dist            = dist;
       }
     }
   }
@@ -531,6 +546,7 @@ void mouse_input(app_state* app, const gui_input& input) {
     app->state.points[app->selected_point] = point;
     update_polygons(app);
   }
+  update_selcted_point_shape();
 
   if (app->selected_cell != -1) {
     for (int s = (int)app->state.shapes_sorting.size() - 1; s >= 0; s--) {
