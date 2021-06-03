@@ -52,3 +52,25 @@
   - Qui va capito se mostrare il risultato di una booleana come area colorata o solamente tramite il bordo 
 
 
+Risultati:
+- [x] Nefertiti
+- [ ] Dragone (dragone stanford o thingi10k) -> capire cosa farci sopra
+- [x] Mucca di Crane low-poly e con catmull-clarck
+- [x] Zucca con algoritmo (cambia)
+- [x] Aggiungere flood-fill zucca nel paper (ma non gira intorno)
+  
+- [x] Gatto con i vari riccioli 
+  -[x] Build-up dei collari intorno al gatto:
+  -[x] Un collare
+  -[x] Due collari semplici
+  -[x] Due collari con ricciolo
+  -[x] Due collari con riccioli che si intersecano
+
+- [x] Ciambella paperella per lungo (?)
+- [ ] Lucy con pois sulla veste
+- [x] SVG complesso con cerchi 
+- [x] Modello con fiorelli (macchinina) - texture bombing
+- [x] Test con 2 svg molto complicati - tipo palma
+  
+- [ ] Trovare mesh convincenti
+- [ ] Arrangements vs winding-numbers

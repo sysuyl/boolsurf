@@ -58,10 +58,10 @@ inline vector<vec3f> polygon_normals(
 }
 
 inline bool_shape make_polygon_shape(
-    const bool_mesh& mesh, const vector<vec3f>& positions, bool thin = true) {
+    const bool_mesh& mesh, const vector<vec3f>& positions, bool thick) {
   auto shape = bool_shape{};
 
-  if (thin) {
+  if (!thick) {
     shape.positions  = positions;
     shape.type       = ogl_element_type::line_strip;
     shape.depth_test = ogl_depth_test::always;
@@ -108,9 +108,9 @@ void set_shape(shade_instance* instance, const bool_shape& shape) {
 }
 
 inline void set_polygon_shape(shade_instance* instance, const bool_mesh& mesh,
-    const mesh_polygon& polygon) {
+    const mesh_polygon& polygon, bool thick) {
   auto positions = polygon_positions(polygon, mesh);
-  auto shape     = make_polygon_shape(mesh, positions);
+  auto shape     = make_polygon_shape(mesh, positions, thick);
   set_shape(instance, shape);
 }
 

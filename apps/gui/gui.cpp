@@ -108,7 +108,6 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
 
   if (draw_slider(widgets, "size##svg_size", app->drawing_size, 0.0, 0.1)) {
     app->state.polygons.resize(app->last_svg.previous_polygons);
-
     update_svg(app);
   };
 
@@ -148,6 +147,8 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
     }
     update_polygons(app);
   }
+
+  save_test(app, app->state, "data/tests/bomb_polygon.json");
 }
 
 void bezier_last_segment(app_state* app) {
@@ -743,6 +744,13 @@ void key_input(app_state* app, const gui_input& input) {
       case (int)gui_key('S'): {
       } break;
 
+      case (int)gui_key('D'): {
+        if (app->state.polygons.size() > 1) {
+          app->state.polygons.resize(app->state.polygons.size() - 1);
+          update_polygons(app);
+        }
+      } break;
+
       case (int)gui_key('N'): {
         debug_cells(app);
       } break;
@@ -861,6 +869,8 @@ int main(int argc, const char* argv[]) {
 
   // add_option(cli, "svg-size", app->svg_size, "Svg size.");
   add_option(cli, "drawing-size", app->drawing_size, "Size of mapped drawing.");
+  add_option(cli, "thick-lines", app->thick_lines, "Thin lines.");
+
   add_option(cli, "color-shapes", app->color_shapes, "Color shapes.");
   add_option(cli, "color-hashgrid", app->color_hashgrid, "Color hashgrid.");
   add_option(cli, "output-test", app->output_test_filename, "Output test.");
