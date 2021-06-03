@@ -491,9 +491,13 @@ void mouse_input(app_state* app, const gui_input& input) {
   if (input.mouse_left.state != gui_button::state::releasing) return;
 
   auto point = intersect_mesh(app, input);
-  if (point.face == -1) return;
-  app->last_clicked_point = point;
-  auto point_pos          = eval_position(app->mesh, point);
+  if (point.face == -1) {
+    app->selected_point = -1;
+    return;
+  }
+  app->last_clicked_point          = point;
+  app->last_clicked_point_position = eval_position(app->mesh, point);
+  auto point_pos                   = app->last_clicked_point_position;
 
   auto point_original              = intersect_mesh_original(app, input);
   app->last_clicked_point_original = point_original;
@@ -508,13 +512,16 @@ void mouse_input(app_state* app, const gui_input& input) {
   }
 
   auto update_selcted_point_shape = [&]() {
+    if (app->selected_point == -1) {
+      return;
+    }
     if (!app->selected_point_shape) {
       app->selected_point_shape = add_instance(app->glscene);
     }
     app->selected_point_shape->hidden = (app->selected_point == -1);
     if (!app->selected_point_shape->shape) {
       app->selected_point_shape->shape = add_shape(app->glscene);
-      auto sphere                      = make_sphere(8, 0.002);
+      auto sphere                      = make_sphere(8, 1);
       auto glshape                     = app->selected_point_shape->shape;
       set_quads(glshape, sphere.quads);
       set_positions(glshape, sphere.positions);
@@ -532,7 +539,7 @@ void mouse_input(app_state* app, const gui_input& input) {
   if (!input.modifier_ctrl) {
     float min_dist = flt_max;
     for (int i = 0; i < app->state.points.size(); i++) {
-      auto radius            = length(point_pos - app->camera.frame.o) / 50;
+      auto radius            = app->selected_point_radius;
       auto control_point_pos = eval_position(app->mesh, app->state.points[i]);
       auto dist              = length(control_point_pos - point_pos);
       if (dist < radius && dist < min_dist) {
@@ -880,6 +887,17 @@ void key_input(app_state* app, const gui_input& input) {
 
 void update_app(const gui_input& input, void* data) {
   auto app = (app_state*)data;
+
+  //  if ()
+  {
+    app->selected_point_radius =
+        length(app->last_clicked_point_position - app->camera.frame.o) / 200;
+    if (app->selected_point_shape) {
+      app->selected_point_shape->frame.x.x = app->selected_point_radius;
+      app->selected_point_shape->frame.y.y = app->selected_point_radius;
+      app->selected_point_shape->frame.z.z = app->selected_point_radius;
+    }
+  }
 
   update_camera(app, input);
   mouse_input(app, input);

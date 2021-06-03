@@ -58,12 +58,13 @@ struct app_state {
   // shade_instance*         inner_faces_shape = nullptr;
   // shade_instance*         outer_faces_shape = nullptr;
 
-  vector<bool_state> history          = {};
-  int                history_index    = -1;
-  int                selected_point   = -1;
-  int                selected_cell    = -1;
-  int                selected_shape   = -1;
-  int                selected_polygon = 0;
+  vector<bool_state> history               = {};
+  int                history_index         = -1;
+  int                selected_point        = -1;
+  float              selected_point_radius = 0;
+  int                selected_cell         = -1;
+  int                selected_shape        = -1;
+  int                selected_polygon      = 0;
 
   // rendering state
   shade_scene*    glscene           = new shade_scene{};
@@ -99,6 +100,7 @@ struct app_state {
   gui_widgets widgets = {};
 
   mesh_point last_clicked_point          = {};
+  vec3f      last_clicked_point_position = {};
   mesh_point last_clicked_point_original = {};
 
   struct last_svg {
