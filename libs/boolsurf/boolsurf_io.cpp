@@ -414,7 +414,7 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
     }
   }
   auto& env    = scene.environments.emplace_back();
-  env.emission = {0.3, 0.3, 0.3};
+  env.emission = {1.0, 1.0, 1.0};
   return scene;
 }
 

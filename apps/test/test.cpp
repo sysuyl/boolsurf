@@ -235,14 +235,14 @@ int main(int num_args, const char* args[]) {
   // auto graph_outfile = path_join(graph_dir, graph_filename);
   // save_tree_png(state, graph_outfile.c_str(), "", color_shapes);
 
-  if (color_shapes) {
-    auto booleans_timer = simple_timer{};
-    for (auto& operation : test.operations) {
-      compute_bool_operation(state, operation);
-    }
-    stats.boolean_ns = elapsed_nanoseconds(booleans_timer);
-    stats.total_ns += stats.boolean_ns;
+  auto booleans_timer = simple_timer{};
+  for (auto& operation : test.operations) {
+    compute_bool_operation(state, operation);
   }
+  
+  stats.boolean_ns = elapsed_nanoseconds(booleans_timer);
+  stats.total_ns += stats.boolean_ns;
+  
 
   // output timings and stats:
   // model, model_triangles, genus,

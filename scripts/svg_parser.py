@@ -69,7 +69,9 @@ def parse_path_string(path_string, num_subdivisions):
                         bezier_points += parse_points(c.split(" "))
 
                         assert len(bezier_points) == 4
-                        bezier_points = bezier(bezier_points, num_subdivisions)
+                        if (num_subdivisions > 0):
+                            bezier_points = bezier(
+                                bezier_points, num_subdivisions)
 
                         # Removing possible duplicate points
                         pts = (
@@ -129,7 +131,8 @@ def create_json(infile, outfile, num_subdivisions):
             if "transform" in element.attrib:
                 matrix = element.attrib["transform"][7:-1].split(",")
 
-                rot_transform = np.array(matrix, dtype=float).reshape(3, 2).transpose()
+                rot_transform = np.array(
+                    matrix, dtype=float).reshape(3, 2).transpose()
                 rot_transform = np.append(rot_transform, [[0, 0, 1]], axis=0)
 
             paths = []
@@ -143,12 +146,14 @@ def create_json(infile, outfile, num_subdivisions):
                         nppoint = np.append(nppoint, 1).reshape(3, 1)
                         nppoint = rot_transform @ nppoint
 
-                        points[p] = tuple(nppoint.reshape(1, 3).tolist()[0][:2])
+                        points[p] = tuple(
+                            nppoint.reshape(1, 3).tolist()[0][:2])
 
                     data["polygons"].append(points)
 
         elif element.tag == "{http://www.w3.org/2000/svg}path":
-            path_points = parse_path_string(element.attrib["d"], num_subdivisions)
+            path_points = parse_path_string(
+                element.attrib["d"], num_subdivisions)
             for path in path_points:
                 data["polygons"].append(path)
 

@@ -46,7 +46,7 @@ def gui(meshes_dir, svgs_dir, output_jsons_dir):
         first = random.randint(0, svgs_num)
         second = random.randint(0, svgs_num)
 
-        while (first != second):
+        while (first == second):
             second = random.randint(0, svgs_num)
 
         first_svg = svgs_names[first]
@@ -56,6 +56,46 @@ def gui(meshes_dir, svgs_dir, output_jsons_dir):
         print(cmd)
 
         subprocess.run(cmd, shell=True).returncode
+
+
+@cli.command()
+@click.argument('jsons_dir')
+@click.argument('output_jsons_dir')
+def operation(jsons_dir, output_jsons_dir):
+    json_names = glob.glob(f'{jsons_dir}/tests/*.json')
+    json_num = len(json_names)
+    operations = ['op_union', 'op_difference',
+                  'op_intersection', 'op_symmetrical_difference']
+
+    for json_id, json_name in enumerate(json_names):
+        name = os.path.basename(json_name).split('.')[0]
+        dir = os.path.dirname(json_name)
+
+        msg = f'[{json_id+1}/{json_num}] {json_name}'
+        print(msg + ' ' * max(0, 78-len(msg)))
+
+        with open(json_name) as json_handler:
+            js = json.load(json_handler)
+            polygons = js['polygons']
+            num_polygons = len(polygons)
+
+            if num_polygons < 3:
+                continue
+
+            a = random.randint(1, num_polygons-1)
+            b = random.randint(1, num_polygons-1)
+
+            while (a == b or polygons[a] == [] or polygons[b] == []):
+                b = random.randint(0, num_polygons-1)
+
+            type = random.randint(0, len(operations))
+            print(f'{num_polygons} {a} {b} - {type}\n')
+
+            operation = {'a': a, 'b': b, 'type': type}
+            js['operations'].append(operation)
+
+            with open(f'{output_jsons_dir}/tests/{name}.json', 'w') as json_file:
+                json.dump(js, json_file, indent=2)
 
 
 cli()

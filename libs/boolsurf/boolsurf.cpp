@@ -548,7 +548,7 @@ static vector<int> find_roots(const vector<mesh_cell>& cells) {
 }
 
 static void compute_cycles(const vector<mesh_cell>& cells, int node,
-    vec2i parent, vector<int>& visited, vector<vec2i>& parents,
+    vec2i parent, vector<int> visited, vector<vec2i> parents,
     vector<vector<vec2i>>& cycles) {
   // Se il nodo il considerazione è già stato completamente visitato allora
   // terminiamo la visita
