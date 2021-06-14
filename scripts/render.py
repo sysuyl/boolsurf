@@ -1,13 +1,9 @@
 #! /usr/bin/env python3 -B
 
 import click
-import sys
 import glob
 import os
 import subprocess
-import json
-
-from click.decorators import option
 
 
 @click.group()

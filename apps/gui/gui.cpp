@@ -718,9 +718,10 @@ void key_input(app_state* app, const gui_input& input) {
           for (auto& [face, _] : app->mesh.triangulated_faces) {
             faces.push_back(face);
           }
+
           app->hashgrid_shape = add_patch_shape(
               app, faces, app->mesh_material->color * 0.65);
-          app->hashgrid_shape->depth_test = ogl_depth_test::always;
+          // app->hashgrid_shape->depth_test = ogl_depth_test::always;
           app->glscene->instances += app->polygon_shapes;
 
           // auto inner_faces      = vector<int>{};

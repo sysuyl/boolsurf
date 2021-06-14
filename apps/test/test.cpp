@@ -120,13 +120,18 @@ int main(int num_args, const char* args[]) {
   add_option(cli, "append-stats", append_stats, "append statistics");
   parse_cli(cli, num_args, args);
 
+  test_filename = normalize_path(test_filename);
   if (!test_filename.size()) print_fatal("No input filename");
+
   string ioerror;
-  if (!make_directory(path_dirname(output_scene_filename), ioerror))
-    print_fatal(ioerror);
-  if (!make_directory(
-          path_join(path_dirname(output_scene_filename), "shapes"), ioerror))
-    print_fatal(ioerror);
+  if (output_scene_filename.size()) {
+    output_scene_filename = normalize_path(output_scene_filename);
+    if (!make_directory(path_dirname(output_scene_filename), ioerror))
+      print_fatal(ioerror);
+    if (!make_directory(
+            path_join(path_dirname(output_scene_filename), "shapes"), ioerror))
+      print_fatal(ioerror);
+  }
 
   auto test      = bool_test{};
   auto extension = path_extension(test_filename);
@@ -149,6 +154,7 @@ int main(int num_args, const char* args[]) {
   stats.model_filename = test.model;
 
   if (stats_filename.size() && !append_stats) {
+    stats_filename  = normalize_path(stats_filename);
     auto stats_file = fopen(stats_filename.c_str(), "w");
     fprintf(stats_file,
         "model, model_triangles, genus, triangulation_ns, flood_fill_ns, labelling_ns, boolean_ns, total_ns, polygons, control_points, added_points, sliced_triangles, added_triangles, graph_nodes, graph_edges, graph_cycles, graph_ambient_cells\n");
