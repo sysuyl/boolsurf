@@ -128,8 +128,6 @@ int main(int num_args, const char* args[]) {
           path_join(path_dirname(output_scene_filename), "shapes"), ioerror))
     print_fatal(ioerror);
 
-  printf("%s\n", output_scene_filename);
-
   auto test      = bool_test{};
   auto extension = path_extension(test_filename);
   if (extension == ".svg") {
