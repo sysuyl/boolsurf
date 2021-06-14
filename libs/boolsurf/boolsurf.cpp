@@ -442,10 +442,10 @@ static vector<mesh_cell> flood_fill_new(vector<int>& starts,
       continue;
     }
 
-    static int c = 0;
-    // save_tree_png(*global_state,
-    // "data/tests/flood_fill_" + to_string(c) + ".png", "", false);
-    c += 1;
+    // static int c = 0;
+    // // save_tree_png(*global_state,
+    // // "data/tests/flood_fill_" + to_string(c) + ".png", "", false);
+    // c += 1;
 
     auto  cell_id = (int)result.size();
     auto& cell    = result.emplace_back();
@@ -512,11 +512,11 @@ static vector<mesh_cell> flood_fill_new(vector<int>& starts,
     cell.faces.shrink_to_fit();
   }  // end of while
 
-  static int c = 0;
-  // save_tree_png(*global_state, "data/tests/flood_fill_" + to_string(c) +
-  // ".png",
-  // "", false);
-  c += 1;
+  // static int c = 0;
+  // // save_tree_png(*global_state, "data/tests/flood_fill_" + to_string(c) +
+  // // ".png",
+  // // "", false);
+  // c += 1;
 
   return result;
 }
@@ -648,7 +648,12 @@ static vector<vector<int>> propagate_cell_labels(const vector<mesh_cell>& cells,
   PROFILE();
   // Inizializziamo le label delle celle a 0.
   auto& labels = global_state->labels;
-  labels = vector<vector<int>>(cells.size(), vector<int>(num_polygons, 0));
+  labels       = vector<vector<int>>(
+      cells.size(), vector<int>(num_polygons, null_label));
+
+  for (auto start_cell : start) {
+    labels[start_cell] = vector<int>(num_polygons, 0);
+  }
 
   // Inizializza la label dei nodi nei cicli.
   for (auto& cycle : cycles) {
@@ -663,7 +668,7 @@ static vector<vector<int>> propagate_cell_labels(const vector<mesh_cell>& cells,
   for (auto& s : start) visited[s] = true;
 
   while (!queue.empty()) {
-     print("queue", queue);
+    print("queue", queue);
     auto cell_id = queue.front();
     queue.pop_front();
     static int c = 0;
@@ -674,21 +679,21 @@ static vector<vector<int>> propagate_cell_labels(const vector<mesh_cell>& cells,
     auto& cell = cells[cell_id];
 
     for (auto& edge : cell.adjacency) {
-        auto neighbor = edge.x;
-        auto polygon = edge.y;
+      auto neighbor         = edge.x;
+      auto polygon          = edge.y;
       auto polygon_unsigned = uint(yocto::abs(polygon));
       if (neighbor == cell_id) continue;
       auto is_cycle_edge = contains(skip_polygons, (int)polygon_unsigned);
 
       if (polygon < 0 && visited[neighbor]) continue;
-
+      // if (visited[neighbor]) continue;
       // Se il nodo è già stato visitato e la nuova etichetta è diversa da
       // quella già calcolata allora prendo il massimo valore in ogni
       // componente
 
-      auto& neighbor_labels = labels[neighbor];
-      auto  cell_labels     = labels[cell_id];
-      cell_labels[polygon_unsigned] += sign(polygon);
+      auto& neighbor_labels         = labels[neighbor];
+      auto  cell_labels             = labels[cell_id];
+      cell_labels[polygon_unsigned] = 1 - cell_labels[polygon_unsigned];
 
       auto updated_neighbor_labels = false;
       for (int i = 0; i < neighbor_labels.size(); i++) {
@@ -712,10 +717,10 @@ static vector<vector<int>> propagate_cell_labels(const vector<mesh_cell>& cells,
 
       if (updated_neighbor_labels) {
         if (!contains(queue, neighbor)) {
-          // printf("add: %d\n", neighbor);
           queue.push_back(neighbor);
         }
       }
+
       visited[neighbor] = true;
     }
   }
@@ -1428,11 +1433,7 @@ void update_virtual_adjacencies(
     auto& left                 = cells[c];
     auto  size                 = left.adjacency.size();
     auto  added_left_adjacency = hash_set<vec2i>();
-    // auto added_right_adjacency = hash_map<int, hash_set<vec2i>>();
 
-    // for (auto it = left.adjacency.begin(); it != left.adjacency.end(); it++)
-    // {
-    //   auto [neighbor, polygon] = *it;
     for (auto [neighbor, polygon] : left.adjacency) {
       if (polygon < borders.num_polygons) continue;
 
@@ -1464,8 +1465,6 @@ void update_virtual_adjacencies(
 
     left.adjacency.insert(
         added_left_adjacency.begin(), added_left_adjacency.end());
-    // for (auto& [neighbor, values] : added_right_adjacency)
-    //   right.adjacency.insert(values.begin(), values.end());
   }
 }
 
