@@ -151,6 +151,7 @@ int main(int num_args, const char* args[]) {
   }
 
   if (model_filename.size()) test.model = model_filename;
+  test.model           = normalize_path(test.model);
   stats.model_filename = test.model;
 
   if (stats_filename.size() && !append_stats) {
