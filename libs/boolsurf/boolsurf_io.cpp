@@ -339,28 +339,28 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
     for (auto face : cell.faces) {
       shape.triangles.push_back(mesh.triangles[face]);
     }
+  }
 
-    if (0) {
-      auto& instance     = scene.instances.emplace_back();
-      instance.shape     = (int)scene.shapes.size();
-      instance.material  = (int)scene.materials.size();
-      auto& material     = scene.materials.emplace_back();
-      material.color     = {0, 0, 1};
-      material.type      = scene_material_type::glossy;
-      material.roughness = 0.5;
-      auto& edges        = scene.shapes.emplace_back();
-      for (auto& tr : mesh.triangles) {
-        for (int k = 0; k < 3; k++) {
-          auto a = tr[k];
-          auto b = tr[(k + 1) % 3];
-          if (a > b) continue;
-          auto index = (int)edges.positions.size();
-          edges.radius.push_back(0.001);
-          edges.radius.push_back(0.001);
-          edges.lines.push_back({index, index + 1});
-          edges.positions.push_back(mesh.positions[a]);
-          edges.positions.push_back(mesh.positions[b]);
-        }
+  if (0) {
+    auto& instance     = scene.instances.emplace_back();
+    instance.shape     = (int)scene.shapes.size();
+    instance.material  = (int)scene.materials.size();
+    auto& material     = scene.materials.emplace_back();
+    material.color     = {0, 0, 1};
+    material.type      = scene_material_type::glossy;
+    material.roughness = 0.5;
+    auto& edges        = scene.shapes.emplace_back();
+    for (auto& tr : mesh.triangles) {
+      for (int k = 0; k < 3; k++) {
+        auto a = tr[k];
+        auto b = tr[(k + 1) % 3];
+        if (a > b) continue;
+        auto index = (int)edges.positions.size();
+        edges.radius.push_back(0.001);
+        edges.radius.push_back(0.001);
+        edges.lines.push_back({index, index + 1});
+        edges.positions.push_back(mesh.positions[a]);
+        edges.positions.push_back(mesh.positions[b]);
       }
     }
   }
@@ -413,8 +413,7 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
       shape.lines       = lines;
     }
   }
-  auto& env    = scene.environments.emplace_back();
-  env.emission = {1.0, 1.0, 1.0};
+
   return scene;
 }
 

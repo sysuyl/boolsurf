@@ -121,6 +121,14 @@ int main(int num_args, const char* args[]) {
   parse_cli(cli, num_args, args);
 
   if (!test_filename.size()) print_fatal("No input filename");
+  string ioerror;
+  if (!make_directory(path_dirname(output_scene_filename), ioerror))
+    print_fatal(ioerror);
+  if (!make_directory(
+          path_join(path_dirname(output_scene_filename), "shapes"), ioerror))
+    print_fatal(ioerror);
+
+  printf("%s\n", output_scene_filename);
 
   auto test      = bool_test{};
   auto extension = path_extension(test_filename);
@@ -219,9 +227,6 @@ int main(int num_args, const char* args[]) {
   // Saving output scene
   auto scene = make_scene(mesh, state, test.camera, color_shapes);
   if (output_scene_filename.size()) {
-    // for (auto& shape : scene.shapes) {
-    //   save_shape(shape, output_scene_filename + "/")
-    // }
     save_scene(output_scene_filename, scene, error);
   }
 
@@ -239,10 +244,9 @@ int main(int num_args, const char* args[]) {
   for (auto& operation : test.operations) {
     compute_bool_operation(state, operation);
   }
-  
+
   stats.boolean_ns = elapsed_nanoseconds(booleans_timer);
   stats.total_ns += stats.boolean_ns;
-  
 
   // output timings and stats:
   // model, model_triangles, genus,

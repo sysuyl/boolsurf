@@ -7,6 +7,8 @@ import os
 import subprocess
 import json
 
+from click.decorators import option
+
 
 @click.group()
 def cli():
@@ -78,10 +80,13 @@ def jsons(bin, dirname):
 
     output = f'{dirname}/output'
     images_dir = f'{output}/images'
+    scene_dir = f'{output}/scenes'
 
     try:
         os.mkdir(output)
         os.mkdir(images_dir)
+        os.mkdir(scene_dir)
+
     except:
         pass
 
@@ -99,7 +104,13 @@ def jsons(bin, dirname):
         msg = f'[{json_id}/{jsons_num}] {json_name}'
         print(msg + ' ' * max(0, 78-len(msg)))
 
-        cmd = f'{bin} {json_name} --output_image {images_dir}/{name}.png --stats {dirname}/stats.csv {append}'
+        model_scene_dir = f'{scene_dir}/{name}'
+        try:
+            os.mkdir(model_scene_dir)
+        except:
+            pass
+
+        cmd = f'{bin} {json_name} --output_scene {model_scene_dir}/scene.json --output_image {images_dir}/{name}.png --stats {dirname}/stats.csv {append}'
         print(cmd)
         if append == '':
             append = '--append-stats'
