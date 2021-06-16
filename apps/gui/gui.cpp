@@ -192,23 +192,27 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
   static auto scene_filename = "data/scenes/"s;
   draw_textinput(widgets, "##scene-name", scene_filename);
-
   continue_line(widgets);
 
   if (draw_button(widgets, "save scene")) {
     auto& cell_colors = app->test.cell_colors;
-    // for (int i = 0; i < cell_colors.size(); i++) {
-    //   cell_colors[i] = app->cell_shapes[i]->material->color;
-    // }
-    auto scene = make_scene(
-        app->mesh, app->state, app->camera, app->color_shapes, cell_colors);
+    for (int i = 0; i < cell_colors.size(); i++) {
+      cell_colors[i] = app->cell_shapes[i]->material->color;
+    }
+
     auto error = string{};
     if (!make_directory(scene_filename, error)) {
       printf("%s\n", error.c_str());
     }
+
     if (!make_directory(path_join(scene_filename, "shapes"), error)) {
       printf("%s\n", error.c_str());
     }
+
+    // Saving output scene
+    auto scene = make_scene(app->mesh, app->state, app->camera,
+        app->color_shapes, app->save_edges, cell_colors);
+
     save_scene(path_join(scene_filename, "scene.json"), scene, error);
   }
 
@@ -263,6 +267,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     if (!app->glscene->instances[2]->hidden) {
       draw_coloredit(widgets, "points color", app->points_material->color);
     }
+
     draw_coloredit(widgets, "mesh color", glmaterial->color);
     // draw_slider(widgets, "resolution", params.resolution, 0, 4096);
     // draw_combobox(
@@ -931,9 +936,11 @@ int main(int argc, const char* argv[]) {
 
   // add_option(cli, "svg-size", app->svg_size, "Svg size.");
   add_option(cli, "drawing-size", app->drawing_size, "Size of mapped drawing.");
-  add_option(cli, "thick-lines", app->thick_lines, "Thin lines.");
+  add_option(cli, "thick-lines", app->thick_lines, "Thick lines.");
 
   add_option(cli, "color-shapes", app->color_shapes, "Color shapes.");
+  add_option(cli, "save-edges", app->save_edges, "Save mesh edges in scene.");
+
   add_option(cli, "color-hashgrid", app->color_hashgrid, "Color hashgrid.");
   add_option(cli, "output-test", app->output_test_filename, "Output test.");
 

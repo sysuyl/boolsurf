@@ -34,6 +34,7 @@ struct app_state {
 
   bool         thick_lines    = false;
   bool         color_shapes   = false;
+  bool         save_edges     = false;
   bool         color_hashgrid = false;
   bool         show_polygons  = true;
   bool         show_arrows    = false;

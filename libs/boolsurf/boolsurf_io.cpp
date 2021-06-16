@@ -313,7 +313,7 @@ void add_polygons(bool_state& state, const bool_mesh& mesh,
 }
 
 scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
-    const scene_camera& camera, bool color_shapes,
+    const scene_camera& camera, bool color_shapes, bool save_edges,
     const vector<vec3f>& cell_colors) {
   auto scene = scene_model{};
   scene.cameras.push_back(camera);
@@ -324,29 +324,33 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
     auto& instance    = scene.instances.emplace_back();
     instance.material = (int)scene.materials.size();
     auto& material    = scene.materials.emplace_back();
+
     if (cell_colors.size()) {
       material.color = cell_colors[i];
     } else {
       material.color = get_cell_color(state, i, color_shapes);
     }
+
     material.type      = scene_material_type::glossy;
     material.roughness = 0.5;
     instance.shape     = (int)scene.shapes.size();
-    auto& shape        = scene.shapes.emplace_back();
+    auto shape         = scene_shape{};
 
     // TODO(giacomo): Too many copies of positions.
     shape.positions = mesh.positions;
     for (auto face : cell.faces) {
       shape.triangles.push_back(mesh.triangles[face]);
     }
+
+    scene.shapes.push_back(shape);
   }
 
-  if (0) {
+  if (save_edges) {
     auto& instance     = scene.instances.emplace_back();
     instance.shape     = (int)scene.shapes.size();
     instance.material  = (int)scene.materials.size();
     auto& material     = scene.materials.emplace_back();
-    material.color     = {0, 0, 1};
+    material.color     = {0.25, 0.25, 0.25};
     material.type      = scene_material_type::glossy;
     material.roughness = 0.5;
     auto& edges        = scene.shapes.emplace_back();

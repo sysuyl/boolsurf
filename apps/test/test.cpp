@@ -31,9 +31,9 @@ struct test_stats {
 
 void save_image(const string& output_image_filename, const bool_mesh& mesh,
     const bool_state& state, const scene_camera& camera, bool color_shapes,
-    int spp) {
+    bool save_edges, int spp) {
   if (output_image_filename == "no-output") return;
-  auto scene = make_scene(mesh, state, camera, color_shapes);
+  auto scene = make_scene(mesh, state, camera, color_shapes, save_edges);
 
   auto params    = trace_params{};
   auto error     = string{};
@@ -98,6 +98,7 @@ int main(int num_args, const char* args[]) {
   auto svg_subdivs           = 2;
   auto drawing_size          = 0.01f;
   auto color_shapes          = false;
+  auto save_edges            = false;
   auto stats_filename        = ""s;
   auto append_stats          = false;
   auto stats                 = test_stats{};
@@ -116,6 +117,8 @@ int main(int num_args, const char* args[]) {
   add_option(cli, "svg-subdivs", svg_subdivs, "Svg subdivisions.");
   add_option(cli, "drawing-size", drawing_size, "Size of mapped drawing.");
   add_option(cli, "color-shapes", color_shapes, "Color shapes.");
+  add_option(cli, "save-edges", save_edges, "Save mesh edges in scene.");
+
   add_option(cli, "stats", stats_filename, "output stats");
   add_option(cli, "append-stats", append_stats, "append statistics");
   parse_cli(cli, num_args, args);
@@ -230,14 +233,14 @@ int main(int num_args, const char* args[]) {
   compute_shapes(state);
 
   // Saving output scene
-  auto scene = make_scene(mesh, state, test.camera, color_shapes);
+  auto scene = make_scene(mesh, state, test.camera, color_shapes, save_edges);
   if (output_scene_filename.size()) {
     save_scene(output_scene_filename, scene, error);
   }
 
   // Saving render and cell adjacency graph
-  save_image(
-      output_image_filename, mesh, state, test.camera, color_shapes, spp);
+  save_image(output_image_filename, mesh, state, test.camera, color_shapes,
+      save_edges, spp);
 
   // auto graph_dir      = path_dirname(output_image_filename);
   // auto graph_filename = path_basename(output_image_filename) +
