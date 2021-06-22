@@ -57,8 +57,8 @@ inline vector<vec3f> polygon_normals(
   return normals;
 }
 
-inline bool_shape make_polygon_shape(
-    const bool_mesh& mesh, const vector<vec3f>& positions, bool thick) {
+inline bool_shape make_polygon_shape(const bool_mesh& mesh,
+    const vector<vec3f>& positions, bool thick, float line_width) {
   auto shape = bool_shape{};
 
   if (!thick) {
@@ -78,8 +78,7 @@ inline bool_shape make_polygon_shape(
       tos.push_back(to);
     }
 
-    float radius   = 0.003;
-    auto  cylinder = make_uvcylinder({16, 1, 1}, {radius, 1});
+    auto cylinder = make_uvcylinder({16, 1, 1}, {line_width, 1});
     for (auto& p : cylinder.positions) {
       p.z = p.z * 0.5 + 0.5;
     }
@@ -108,9 +107,9 @@ void set_shape(shade_instance* instance, const bool_shape& shape) {
 }
 
 inline void set_polygon_shape(shade_instance* instance, const bool_mesh& mesh,
-    const mesh_polygon& polygon, bool thick) {
+    const mesh_polygon& polygon, bool thick, float line_width) {
   auto positions = polygon_positions(polygon, mesh);
-  auto shape     = make_polygon_shape(mesh, positions, thick);
+  auto shape     = make_polygon_shape(mesh, positions, thick, line_width);
   set_shape(instance, shape);
 }
 

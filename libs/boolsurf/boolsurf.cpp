@@ -349,9 +349,9 @@ static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
         last_face = segment.face;
       }
 
-      //      if (last_vertex != -1)
-      //        control_points[last_vertex] =
-      //            polygon.points[(e + 1) % polygon.edges.size()];
+      if (last_vertex != -1)
+        control_points[last_vertex] =
+            polygon.points[(e + 1) % polygon.edges.size()];
     }
 
     if (indices == vec2i{-1, -1}) {
@@ -1528,6 +1528,7 @@ void compute_generator_polygons(
 
   // Calcolo i generatori per le shape che hanno generato quella corrente
   for (auto& generator : shape.generators) {
+    if (generator == -1) continue;
     compute_generator_polygons(state, generator, result);
   }
 }
@@ -1553,7 +1554,6 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
 
       for (auto c : component) {
         auto& cell = state.cells[c];
-
         // Per ogni cella che compone la shape calcolo il bordo a partire
         // dalle facce che ne fanno parte
         for (auto face : cell.faces) {
@@ -1628,6 +1628,27 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
       }
     }
   }
+  for (auto& shape : state.shapes) {
+    auto& borders = shape.border_points;
+    printf("Borders: %d\n", borders.size());
+  }
+}
+
+bool_state compute_border_polygons(const bool_state& state) {
+  auto new_state   = bool_state{};
+  new_state.points = state.points;
+
+  for (auto& shape : state.shapes) {
+    if (!shape.is_root) continue;
+    for (auto& border : shape.border_points) {
+      auto& polygon = new_state.polygons.emplace_back();
+      for (auto v : border) {
+        auto id = state.control_points.at(v);
+        polygon.points.push_back(id);
+      }
+    }
+  }
+  return new_state;
 }
 
 void compute_bool_operation(bool_state& state, const bool_operation& op) {

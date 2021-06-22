@@ -211,7 +211,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
     // Saving output scene
     auto scene = make_scene(app->mesh, app->state, app->camera,
-        app->color_shapes, app->save_edges, cell_colors);
+        app->color_shapes, app->save_edges, app->save_polygons, app->line_width,
+        cell_colors);
 
     save_scene(path_join(scene_filename, "scene.json"), scene, error);
   }
@@ -403,6 +404,14 @@ void draw_widgets(app_state* app, const gui_input& input) {
       app->test.operations += app->operation;
       update_cell_colors(app);
       app->operation = {};
+    }
+
+    if (draw_button(widgets, "Apply All")) {
+      commit_state(app);
+      for (auto& op : app->test.operations) {
+        compute_bool_operation(app->state, op);
+      }
+      update_cell_colors(app);
     }
 
     if (draw_button(widgets, "Apply difference")) {
@@ -755,28 +764,19 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key('O'): {
-        // for (auto& op : app->test.operations) {
-        //   compute_bool_operation(app->state, op);
-        // }
+        printf("Computing operations\n");
+        for (auto& op : app->test.operations) {
+          compute_bool_operation(app->state, op);
+        }
 
+        printf("Computing borders\n");
         update_cell_colors(app);
         compute_shape_borders(app->mesh, app->state);
 
-        auto state   = bool_state{};
-        state.points = app->state.points;
+        auto new_state = compute_border_polygons(app->state);
+        save_test(app, new_state, "data/tests/border_polygons.json");
+        printf("Saved borders\n");
 
-        for (auto& shape : app->state.shapes) {
-          if (!shape.is_root) continue;
-          for (auto& border : shape.border_points) {
-            auto& polygon = state.polygons.emplace_back();
-            for (auto v : border) {
-              auto id = app->state.control_points.at(v);
-              polygon.points.push_back(id);
-            }
-          }
-        }
-
-        save_test(app, state, "data/tests/border_tmp.json");
         return;
 
         app->mesh = app->mesh_original;
@@ -937,9 +937,12 @@ int main(int argc, const char* argv[]) {
   // add_option(cli, "svg-size", app->svg_size, "Svg size.");
   add_option(cli, "drawing-size", app->drawing_size, "Size of mapped drawing.");
   add_option(cli, "thick-lines", app->thick_lines, "Thick lines.");
+  add_option(cli, "line-width", app->line_width, "Thick line width.");
 
   add_option(cli, "color-shapes", app->color_shapes, "Color shapes.");
   add_option(cli, "save-edges", app->save_edges, "Save mesh edges in scene.");
+  add_option(
+      cli, "save-polygons", app->save_polygons, "Save polygons in scene.");
 
   add_option(cli, "color-hashgrid", app->color_hashgrid, "Color hashgrid.");
   add_option(cli, "output-test", app->output_test_filename, "Output test.");

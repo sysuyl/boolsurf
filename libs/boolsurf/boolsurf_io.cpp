@@ -312,9 +312,34 @@ void add_polygons(bool_state& state, const bool_mesh& mesh,
   }
 }
 
+scene_shape polygon_shape(const vector<vec3f>& positions, float thickness) {
+  //  auto positions = eval_positions(triangles, positions, path);
+  auto shape = scene_shape{};
+  for (auto idx = 0; idx < positions.size(); idx++) {
+    auto sphere = make_sphere(8, thickness);
+    for (auto& p : sphere.positions) p += positions[idx];
+    merge_quads(shape.quads, shape.positions, shape.normals, shape.texcoords,
+        sphere.quads, sphere.positions, sphere.normals, sphere.texcoords);
+
+    if (idx < (int)positions.size() - 1) {
+      auto cylinder = make_uvcylinder({32, 1, 1},
+          {thickness, length(positions[idx] - positions[idx + 1]) / 2});
+      auto frame    = frame_fromz((positions[idx] + positions[idx + 1]) / 2,
+          normalize(positions[idx + 1] - positions[idx]));
+
+      for (auto& p : cylinder.positions) p = transform_point(frame, p);
+      for (auto& n : cylinder.normals) n = transform_direction(frame, n);
+      merge_quads(shape.quads, shape.positions, shape.normals, shape.texcoords,
+          cylinder.quads, cylinder.positions, cylinder.normals,
+          cylinder.texcoords);
+    }
+  }
+  return shape;
+}
+
 scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
     const scene_camera& camera, bool color_shapes, bool save_edges,
-    const vector<vec3f>& cell_colors) {
+    bool save_polygons, float line_width, const vector<vec3f>& cell_colors) {
   auto scene = scene_model{};
   scene.cameras.push_back(camera);
 
@@ -369,19 +394,23 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
     }
   }
 
-  if (scene.shapes.empty()) {
-    auto& instance     = scene.instances.emplace_back();
-    instance.material  = (int)scene.materials.size();
+  if (!state.shapes.size()) {
+    auto& instance    = scene.instances.emplace_back();
+    instance.material = (int)scene.materials.size();
+
     auto& material     = scene.materials.emplace_back();
     material.color     = {0.5, 0.5, 0.5};
     material.type      = scene_material_type::glossy;
     material.roughness = 0.5;
-    instance.shape     = (int)scene.shapes.size();
-    auto& shape        = scene.shapes.emplace_back();
+
+    instance.shape = (int)scene.shapes.size();
+    auto& shape    = scene.shapes.emplace_back();
 
     shape.positions = mesh.positions;
     shape.triangles = mesh.triangles;
+  }
 
+  if (save_polygons) {
     for (int i = 1; i < state.polygons.size(); i++) {
       auto& polygon   = state.polygons[i];
       auto  positions = vector<vec3f>();
@@ -398,23 +427,18 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
         auto& segment = polygon.edges.back().back();
         positions.push_back(eval_position(mesh, {segment.face, segment.end}));
       }
-      if (positions.empty()) continue;
 
-      auto lines = vector<vec2i>(positions.size() - 1);
-      for (int i = 0; i < lines.size(); i++) {
-        lines[i] = {i, i + 1};
-      }
+      if (positions.empty()) continue;
 
       auto& instance    = scene.instances.emplace_back();
       instance.material = (int)scene.materials.size();
       auto& material    = scene.materials.emplace_back();
-      material.emission = {1, 0, 0};
+      material.color    = get_color(i);
       material.type     = scene_material_type::matte;
       instance.shape    = (int)scene.shapes.size();
-      auto& shape       = scene.shapes.emplace_back();
-      shape.radius      = vector<float>(positions.size(), 0.001);
-      shape.positions   = positions;
-      shape.lines       = lines;
+
+      auto shape = polygon_shape(positions, line_width);
+      scene.shapes.push_back(shape);
     }
   }
 

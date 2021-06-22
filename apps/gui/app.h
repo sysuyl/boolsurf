@@ -32,9 +32,13 @@ struct app_state {
   bool_operation operation            = {};
   gui_window*    window               = nullptr;
 
-  bool         thick_lines    = false;
-  bool         color_shapes   = false;
-  bool         save_edges     = false;
+  bool  thick_lines = false;
+  float line_width  = 0.003f;
+
+  bool color_shapes  = false;
+  bool save_edges    = false;
+  bool save_polygons = false;
+
   bool         color_hashgrid = false;
   bool         show_polygons  = true;
   bool         show_arrows    = false;
@@ -120,7 +124,8 @@ void set_polygon_shape(app_state* app, int polygon_id) {
   auto  positions = polygon_positions(app->state.polygons[polygon_id], mesh);
   auto  normals   = polygon_normals(app->state.polygons[polygon_id], mesh);
 
-  auto polygon_shape = make_polygon_shape(mesh, positions, app->thick_lines);
+  auto polygon_shape = make_polygon_shape(
+      mesh, positions, app->thick_lines, app->line_width);
   set_shape(app->polygon_shapes[polygon_id], polygon_shape);
 
   auto arrow_shape = make_arrow_shape();
@@ -423,7 +428,8 @@ void add_polygon_shape(app_state* app, const mesh_polygon& polygon, int index) {
       app->glscene, identity3x4f, polygon_shape, polygon_material);
 
   if (polygon.length > 0)
-    set_polygon_shape(polygon_instance, app->mesh, polygon, app->thick_lines);
+    set_polygon_shape(polygon_instance, app->mesh, polygon, app->thick_lines,
+        app->line_width);
 
   polygon_instance->depth_test = ogl_depth_test::always;
   app->polygon_shapes += polygon_instance;
