@@ -337,6 +337,63 @@ scene_shape polygon_shape(const vector<vec3f>& positions, float thickness) {
   return shape;
 }
 
+scene_model make_debug_scene(const bool_mesh& mesh, const bool_state& state,
+    const scene_camera& camera) {
+  auto scene = scene_model{};
+  scene.cameras.push_back(camera);
+
+  auto& instance    = scene.instances.emplace_back();
+  instance.material = (int)scene.materials.size();
+
+  auto& material     = scene.materials.emplace_back();
+  material.color     = {0.5, 0.5, 0.5};
+  material.type      = scene_material_type::glossy;
+  material.roughness = 0.5;
+
+  instance.shape = (int)scene.shapes.size();
+  auto& shape    = scene.shapes.emplace_back();
+
+  shape.positions = mesh.positions;
+  shape.triangles = mesh.triangles;
+
+  auto border_faces_map = hash_map<hash_set<int>, vector<int>>{};
+  for (int i = 0; i < mesh.borders.tags.size(); i++) {
+    auto tag     = mesh.borders.tags[i];
+    auto tag_set = hash_set<int>{};
+    if (tag.x < 0) tag_set.insert(-tag.x);
+    if (tag.y < 0) tag_set.insert(-tag.y);
+    if (tag.z < 0) tag_set.insert(-tag.z);
+    if (tag_set.empty()) continue;
+    border_faces_map[tag_set].push_back(i);
+  }
+
+  for (auto& [set, faces] : border_faces_map) {
+    auto color = vec3f{0, 0, 0};
+    for (auto& polygon_id : set) {
+      color += get_color(polygon_id);
+    }
+    color /= set.size();
+
+    auto& instance    = scene.instances.emplace_back();
+    instance.material = (int)scene.materials.size();
+
+    auto& material     = scene.materials.emplace_back();
+    material.color     = color;
+    material.type      = scene_material_type::glossy;
+    material.roughness = 0.5;
+
+    instance.shape = (int)scene.shapes.size();
+    auto& shape    = scene.shapes.emplace_back();
+
+    shape.positions = mesh.positions;
+    for (auto face : faces) {
+      shape.triangles.push_back(mesh.triangles[face]);
+    }
+  }
+
+  return scene;
+}
+
 scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
     const scene_camera& camera, bool color_shapes, bool save_edges,
     bool save_polygons, float line_width, const vector<vec3f>& cell_colors) {

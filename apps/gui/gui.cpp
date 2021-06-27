@@ -210,10 +210,11 @@ void draw_widgets(app_state* app, const gui_input& input) {
     }
 
     // Saving output scene
-    auto scene = make_scene(app->mesh, app->state, app->camera,
-        app->color_shapes, app->save_edges, app->save_polygons, app->line_width,
-        cell_colors);
+    // auto scene = make_scene(app->mesh, app->state, app->camera,
+    //     app->color_shapes, app->save_edges, app->save_polygons,
+    //     app->line_width, cell_colors);
 
+    auto scene = make_debug_scene(app->mesh, app->state, app->camera);
     save_scene(path_join(scene_filename, "scene.json"), scene, error);
   }
 

@@ -164,6 +164,9 @@ void save_tree_png(const bool_state& state, string filename,
 
 scene_shape polygon_shape(const vector<vec3f>& positions, float thickness);
 
+scene_model make_debug_scene(
+    const bool_mesh& mesh, const bool_state& state, const scene_camera& camera);
+
 scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
     const scene_camera& camera, bool color_shapes, bool save_edges,
     bool save_polygons, float line_width,
