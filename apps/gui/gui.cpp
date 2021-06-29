@@ -210,11 +210,11 @@ void draw_widgets(app_state* app, const gui_input& input) {
     }
 
     // Saving output scene
-    // auto scene = make_scene(app->mesh, app->state, app->camera,
-    //     app->color_shapes, app->save_edges, app->save_polygons,
-    //     app->line_width, cell_colors);
+    auto scene = make_scene(app->mesh, app->state, app->camera,
+        app->color_shapes, app->save_edges, app->save_polygons,
+        app->line_width, cell_colors);
 
-    auto scene = make_debug_scene(app->mesh, app->state, app->camera);
+    // auto scene = make_debug_scene(app->mesh, app->state, app->camera);
     save_scene(path_join(scene_filename, "scene.json"), scene, error);
   }
 
@@ -304,6 +304,22 @@ void draw_widgets(app_state* app, const gui_input& input) {
           reverse(edge.begin(), edge.end());
           for (auto& segment : edge) swap(segment.start, segment.end);
         }
+      }
+    }
+
+    if (draw_button(widgets, "Delete polygon")) {
+      if (app->selected_polygon >= 1) {
+        app->state.polygons.erase(app->state.polygons.begin() + app->selected_polygon);
+        printf("Removing polygon: %d\n", app->selected_polygon);
+      }
+    }
+
+    if (draw_button(widgets, "Invert all")) {
+      for (auto i = 0; i < app->state.polygons.size(); i++){
+        auto& polygon = app->state.polygons[i];
+        printf("Reversing polygon: %d\n", i);
+        reverse(polygon.points.begin(), polygon.points.end());
+        reverse(polygon.edges.begin(), polygon.edges.end());
       }
     }
     end_header(widgets);

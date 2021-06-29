@@ -201,9 +201,15 @@ int main(int num_args, const char* args[]) {
     save_test(state, test.camera, output_json_filename);
   }
 
-  stats.polygons = (int)state.polygons.size();
-  for (auto& polygon : state.polygons) stats.added_points += polygon.length;
-  stats.control_points = state.points.size();
+  stats.polygons = (int)state.polygons.size() - 1;
+  for (auto& polygon : state.polygons) {
+    stats.control_points += polygon.points.size();
+
+    for (auto& edge : polygon.edges) {
+      stats.added_points += edge.size();
+    }
+  }
+
   stats.control_points += (int)state.isecs_generators.size();
   stats.genus = compute_mesh_genus(mesh);
 

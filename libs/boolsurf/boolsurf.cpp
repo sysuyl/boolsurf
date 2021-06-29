@@ -668,7 +668,7 @@ static vector<vector<int>> propagate_cell_labels(const vector<mesh_cell>& cells,
   for (auto& s : start) visited[s] = true;
 
   while (!queue.empty()) {
-    print("queue", queue);
+    // print("queue", queue);
     auto cell_id = queue.front();
     queue.pop_front();
     static int c = 0;
@@ -1291,14 +1291,6 @@ static vector<int> find_ambient_cells(
         parent_map[root] = {path};
       }
     }
-
-    // printf("cell %d\n", i);
-    // for (auto& [root, paths] : parent_map) {
-    //   printf("root %d, ", root);
-    //   for (auto& path : paths) {
-    //     print("", path);
-    //   }
-    // }
   }
 
   auto dag = vector<vector<int>>(state.cells.size());
@@ -1382,7 +1374,7 @@ void compute_cell_labels(bool_state& state) {
   // (marzia) Sicuro si può fare meglio
   auto skip_polygons = hash_set<int>();
   auto cycle_nodes   = hash_set<int>();
-  print("Cycles", state.cycles.size());
+  // print("Cycles", state.cycles.size());
 
   for (auto& cycle : state.cycles) {
     for (auto& [node, polygon] : cycle) {
@@ -1409,7 +1401,6 @@ void compute_cell_labels(bool_state& state) {
   // uscito)
   for (auto& ll : state.labels) {
     for (auto& label : ll) {
-      assert(label >= 0);
       if (label > 1) label = label % 2;
     }
   }
@@ -1628,10 +1619,7 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
       }
     }
   }
-  for (auto& shape : state.shapes) {
-    auto& borders = shape.border_points;
-    printf("Borders: %d\n", borders.size());
-  }
+
 }
 
 bool_state compute_border_polygons(const bool_state& state) {
