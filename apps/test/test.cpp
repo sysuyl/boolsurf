@@ -217,7 +217,7 @@ int main(int num_args, const char* args[]) {
   auto triangulation_timer = simple_timer{};
   slice_mesh(mesh, state);
 
-  stats.triangulation_ms = elapsed_nanoseconds(triangulation_timer) *
+  stats.triangulation_ms = elapsed_nanoseconds(triangulation_timer) /
                            pow(10, 6);
   stats.total_ms += stats.triangulation_ms;
   stats.sliced_triangles = (int)mesh.triangulated_faces.size();
@@ -229,7 +229,7 @@ int main(int num_args, const char* args[]) {
   state.cells           = make_mesh_cells(mesh.adjacencies, mesh.borders);
   update_virtual_adjacencies(state.cells, mesh.borders);
 
-  stats.flood_fill_ms = elapsed_nanoseconds(flood_fill_timer) * pow(10, 6);
+  stats.flood_fill_ms = elapsed_nanoseconds(flood_fill_timer) / pow(10, 6);
   stats.total_ms += stats.flood_fill_ms;
 
   stats.graph_nodes = state.cells.size();
@@ -242,7 +242,7 @@ int main(int num_args, const char* args[]) {
   stats.graph_cycles        = (int)state.cycles.size();
   stats.graph_ambient_cells = (int)state.ambient_cells.size();
 
-  stats.labelling_ms = elapsed_nanoseconds(labelling_timer) * pow(10, 6);
+  stats.labelling_ms = elapsed_nanoseconds(labelling_timer) / pow(10, 6);
   stats.total_ms += stats.labelling_ms;
 
   compute_shapes(state);
@@ -268,8 +268,9 @@ int main(int num_args, const char* args[]) {
   for (auto& operation : test.operations) {
     compute_bool_operation(state, operation);
   }
+  compute_shape_borders(mesh, state);
 
-  stats.boolean_ms = elapsed_nanoseconds(booleans_timer) * pow(10, 6);
+  stats.boolean_ms = elapsed_nanoseconds(booleans_timer) / pow(10, 6);
   stats.total_ms += stats.boolean_ms;
 
   // output timings and stats:
