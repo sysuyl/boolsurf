@@ -1369,7 +1369,10 @@ void compute_cell_labels(bool_state& state) {
 
   // Calcoliamo possibili cicli all'interno del grafo delle adiacenze della
   // mesh. In modo da eliminare gli archi corrispondenti.
-  state.cycles = compute_graph_cycles(state.cells);
+  auto cycles_timer = simple_timer{};
+  state.cycles      = compute_graph_cycles(state.cells);
+  printf(
+      "Finding cycles: %f\n", elapsed_nanoseconds(cycles_timer) / pow(10, 6));
 
   // (marzia) Sicuro si può fare meglio
   auto skip_polygons = hash_set<int>();
@@ -1382,19 +1385,25 @@ void compute_cell_labels(bool_state& state) {
       skip_polygons.insert(polygon);
     }
   }
-  save_tree_png(state, "data/graph.png", "", false);
+  // save_tree_png(state, "data/graph.png", "", false);
 
   // Calcoliamo il labelling definitivo per effettuare le booleane tra
   // poligoni
 
-  state.ambient_cells = find_ambient_cells(state, cycle_nodes);
+  auto ambient_cell_timer = simple_timer{};
+  state.ambient_cells     = find_ambient_cells(state, cycle_nodes);
   if (state.ambient_cells.empty())
     state.ambient_cells = vector<int>(cycle_nodes.begin(), cycle_nodes.end());
+  printf("Finding ambient cells: %f\n",
+      elapsed_nanoseconds(ambient_cell_timer) / pow(10, 6));
 
   print("Ambient cells", state.ambient_cells.size());
 
+  auto propagation_timer = simple_timer{};
   state.labels = propagate_cell_labels(state.cells, state.ambient_cells,
       state.cycles, skip_polygons, (int)state.polygons.size());
+  printf("Finding labelling: %f\n",
+      elapsed_nanoseconds(propagation_timer) / pow(10, 6));
 
   // Applichiamo la even-odd rule nel caso in cui le label > 1 (Nelle self
   // intersections posso entrare in un poligono più volte senza esserne prima

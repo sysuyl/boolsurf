@@ -241,10 +241,9 @@ int main(int num_args, const char* args[]) {
   compute_cell_labels(state);
   stats.graph_cycles        = (int)state.cycles.size();
   stats.graph_ambient_cells = (int)state.ambient_cells.size();
-
-  stats.labelling_ms = elapsed_nanoseconds(labelling_timer) / pow(10, 6);
+  stats.labelling_ms        = elapsed_nanoseconds(labelling_timer) / pow(10, 6);
   stats.total_ms += stats.labelling_ms;
-
+  printf("Total labelling time: %f\n", stats.labelling_ms);
   compute_shapes(state);
 
   // Saving output scene
@@ -268,7 +267,7 @@ int main(int num_args, const char* args[]) {
   for (auto& operation : test.operations) {
     compute_bool_operation(state, operation);
   }
-  compute_shape_borders(mesh, state);
+  // compute_shape_borders(mesh, state);
 
   stats.boolean_ms = elapsed_nanoseconds(booleans_timer) / pow(10, 6);
   stats.total_ms += stats.boolean_ms;
