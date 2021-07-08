@@ -67,7 +67,7 @@ Risultati:
   -[x] Due collari con riccioli che si intersecano
 
 - [x] Ciambella paperella per lungo (?)
-- [ ] Lucy con pois sulla veste
+- [x] Lucy con pois sulla veste
 - [x] SVG complesso con cerchi 
 - [x] Modello con fiorelli (macchinina) - texture bombing
 - [x] Test con 2 svg molto complicati - tipo palma
