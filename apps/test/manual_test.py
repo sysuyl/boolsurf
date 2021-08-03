@@ -76,26 +76,50 @@ def operation(jsons_dir, output_jsons_dir):
 
         with open(json_name) as json_handler:
             js = json.load(json_handler)
-            polygons = js['polygons']
-            num_polygons = len(polygons)
+            shapes = js['shapes']
+            num_shapes = len(shapes)
 
-            if num_polygons < 3:
+            if num_shapes < 3:
                 continue
 
-            a = random.randint(1, num_polygons-1)
-            b = random.randint(1, num_polygons-1)
+            a = random.randint(1, num_shapes-1)
+            b = random.randint(1, num_shapes-1)
 
-            while (a == b or polygons[a] == [] or polygons[b] == []):
-                b = random.randint(0, num_polygons-1)
+            while (a == b or shapes[a] == [] or shapes[b] == []):
+                b = random.randint(0, num_shapes-1)
 
             type = random.randint(0, len(operations))
-            print(f'{num_polygons} {a} {b} - {type}\n')
+            print(f'{num_shapes} {a} {b} - {type}\n')
 
             operation = {'a': a, 'b': b, 'type': type}
             js['operations'].append(operation)
 
             with open(f'{output_jsons_dir}/tests/{name}.json', 'w') as json_file:
                 json.dump(js, json_file, indent=2)
+
+
+@cli.command()
+@click.argument('tests_dir')
+@click.argument('output_tests_dir')
+def fix(tests_dir, output_tests_dir):
+    test_names = glob.glob(f'{tests_dir}/tests/*.json')
+    test_num = len(test_names)
+
+    try:
+        os.mkdir(output_tests_dir)
+    except:
+        pass
+
+    for test_id, test_name in enumerate(test_names):
+        name = os.path.basename(test_name).split('.')[0]
+
+        msg = f'[{test_id+1}/{test_num}] {test_name}'
+        print(msg + ' ' * max(0, 78-len(msg)))
+
+        cmd = f'.\\bin\\gui.exe --output-test {output_tests_dir}/{name}.json {test_name}'
+        print(cmd)
+
+        subprocess.run(cmd, shell=True).returncode
 
 
 cli()

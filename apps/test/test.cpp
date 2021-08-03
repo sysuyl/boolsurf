@@ -201,12 +201,16 @@ int main(int num_args, const char* args[]) {
     save_test(state, test.camera, output_json_filename);
   }
 
-  stats.polygons = (int)state.polygons.size() - 1;
-  for (auto& polygon : state.polygons) {
-    stats.control_points += polygon.points.size();
+  for (auto& bool_shape : state.bool_shapes) {
+    for (auto& polygon : bool_shape.polygons) {
+      if (polygon.points.empty()) continue;
 
-    for (auto& edge : polygon.edges) {
-      stats.added_points += edge.size();
+      stats.polygons += 1;
+      stats.control_points += polygon.points.size();
+
+      for (auto& edge : polygon.edges) {
+        stats.added_points += edge.size();
+      }
     }
   }
 
@@ -236,15 +240,26 @@ int main(int num_args, const char* args[]) {
   for (auto& cell : state.cells) stats.graph_edges += cell.adjacency.size();
   stats.graph_edges /= 2;
 
-  // Label propagation
-  auto labelling_timer = simple_timer{};
-  compute_cell_labels(state);
-  stats.graph_cycles        = (int)state.cycles.size();
-  stats.graph_ambient_cells = (int)state.ambient_cells.size();
-  stats.labelling_ms        = elapsed_nanoseconds(labelling_timer) / pow(10, 6);
-  stats.total_ms += stats.labelling_ms;
-  printf("Total labelling time: %f\n", stats.labelling_ms);
-  compute_shapes(state);
+  auto invalid_shapes = compute_invalid_shapes(
+      state.cells, (int)state.bool_shapes.size());
+
+  if (invalid_shapes.size()) {
+    state.failed = true;
+    printf("FAILED: ");
+    for (auto& s : invalid_shapes) printf("%d ", s);
+    printf("\n");
+  } else {
+    // Label propagation
+    auto labelling_timer = simple_timer{};
+    compute_cell_labels(state);
+
+    stats.graph_cycles = (int)state.cycles.size();
+    // stats.graph_ambient_cells = (int)state.ambient_cells.size();
+    stats.labelling_ms = elapsed_nanoseconds(labelling_timer) / pow(10, 6);
+    stats.total_ms += stats.labelling_ms;
+    printf("Total labelling time: %f\n", stats.labelling_ms);
+    compute_shapes(state);
+  }
 
   // Saving output scene
   auto scene = make_scene(mesh, state, test.camera, color_shapes, save_edges,

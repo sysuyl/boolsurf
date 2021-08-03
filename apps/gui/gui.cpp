@@ -61,18 +61,10 @@ void add_polygons(app_state* app, bool_test& test, const mesh_point& center,
   add_polygons(app->state, app->mesh, app->camera, test, center,
       app->drawing_size, screenspace, straight_up);
 
-  for (auto p = app->last_svg.previous_polygons; p < app->state.polygons.size();
-       p++) {
-    auto& polygon = app->state.polygons[p];
-    add_polygon_shape(app, polygon, p);
-  }
+  add_shape_shape(app, app->last_svg.last_shape);
 }
 
 void load_svg(app_state* app) {
-  auto& last_svg             = app->last_svg;
-  last_svg.previous_polygons = (int)app->state.polygons.size();
-  if (app->state.polygons.size() > 1) last_svg.previous_polygons -= 1;
-
   auto script_path = normalize_path("scripts/svg_parser.py"s);
   auto test_json   = normalize_path("data/tests/tmp.json"s);
   auto cmd = "python3 "s + script_path + " "s + app->svg_filename + " "s +
@@ -92,6 +84,7 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
           app->svg_filename, false, "data/svgs/", "test.svg", "*.svg")) {
     load_svg(app);
   }
+
   if (app->svg_filename.empty()) return;
   continue_line(widgets);
 
@@ -101,18 +94,22 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
     add_polygons(
         app, app->temp_test, app->last_clicked_point, app->project_points);
     update_polygons(app);
+    app->last_svg.last_shape = (int)app->state.bool_shapes.size() - 1;
   }
+
   continue_line(widgets);
   draw_checkbox(widgets, "project points", app->project_points);
   draw_label(widgets, "filename##svg-filename", app->svg_filename);
 
   if (draw_slider(widgets, "size##svg_size", app->drawing_size, 0.0, 0.1)) {
-    app->state.polygons.resize(app->last_svg.previous_polygons);
+    app->state.bool_shapes.resize(app->last_svg.last_shape);
+    // app->shape_shapes.resize(app->last_svg.last_shape);
     update_svg(app);
   };
 
   if (draw_slider(widgets, "subdivs##svg_subdivs", app->svg_subdivs, 0, 16)) {
-    app->state.polygons.resize(app->last_svg.previous_polygons);
+    app->state.bool_shapes.resize(app->last_svg.last_shape);
+    // app->shape_shapes.resize(app->last_svg.last_shape);
     update_svg(app);
   };
 
@@ -167,7 +164,8 @@ void bezier_last_segment(app_state* app) {
     polygon.points.push_back(app->state.points.size() + i);
   }
   app->state.points += bezier;
-  update_polygon(app, polygon_id);
+  // TODO (MARZIA): ricordati di fixare questo
+  // update_polygon(app, polygon_id);
 }
 
 void draw_widgets(app_state* app, const gui_input& input) {
@@ -211,8 +209,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
     // Saving output scene
     auto scene = make_scene(app->mesh, app->state, app->camera,
-        app->color_shapes, app->save_edges, app->save_polygons,
-        app->line_width, cell_colors);
+        app->color_shapes, app->save_edges, app->save_polygons, app->line_width,
+        cell_colors);
 
     // auto scene = make_debug_scene(app->mesh, app->state, app->camera);
     save_scene(path_join(scene_filename, "scene.json"), scene, error);
@@ -232,18 +230,18 @@ void draw_widgets(app_state* app, const gui_input& input) {
     continue_line(widgets);
 
     if (draw_checkbox(widgets, "polygons", app->show_polygons)) {
-      for (auto i : app->polygon_shapes) {
-        i->hidden = !app->show_polygons;
-      }
+      // for (auto i : app->shape_shapes) {
+      //   i->hidden = !app->show_polygons;
+      // }
 
-      if (app->show_polygons) update_polygons(app);
+      // if (app->show_polygons) update_polygons(app);
     }
 
-    if (draw_checkbox(widgets, "arrows", app->show_arrows)) {
-      for (auto i : app->arrow_shapes) {
-        i->hidden = !app->show_arrows;
-      }
-    }
+    // if (draw_checkbox(widgets, "arrows", app->show_arrows)) {
+    //   for (auto i : app->arrow_shapes) {
+    //     i->hidden = !app->show_arrows;
+    //   }
+    // }
 
     static auto view_triangulation = false;
     continue_line(widgets);
@@ -271,16 +269,15 @@ void draw_widgets(app_state* app, const gui_input& input) {
     }
 
     draw_coloredit(widgets, "mesh color", glmaterial->color);
-    // draw_slider(widgets, "resolution", params.resolution, 0, 4096);
-    // draw_combobox(
-    //     widgets, "lighting", (int&)params.lighting, shade_lighting_names);
     draw_checkbox(widgets, "wireframe", params.wireframe);
+
     continue_line(widgets);
     draw_checkbox(widgets, "double sided", params.double_sided);
 
     if (app->hashgrid_shape) {
       draw_checkbox(widgets, "hashgrid", app->hashgrid_shape->hidden, true);
     }
+
     if (app->border_faces_shapes.size()) {
       if (draw_checkbox(widgets, "border faces",
               app->border_faces_shapes[0]->hidden, true)) {
@@ -309,19 +306,55 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
     if (draw_button(widgets, "Delete polygon")) {
       if (app->selected_polygon >= 1) {
-        app->state.polygons.erase(app->state.polygons.begin() + app->selected_polygon);
+        app->state.polygons.erase(
+            app->state.polygons.begin() + app->selected_polygon);
         printf("Removing polygon: %d\n", app->selected_polygon);
       }
     }
 
     if (draw_button(widgets, "Invert all")) {
-      for (auto i = 0; i < app->state.polygons.size(); i++){
+      for (auto i = 0; i < app->state.polygons.size(); i++) {
         auto& polygon = app->state.polygons[i];
         printf("Reversing polygon: %d\n", i);
         reverse(polygon.points.begin(), polygon.points.end());
         reverse(polygon.edges.begin(), polygon.edges.end());
       }
     }
+    end_header(widgets);
+  }
+
+  if (begin_header(widgets, "Compose shapes")) {
+    auto ff = [&](int i) { return to_string(i); };
+
+    auto s = ""s;
+    for (auto& shape_id : app->current_shape) s += to_string(shape_id) + " ";
+    draw_label(widgets, "Current:", s);
+
+    draw_combobox(widgets, "Shape", app->selected_polygon,
+        (int)app->state.bool_shapes.size(), ff);
+
+    if (draw_button(widgets, "Add")) {
+      app->current_shape.insert(app->selected_polygon);
+    }
+
+    if (draw_button(widgets, "Remove")) {
+      app->current_shape.erase(app->selected_polygon);
+    }
+
+    if (draw_button(widgets, "Create")) {
+      auto& bool_shape = app->state.bool_shapes.emplace_back();
+      for (auto shape_id : app->current_shape) {
+        auto& shape_polygons = app->state.bool_shapes[shape_id].polygons;
+        while (shape_polygons.size()) {
+          auto polygon = shape_polygons.back();
+          shape_polygons.pop_back();
+
+          bool_shape.polygons.push_back(polygon);
+        }
+      }
+      app->current_shape.clear();
+    }
+
     end_header(widgets);
   }
 
@@ -373,7 +406,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
   if (app->selected_shape >= 0 && begin_header(widgets, "shapes")) {
     auto& shape_id   = app->selected_shape;
-    auto& shape      = app->state.shapes[shape_id];
+    auto& shape      = app->state.bool_shapes[shape_id];
     auto  sorting_id = find_idx(app->state.shapes_sorting, shape_id);
 
     draw_label(widgets, "shape", to_string(shape_id));
@@ -383,7 +416,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     draw_label(widgets, "cells", s);
 
     if (draw_button(widgets, "Bring forward")) {
-      if (sorting_id < app->state.shapes.size() - 1) {
+      if (sorting_id < app->state.bool_shapes.size() - 1) {
         swap(app->state.shapes_sorting[sorting_id],
             app->state.shapes_sorting[sorting_id + 1]);
         update_cell_colors(app);
@@ -408,9 +441,9 @@ void draw_widgets(app_state* app, const gui_input& input) {
   if (open_booleans && begin_header(widgets, "booleans")) {
     auto ff = [&](int i) { return to_string(i); };
     draw_combobox(widgets, "a", app->operation.shape_a,
-        (int)app->state.shapes.size(), ff);
+        (int)app->state.bool_shapes.size(), ff);
     draw_combobox(widgets, "b", app->operation.shape_b,
-        (int)app->state.shapes.size(), ff);
+        (int)app->state.bool_shapes.size(), ff);
 
     auto op = (int)app->operation.type;
     draw_combobox(widgets, "operation", op, bool_operation::type_names);
@@ -500,7 +533,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
         polygon.points[i] = app->state.points.size() + i;
       }
       app->state.points += bezier;
-      update_polygon(app, polygon_id);
+      // TODO(MARZIA): ricordati di fixare questo
+      // update_polygon(app, polygon_id);
     }
   }
 
@@ -589,7 +623,7 @@ void mouse_input(app_state* app, const gui_input& input) {
   if (app->selected_cell != -1) {
     for (int s = (int)app->state.shapes_sorting.size() - 1; s >= 0; s--) {
       auto  shape_id = app->state.shapes_sorting[s];
-      auto& shape    = app->state.shapes[shape_id];
+      auto& shape    = app->state.bool_shapes[shape_id];
       if (!shape.is_root) continue;
       //      if (find_idx(shape.cells, app->selected_cell) != -1) {
       if (shape.cells.count(app->selected_cell) != 0) {
@@ -612,19 +646,21 @@ void mouse_input(app_state* app, const gui_input& input) {
   if (input.modifier_alt) {
     commit_state(app);
 
-    // Add point index to last polygon.
-    auto polygon_id = (int)app->state.polygons.size() - 1;
+    auto  shape_id   = (int)app->state.bool_shapes.size() - 1;
+    auto& bool_shape = app->state.bool_shapes.back();
 
-    app->state.polygons[polygon_id].points.push_back(
-        (int)app->state.points.size());
+    // Add point index to last polygon.
+    auto  polygon_id = (int)bool_shape.polygons.size() - 1;
+    auto& polygon    = bool_shape.polygons.back();
+    polygon.points.push_back((int)app->state.points.size());
 
     // Add point to state.
     app->state.points.push_back(point);
-    auto polygon_points = (int)app->state.polygons[polygon_id].points.size();
 
-    // TODO(giacomo): recomputing all paths of the polygon at every click is
-    // bad
-    update_polygon(app, polygon_id, polygon_points - 2);
+    auto polygon_points = (int)polygon.points.size();
+
+    update_polygon(app, shape_id, polygon_id, polygon_points - 2);
+    // update_polygon(app, polygon_id, polygon_points - 2);
   }
 }
 
@@ -697,15 +733,14 @@ void key_input(app_state* app, const gui_input& input) {
         debug_nodes().clear();
         debug_indices().clear();
 
-        // remove trailing empty polygons.
-        while (app->state.polygons.back().points.empty()) {
-          app->state.polygons.pop_back();
+        compute_cells(app->mesh, app->state);
+        if (app->state.failed) {
+          printf("Computation failed\n");
+          return;
         }
 
-        compute_cells(app->mesh, app->state);
-
         // #ifdef MY_DEBUG
-        save_tree_png(app->state, app->test_filename, "", app->color_shapes);
+        // save_tree_png(app->state, app->test_filename, "", app->color_shapes);
         // #endif
 
         compute_shapes(app->state);
@@ -753,7 +788,7 @@ void key_input(app_state* app, const gui_input& input) {
           app->hashgrid_shape = add_patch_shape(
               app, faces, app->mesh_material->color * 0.65);
           // app->hashgrid_shape->depth_test = ogl_depth_test::always;
-          app->glscene->instances += app->polygon_shapes;
+          // app->glscene->instances += app->polygon_shapes;
 
           // auto inner_faces      = vector<int>{};
           // auto outer_faces      = vector<int>{};
@@ -824,9 +859,9 @@ void key_input(app_state* app, const gui_input& input) {
         }
       } break;
 
-      case (int)gui_key('N'): {
-        debug_cells(app);
-      } break;
+        // case (int)gui_key('N'): {
+        //   debug_cells(app);
+        // } break;
 
       case (int)gui_key('F'): {
         auto add = [&](int face, int neighbor) -> bool {
@@ -895,11 +930,38 @@ void key_input(app_state* app, const gui_input& input) {
         app->glcamera = old_camera;
       } break;
 
+      case (int)gui_key('N'): {
+        if (app->state.bool_shapes.empty()) return;
+
+        auto& last_shape = app->state.bool_shapes.back();
+        last_shape.polygons.pop_back();
+
+        auto& last_shape_shape = app->shape_shapes.back();
+        last_shape_shape.polygons.pop_back();
+
+        auto  shape_id  = (int)app->state.bool_shapes.size();
+        auto& new_shape = app->state.bool_shapes.emplace_back();
+        new_shape.polygons.push_back({});
+
+        add_shape_shape(app, shape_id);
+
+      } break;
+
       case (int)gui_key::enter: {
-        if (app->state.polygons.back().points.size() > 2) {
+        if (app->state.bool_shapes.empty()) return;
+        auto& bool_shape = app->state.bool_shapes.back();
+
+        if (bool_shape.polygons.empty()) return;
+        auto& last_polygon = bool_shape.polygons.back();
+
+        if (last_polygon.points.size() > 2) {
           commit_state(app);
-          auto& polygon = app->state.polygons.emplace_back();
-          add_polygon_shape(app, polygon, (int)app->state.polygons.size() - 1);
+
+          auto shape_id = (int)app->state.bool_shapes.size() - 1;
+
+          auto& polygon = bool_shape.polygons.emplace_back();
+          auto  p_shape = get_polygon_shape(app, polygon, shape_id);
+          app->shape_shapes[shape_id].polygons.push_back(p_shape);
         }
       }
 
@@ -934,7 +996,6 @@ void update_app(const gui_input& input, void* data) {
 
 int main(int argc, const char* argv[]) {
   auto app            = new app_state{};
-  auto camera_name    = ""s;
   auto input          = ""s;
   auto model_filename = ""s;
   auto window         = new gui_window{};
@@ -943,16 +1004,14 @@ int main(int argc, const char* argv[]) {
 
   // parse command line
   auto cli = make_cli("yboolsurf", "views shapes inteactively");
-  add_option(cli, "camera", camera_name, "Camera name.");
   add_argument(cli, "input", input,
       "Input filename. Either a model or a json test file");
   add_option(cli, "model", model_filename, "Input model filename.");
-  // add_option(cli, "msaa", window->msaa, "Multisample anti-aliasing.");
+
   add_option(cli, "svg", app->svg_filename, "Svg filename.");
   add_option(cli, "svg-subdivs", app->svg_subdivs, "Svg subdivisions.");
-
-  // add_option(cli, "svg-size", app->svg_size, "Svg size.");
   add_option(cli, "drawing-size", app->drawing_size, "Size of mapped drawing.");
+
   add_option(cli, "thick-lines", app->thick_lines, "Thick lines.");
   add_option(cli, "line-width", app->line_width, "Thick line width.");
 
@@ -983,12 +1042,15 @@ int main(int argc, const char* argv[]) {
 
     auto ret_value = system(cmd.c_str());
     if (ret_value != 0) print_fatal("Svg conversion failed " + input);
+
     app->test_filename = output;
     load_test(app->test, output);
+
   } else if (extension == ".json") {
     app->test_filename = input;
     load_test(app->test, input);
     app->model_filename = app->test.model;
+
   } else {
     app->model_filename = input;
   }
@@ -1009,12 +1071,21 @@ int main(int argc, const char* argv[]) {
 
   if (app->test_filename != "") {
     init_from_test(app);
+
     update_polygons(app);
   }
 
-  app->state.polygons.push_back({});
-  add_polygon_shape(app, {}, 0);
-  add_polygon_shape(app, app->state.polygons.back(), 1);
+  // app->state.polygons.push_back({});
+
+  // Adding first polygon
+  auto bool_shape = shape{};
+  bool_shape.polygons.push_back({});
+  app->state.bool_shapes.push_back(bool_shape);
+
+  for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
+    add_shape_shape(app, s);
+  }
+
   app->history       = {app->state};
   app->history_index = 0;
 

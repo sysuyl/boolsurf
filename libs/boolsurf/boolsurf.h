@@ -44,6 +44,19 @@ struct mesh_polygon {
   bool is_contained_in_single_face = false;
 };
 
+struct shape {
+  vector<mesh_polygon> polygons = {};
+
+  vector<int> generators = {};
+  bool        is_root    = true;
+
+  vec3f         color = {0, 0, 0};
+  hash_set<int> cells = {};
+
+  vector<vector<int>> border_points = {};
+  shade_instance*     borders_shape = nullptr;
+};
+
 // Informazioni per la triangolazione di una faccia della mesh
 // Contiene: UV coords dei nodi locali di un triangolo.
 // Indici globali della mesh corrispondenti ai nodi locali
@@ -64,21 +77,22 @@ struct mesh_cell {
   hash_set<vec2i> adjacency = {};  // {cell_id, crossed_polygon_id}
 };
 
-struct mesh_shape {
-  int         polygon    = 0;
-  vector<int> generators = {-1, -1};
-  bool        is_root    = true;
+// struct mesh_shape {
+//   int         shape      = 0;
+//   vector<int> generators = {-1, -1};
+//   bool        is_root    = true;
 
-  vec3f         color = {0, 0, 0};
-  hash_set<int> cells = {};
+//   vec3f         color = {0, 0, 0};
+//   hash_set<int> cells = {};
 
-  vector<vector<int>> border_points = {};
-  shade_instance*     borders_shape = nullptr;
-};
+//   vector<vector<int>> border_points = {};
+//   shade_instance*     borders_shape = nullptr;
+// };
 
 struct bool_state {
-  vector<mesh_polygon> polygons = {{}};
-  vector<mesh_point>   points   = {};
+  vector<mesh_polygon> polygons    = {{}};
+  vector<shape>        bool_shapes = {{}};
+  vector<mesh_point>   points      = {};
 
   int                  num_original_points = 0;
   hash_map<int, int>   control_points      = {};
@@ -89,10 +103,9 @@ struct bool_state {
   vector<vector<vec2i>> cycles        = {};
   vector<vector<int>>   labels        = {};
 
-  vector<mesh_shape> shapes         = {};
-  vector<int>        shapes_sorting = {};
-
-  bool failed = false;
+  // vector<mesh_shape> shapes         = {};
+  vector<int> shapes_sorting = {};
+  bool        failed         = false;
 };
 
 namespace yocto {  // TODO(giacomo): Fix this.
@@ -122,6 +135,8 @@ vector<mesh_cell> make_mesh_cells(
     const vector<vec3i>& adjacencies, const bool_borders& borders);
 void update_virtual_adjacencies(
     vector<mesh_cell>& cells, const bool_borders& borders);
+hash_set<int> compute_invalid_shapes(
+    const vector<mesh_cell>& cells, int num_shapes);
 void compute_cell_labels(bool_state& state);
 
 bool       compute_cells(bool_mesh& mesh, bool_state& state);

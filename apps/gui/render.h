@@ -11,6 +11,11 @@ struct bool_shape : scene_shape {
   ogl_depth_test   depth_test = {};
 };
 
+// TODO (marzia): anche questo è ridicolo
+struct bool_shape_shape {
+  vector<shade_instance*> polygons = {};
+};
+
 inline void set_patch_shape(
     shade_shape* shape, const bool_mesh& mesh, const vector<int>& faces) {
   auto positions = vector<vec3f>(faces.size() * 3);
@@ -131,23 +136,23 @@ inline void set_polygon_shape(shade_instance* instance, const bool_mesh& mesh,
 // }
 
 inline void set_border_shape(shade_scene* scene, const bool_state& state,
-    const bool_mesh& mesh, mesh_shape& shape, int index) {
-  if (!shape.borders_shape) {
-    shape.borders_shape           = add_instance(scene);
-    shape.borders_shape->material = add_material(scene);
+    const bool_mesh& mesh, shape& bool_shape, int index) {
+  if (!bool_shape.borders_shape) {
+    bool_shape.borders_shape           = add_instance(scene);
+    bool_shape.borders_shape->material = add_material(scene);
   }
 
-  if (!shape.borders_shape->shape) {
-    shape.borders_shape->shape = add_shape(scene);
+  if (!bool_shape.borders_shape->shape) {
+    bool_shape.borders_shape->shape = add_shape(scene);
   }
 
-  shape.borders_shape->material->color = get_color(index);
+  bool_shape.borders_shape->material->color = get_color(index);
 
-  if (shape.border_points.empty()) return;
+  if (bool_shape.border_points.empty()) return;
 
   auto positions = vector<vec3f>();
 
-  for (auto& border : shape.border_points) {
+  for (auto& border : bool_shape.border_points) {
     for (auto p = 0; p < border.size(); p++) {
       auto start = border[p];
       auto end   = border[(p + 1) % border.size()];
@@ -164,9 +169,10 @@ inline void set_border_shape(shade_scene* scene, const bool_state& state,
     }
   }
 
-  set_positions(shape.borders_shape->shape, positions);
-  shape.borders_shape->shape->shape->elements = ogl_element_type::line_strip;
-  set_instances(shape.borders_shape->shape, {}, {});
+  set_positions(bool_shape.borders_shape->shape, positions);
+  bool_shape.borders_shape->shape->shape->elements =
+      ogl_element_type::line_strip;
+  set_instances(bool_shape.borders_shape->shape, {}, {});
 }
 
 void draw_triangulation(ogl_texture* texture, int face, vec2i size) {
@@ -402,27 +408,27 @@ inline void save_triangulation(const string& filename, int face) {
   return draw_sphere(scene, mesh, material, {pos}, dim);
 }
 
-bool_shape make_arrow_shape() {
-  auto shape      = bool_shape{};
-  shape.positions = vector<vec3f>{{-0.5, 0, 0}, {0.5, 0, 0}, {0.5, 1, 0},
-      {1, 1, 0}, {0, 2, 0}, {-1, 1, 0}, {-0.5, 1, 0}};
-  shape.triangles = vector<vec3i>{{0, 1, 2}, {0, 2, 6}, {3, 4, 5}};
-  for (int i = 0; i < 7; i++) {
-    swap(shape.positions[i].y, shape.positions[i].z);
-  }
+// bool_shape make_arrow_shape() {
+//   auto shape      = bool_shape{};
+//   shape.positions = vector<vec3f>{{-0.5, 0, 0}, {0.5, 0, 0}, {0.5, 1, 0},
+//       {1, 1, 0}, {0, 2, 0}, {-1, 1, 0}, {-0.5, 1, 0}};
+//   shape.triangles = vector<vec3i>{{0, 1, 2}, {0, 2, 6}, {3, 4, 5}};
+//   for (int i = 0; i < 7; i++) {
+//     swap(shape.positions[i].y, shape.positions[i].z);
+//   }
 
-  shape.positions += shape.positions;
-  for (int i = 7; i < shape.positions.size(); i++) {
-    swap(shape.positions[i].y, shape.positions[i].x);
-  }
+//   shape.positions += shape.positions;
+//   for (int i = 7; i < shape.positions.size(); i++) {
+//     swap(shape.positions[i].y, shape.positions[i].x);
+//   }
 
-  for (int i = 0; i < 3; i++) {
-    auto t = shape.triangles[i];
-    t += vec3i{7, 7, 7};
-    shape.triangles.push_back(t);
-  }
-  return shape;
-}
+//   for (int i = 0; i < 3; i++) {
+//     auto t = shape.triangles[i];
+//     t += vec3i{7, 7, 7};
+//     shape.triangles.push_back(t);
+//   }
+//   return shape;
+// }
 
 #if 0
 

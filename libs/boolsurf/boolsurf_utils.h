@@ -177,37 +177,17 @@ inline pair<int, float> get_edge_lerp_from_uv(const vec2f& uv) {
   return {-1, -1};
 }
 
-// inline vec3f get_color(int i) {
-//   static auto colors = vector<vec3f>{
-//       {0.5, 0.5, 0.5},
-//       {1, 0, 0},
-//       {0, 0.5, 0},
-//       {0, 0, 1},
-//       {0, 0.5, 0.5},
-//       {1, 0.5, 0},
-//       {0.5, 0, 1},
-//       {0.5, 0, 0},
-//       {0, 0.5, 0},
-//       {0, 0, 0.5},
-//       {0, 0.5, 0.5},
-//       {0.5, 0.5, 0},
-//       {0.5, 0, 0.5},
-//   };
-
-//   return colors[i % colors.size()];
-// }
-
 inline vec3f get_color(int i) {
-  auto colors = vector<vec3f>{
+  static auto colors = vector<vec3f>{
       {0.5, 0.5, 0.5},
-      {190 / 255.0, 45 / 255.0, 52 / 255.0},
-      {0.063, 0.426, 0.127},
-      {0.026, 0.087, 0.539},
-      {0.270, 0.654, 1.00},
-      {246 / 255.0, 217 / 255.0, 69 / 255.0},
-      {243 / 255.0, 136 / 255.0, 40 / 255.0},
-      {223 / 255.0, 146 / 255.0, 142 / 255.0},
-      {130 / 255.0, 185 / 255.0, 80 / 255.0},
+      {1, 0, 0},
+      {0, 0.5, 0},
+      {0, 0, 1},
+      {0, 0.5, 0.5},
+      {1, 0.5, 0},
+      {0.5, 0, 1},
+      {0.5, 0, 0},
+      {0, 0.5, 0},
       {0, 0, 0.5},
       {0, 0.5, 0.5},
       {0.5, 0.5, 0},
@@ -216,6 +196,26 @@ inline vec3f get_color(int i) {
 
   return colors[i % colors.size()];
 }
+
+// inline vec3f get_color(int i) {
+//   auto colors = vector<vec3f>{
+//       {0.5, 0.5, 0.5},
+//       {190 / 255.0, 45 / 255.0, 52 / 255.0},
+//       {0.063, 0.426, 0.127},
+//       {0.026, 0.087, 0.539},
+//       {0.270, 0.654, 1.00},
+//       {246 / 255.0, 217 / 255.0, 69 / 255.0},
+//       {243 / 255.0, 136 / 255.0, 40 / 255.0},
+//       {223 / 255.0, 146 / 255.0, 142 / 255.0},
+//       {130 / 255.0, 185 / 255.0, 80 / 255.0},
+//       {0, 0, 0.5},
+//       {0, 0.5, 0.5},
+//       {0.5, 0.5, 0},
+//       {0.5, 0, 0.5},
+//   };
+
+//   return colors[i % colors.size()];
+// }
 
 namespace std {
 
@@ -271,17 +271,19 @@ end:
 template <typename T>
 string to_string(const hash_set<T>& vec) {
   auto max_elements = 100;
-  auto result       = string(1e5, '\0');
-  auto count        = 0;
-  auto str          = (char*)result.data();
-  count += sprintf(str, "[size: %lu] ", vec.size());
+  auto result       = string{};
+  result.reserve(1e5);
+  auto count = 0;
+  auto str   = (char*)result.data();
+  count += sprintf(str, "[size: %lu] [", vec.size());
+
   int i = 0;
   for (auto& item : vec) {
     if (i > max_elements) break;
     i += 1;
-    printf("ao: %s\n", std::to_string(item).c_str());
     count += sprintf(str, "%s, ", std::to_string(item).c_str());
   }
+
   count += sprintf(str, "]\n");
   result.resize(count);
   return result;
@@ -389,6 +391,17 @@ struct std::hash<vector<int>> {
     auto hash = V.size();
     for (auto& i : V) {
       hash ^= i + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    }
+    return hash;
+  }
+};
+
+template <class T>
+struct std::hash<vector<T>> {
+  size_t operator()(const vector<T>& V) const {
+    auto hash = V.size();
+    for (auto& i : V) {
+      hash ^= std::hash<T>{}(i);
     }
     return hash;
   }

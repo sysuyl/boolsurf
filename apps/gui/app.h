@@ -39,9 +39,9 @@ struct app_state {
   bool save_edges    = false;
   bool save_polygons = false;
 
-  bool         color_hashgrid = false;
-  bool         show_polygons  = true;
-  bool         show_arrows    = false;
+  bool color_hashgrid = false;
+  bool show_polygons  = true;
+  // bool         show_arrows    = false;
   bool         use_projection = false;
   scene_camera camera         = {};
 
@@ -54,9 +54,12 @@ struct app_state {
 
   bool_state state = {};
 
-  vector<shade_instance*> cell_shapes         = {};
-  vector<shade_instance*> polygon_shapes      = {};
-  vector<shade_instance*> arrow_shapes        = {};
+  // TODO (marzia): è ridicolo, cambialo!
+  vector<bool_shape_shape> shape_shapes = {};
+
+  vector<shade_instance*> cell_shapes = {};
+  // vector<shade_instance*> polygon_shapes = {};
+  // vector<shade_instance*> arrow_shapes        = {};
   shade_instance*         hashgrid_shape      = nullptr;
   vector<shade_instance*> border_faces_shapes = {};
 
@@ -70,6 +73,7 @@ struct app_state {
   int                selected_cell         = -1;
   int                selected_shape        = -1;
   int                selected_polygon      = 0;
+  hash_set<int>      current_shape         = {};
 
   // rendering state
   shade_scene*    glscene           = new shade_scene{};
@@ -110,7 +114,7 @@ struct app_state {
 
   struct last_svg {
     vector<Svg_Shape> svg;
-    int               previous_polygons;
+    int               last_shape;
   } last_svg          = {};
   bool_test temp_test = {};
 
@@ -119,63 +123,108 @@ struct app_state {
   }
 };
 
-void set_polygon_shape(app_state* app, int polygon_id) {
+void set_polygon_shape(app_state* app, int shape_id, int polygon_id) {
   auto& mesh      = app->mesh;
-  auto  positions = polygon_positions(app->state.polygons[polygon_id], mesh);
-  auto  normals   = polygon_normals(app->state.polygons[polygon_id], mesh);
+  auto  positions = polygon_positions(
+      app->state.bool_shapes[shape_id].polygons[polygon_id], mesh);
+  auto normals = polygon_normals(
+      app->state.bool_shapes[shape_id].polygons[polygon_id], mesh);
 
   auto polygon_shape = make_polygon_shape(
       mesh, positions, app->thick_lines, app->line_width);
-  set_shape(app->polygon_shapes[polygon_id], polygon_shape);
+  set_shape(app->shape_shapes[shape_id].polygons[polygon_id], polygon_shape);
 
-  auto arrow_shape = make_arrow_shape();
-  for (auto& p : arrow_shape.positions) p *= 0.005;
-  for (int i :
-      {1, (int)positions.size() / 3, (int)(positions.size() * 2) / 3}) {
-    arrow_shape.froms.push_back(positions[i]);
-    auto left = normalize(positions[i + 1] - positions[i]);
-    auto y    = cross(left, normals[i]);
-    arrow_shape.tos.push_back(positions[i] - y);
-  }
+  // auto arrow_shape = make_arrow_shape();
+  // for (auto& p : arrow_shape.positions) p *= 0.005;
+  // for (int i :
+  //     {1, (int)positions.size() / 3, (int)(positions.size() * 2) / 3}) {
+  //   arrow_shape.froms.push_back(positions[i]);
+  //   auto left = normalize(positions[i + 1] - positions[i]);
+  //   auto y    = cross(left, normals[i]);
+  //   arrow_shape.tos.push_back(positions[i] - y);
+  // }
 
-  set_shape(app->arrow_shapes[polygon_id], arrow_shape);
+  // set_shape(app->arrow_shapes[polygon_id], arrow_shape);
 }
 
-void update_polygon(app_state* app, int polygon_id, int index = 0) {
-  auto& mesh_polygon = app->state.polygons[polygon_id];
-  // app->polygon_shapes.resize(app->state.polygons.size());
-  auto& polygon_shape = app->polygon_shapes[polygon_id];
-  // auto& arrow_shape   = app->arrow_shapes[polygon_id];
+// void set_polygon_shape(app_state* app, int polygon_id) {
+//   auto& mesh      = app->mesh;
+//   auto  positions = polygon_positions(app->state.polygons[polygon_id], mesh);
+//   auto  normals   = polygon_normals(app->state.polygons[polygon_id], mesh);
 
-  // TODO(giacomo): Solve this situation.
-  // if (!polygon_shape) {
-  //   polygon_shape = new shade_instance{};
-  // }
+//   auto polygon_shape = make_polygon_shape(
+//       mesh, positions, app->thick_lines, app->line_width);
+//   set_shape(app->polygon_shapes[polygon_id], polygon_shape);
 
-  // if (!polygon_shape->shape) {
-  //   polygon_shape->shape = new shade_shape{};
-  // }
+//   // auto arrow_shape = make_arrow_shape();
+//   // for (auto& p : arrow_shape.positions) p *= 0.005;
+//   // for (int i :
+//   //     {1, (int)positions.size() / 3, (int)(positions.size() * 2) / 3}) {
+//   //   arrow_shape.froms.push_back(positions[i]);
+//   //   auto left = normalize(positions[i + 1] - positions[i]);
+//   //   auto y    = cross(left, normals[i]);
+//   //   arrow_shape.tos.push_back(positions[i] - y);
+//   // }
 
-  // Draw polygon.
-  recompute_polygon_segments(app->mesh, app->state, mesh_polygon, index);
+//   // set_shape(app->arrow_shapes[polygon_id], arrow_shape);
+// }
+
+void update_polygon(
+    app_state* app, int shape_id, int polygon_id, int point_id = 0) {
+  auto& polygon       = app->state.bool_shapes[shape_id].polygons[polygon_id];
+  auto& polygon_shape = app->shape_shapes[shape_id].polygons[polygon_id];
+
+  recompute_polygon_segments(app->mesh, app->state, polygon, point_id);
   if (!app->show_polygons) return;
 
-  if (mesh_polygon.length > 0) {
-    set_polygon_shape(app, polygon_id);
+  if (polygon.length > 0) {
+    set_polygon_shape(app, shape_id, polygon_id);
   } else if (polygon_shape->shape) {
     clear_shape(polygon_shape->shape);
   }
 }
 
+// void update_polygon(app_state* app, int polygon_id, int index = 0) {
+//   auto& mesh_polygon = app->state.polygons[polygon_id];
+//   // app->polygon_shapes.resize(app->state.polygons.size());
+//   auto& polygon_shape = app->polygon_shapes[polygon_id];
+//   // auto& arrow_shape   = app->arrow_shapes[polygon_id];
+
+//   // TODO(giacomo): Solve this situation.
+//   // if (!polygon_shape) {
+//   //   polygon_shape = new shade_instance{};
+//   // }
+
+//   // if (!polygon_shape->shape) {
+//   //   polygon_shape->shape = new shade_shape{};
+//   // }
+
+//   // Draw polygon.
+//   recompute_polygon_segments(app->mesh, app->state, mesh_polygon, index);
+//   if (!app->show_polygons) return;
+
+//   if (mesh_polygon.length > 0) {
+//     set_polygon_shape(app, polygon_id);
+//   } else if (polygon_shape->shape) {
+//     clear_shape(polygon_shape->shape);
+//   }
+// }
+
 void update_polygons(app_state* app) {
-  for (int i = 1; i < app->state.polygons.size(); i++) {
-    update_polygon(app, i);
+  for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
+    for (int p = 0; p < app->state.bool_shapes[s].polygons.size(); p++) {
+      update_polygon(app, s, p);
+    }
   }
-  for (auto i = app->state.polygons.size(); i < app->polygon_shapes.size();
-       i++) {
-    clear_shape(app->polygon_shapes[i]->shape);
+
+  for (auto s = app->state.bool_shapes.size(); s < app->shape_shapes.size();
+       s++) {
+    for (auto p = 0; p < app->shape_shapes[s].polygons.size(); p++) {
+      clear_shape(app->shape_shapes[s].polygons[p]->shape);
+    }
   }
-  app->polygon_shapes.resize(app->state.polygons.size());
+
+  app->shape_shapes.resize(app->state.bool_shapes.size());
 }
 
 void commit_state(app_state* app) {
@@ -417,11 +466,16 @@ shade_instance* add_patch_shape(
 //   set_patch_shape(patch_shape, app->mesh, faces);
 //   return add_instance(app->glscene, identity3x4f, patch_shape, material);
 // }
+// void add_polygon_shape(app_state* app, const mesh_polygon& polygon, int
+// index) {
+//   add_polygon_shape(app, polygon, index);
+// }
 
-void add_polygon_shape(app_state* app, const mesh_polygon& polygon, int index) {
-  auto polygon_shape = add_shape(app->glscene);
+shade_instance* get_polygon_shape(
+    app_state* app, const mesh_polygon& polygon, int index) {
+  auto polygon_shape    = add_shape(app->glscene);
+  auto polygon_material = add_material(app->glscene);
 
-  auto polygon_material   = add_material(app->glscene);
   polygon_material->color = get_color(index);
 
   auto polygon_instance = add_instance(
@@ -432,15 +486,27 @@ void add_polygon_shape(app_state* app, const mesh_polygon& polygon, int index) {
         app->line_width);
 
   polygon_instance->depth_test = ogl_depth_test::always;
-  app->polygon_shapes += polygon_instance;
+  // app->polygon_shapes += polygon_instance;
 
-  auto arrow_shape    = add_shape(app->glscene);
-  auto arrow_material = polygon_material;
+  // auto arrow_shape    = add_shape(app->glscene);
+  // auto arrow_material = polygon_material;
 
-  auto arrow_instance = add_instance(
-      app->glscene, identity3x4f, arrow_shape, arrow_material);
-  arrow_instance->depth_test = ogl_depth_test::always;
-  app->arrow_shapes += arrow_instance;
+  // auto arrow_instance = add_instance(
+  //     app->glscene, identity3x4f, arrow_shape, arrow_material);
+  // arrow_instance->depth_test = ogl_depth_test::always;
+  // app->arrow_shapes += arrow_instance;
+
+  return polygon_instance;
+}
+
+void add_shape_shape(app_state* app, int shape_id) {
+  auto& shape        = app->state.bool_shapes[shape_id];
+  auto& shape_shapes = app->shape_shapes.emplace_back();
+
+  for (auto& polygon : shape.polygons) {
+    auto p_shape = get_polygon_shape(app, polygon, shape_id);
+    shape_shapes.polygons.push_back(p_shape);
+  }
 }
 
 inline void update_cell_shapes(app_state* app) {
@@ -468,11 +534,10 @@ void update_svg(app_state* app) {
   init_from_svg(app->state, app->mesh, app->last_clicked_point,
       app->last_svg.svg, app->drawing_size, app->svg_subdivs);
 
-  for (auto p = app->last_svg.previous_polygons; p < app->state.polygons.size();
-       p++) {
-    auto& polygon = app->state.polygons[p];
-    add_polygon_shape(app, polygon, p);
-  }
+  auto  last_shape = app->state.bool_shapes.size() - 1;
+  auto& shape      = app->state.bool_shapes[last_shape];
+  add_shape_shape(app, last_shape);
+
   update_polygons(app);
 }
 
@@ -480,11 +545,21 @@ void save_test(
     app_state* app, const bool_state& state, const string& filename) {
   app->test.points   = state.points;
   app->test.polygons = {{}};
-  for (auto& mesh_polygon : state.polygons) {
-    if (mesh_polygon.points.size()) {
-      app->test.polygons.push_back(mesh_polygon.points);
+  app->test.shapes   = {{0}};
+  for (auto s = 0; s < state.bool_shapes.size(); s++) {
+    auto test_shape = vector<int>();
+    for (auto p = 0; p < state.bool_shapes[s].polygons.size(); p++) {
+      auto& polygon = state.bool_shapes[s].polygons[p];
+
+      if (polygon.points.size()) {
+        test_shape.push_back((int)app->test.polygons.size());
+        app->test.polygons.push_back(polygon.points);
+      }
     }
+
+    if (test_shape.size()) app->test.shapes.push_back(test_shape);
   }
+
   app->test.camera.frame    = app->glcamera->frame;
   app->test.camera.lens     = app->glcamera->lens;
   app->test.camera.aspect   = app->glcamera->aspect;
@@ -519,8 +594,7 @@ void init_from_test(app_state* app) {
   app->state = state_from_test(
       app->mesh, app->test, app->drawing_size, app->use_projection);
 
-  for (int i = 0; i < app->state.polygons.size(); i++) {
-    auto& polygon = app->state.polygons[i];
-    add_polygon_shape(app, polygon, i);
+  for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
+    add_shape_shape(app, s);
   }
 }
