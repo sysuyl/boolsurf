@@ -10,23 +10,26 @@
 using namespace yocto;
 
 struct test_stats {
-  string model_filename      = ""s;
-  int    model_triangles     = 0;
-  int    genus               = 0;
-  double triangulation_ms    = 0.0;
-  double flood_fill_ms       = 0.0;
-  double labelling_ms        = 0.0;
-  double boolean_ms          = 0.0;
-  double total_ms            = 0.0;
-  int    polygons            = 0;
-  int    control_points      = 0;
-  int    added_points        = 0;
-  int    sliced_triangles    = 0;
-  int    added_triangles     = 0;
-  int    graph_nodes         = 0;
-  int    graph_edges         = 0;
-  int    graph_cycles        = 0;
-  int    graph_ambient_cells = 0;
+  string model     = ""s;
+  int    triangles = 0;
+  int    genus     = 0;
+
+  int polygons         = 0;
+  int shapes           = 0;
+  int control_points   = 0;
+  int added_points     = 0;
+  int sliced_triangles = 0;
+  int added_triangles  = 0;
+
+  int cells  = 0;
+  int edges  = 0;
+  int cycles = 0;
+
+  double triangulation_ms = 0.0;
+  double flood_fill_ms    = 0.0;
+  double labelling_ms     = 0.0;
+  double boolean_ms       = 0.0;
+  double total_ms         = 0.0;
 };
 
 void save_image(const string& output_image_filename, const bool_mesh& mesh,
@@ -161,14 +164,14 @@ int main(int num_args, const char* args[]) {
   }
 
   if (model_filename.size()) test.model = model_filename;
-  test.model           = normalize_path(test.model);
-  stats.model_filename = test.model;
+  test.model  = normalize_path(test.model);
+  stats.model = test.model;
 
   if (stats_filename.size() && !append_stats) {
     stats_filename  = normalize_path(stats_filename);
     auto stats_file = fopen(stats_filename.c_str(), "w");
     fprintf(stats_file,
-        "model, model_triangles, genus, triangulation_ms, flood_fill_ms, labelling_ms, boolean_ms, total_ms, polygons, control_points, added_points, sliced_triangles, added_triangles, graph_nodes, graph_edges, graph_cycles, graph_ambient_cells\n");
+        "model, triangles, genus, shapes, polygons, control_points, added_points, sliced_triangles, added_triangles, cells, edges, cycles, triangulation_ms, flood_fill_ms, labelling_ms, boolean_ms, total_ms,\n");
     fclose(stats_file);
   }
 
@@ -182,7 +185,7 @@ int main(int num_args, const char* args[]) {
     }
 
     init_mesh(mesh);
-    stats.model_triangles = (int)mesh.triangles.size();
+    stats.triangles = (int)mesh.triangles.size();
     printf("triangles: %d\n", (int)mesh.triangles.size());
     printf("positions: %d\n\n", (int)mesh.positions.size());
   }
@@ -202,6 +205,9 @@ int main(int num_args, const char* args[]) {
   }
 
   for (auto& bool_shape : state.bool_shapes) {
+    if (bool_shape.polygons.empty()) continue;
+    stats.shapes += 1;
+
     for (auto& polygon : bool_shape.polygons) {
       if (polygon.points.empty()) continue;
 
@@ -236,9 +242,9 @@ int main(int num_args, const char* args[]) {
   stats.flood_fill_ms = elapsed_nanoseconds(flood_fill_timer) / pow(10, 6);
   stats.total_ms += stats.flood_fill_ms;
 
-  stats.graph_nodes = state.cells.size();
-  for (auto& cell : state.cells) stats.graph_edges += cell.adjacency.size();
-  stats.graph_edges /= 2;
+  stats.cells = state.cells.size();
+  for (auto& cell : state.cells) stats.edges += cell.adjacency.size();
+  stats.edges /= 2;
 
   auto invalid_shapes = compute_invalid_shapes(
       state.cells, (int)state.bool_shapes.size());
@@ -253,8 +259,7 @@ int main(int num_args, const char* args[]) {
     auto labelling_timer = simple_timer{};
     compute_cell_labels(state);
 
-    stats.graph_cycles = (int)state.cycles.size();
-    // stats.graph_ambient_cells = (int)state.ambient_cells.size();
+    stats.cycles       = (int)state.cycles.size();
     stats.labelling_ms = elapsed_nanoseconds(labelling_timer) / pow(10, 6);
     stats.total_ms += stats.labelling_ms;
     printf("Total labelling time: %f\n", stats.labelling_ms);
@@ -296,13 +301,12 @@ int main(int num_args, const char* args[]) {
   if (stats_filename.size()) {
     auto stats_file = fopen(stats_filename.c_str(), "a");
     fprintf(stats_file,
-        "%s, %d, %d, %f, %f, %f, %f, %f, %d, %d, %d, %d, %d, %d, %d, %d, %d\n",
-        stats.model_filename.c_str(), stats.model_triangles, stats.genus,
-        stats.triangulation_ms, stats.flood_fill_ms, stats.labelling_ms,
-        stats.boolean_ms, stats.total_ms, stats.polygons, stats.control_points,
-        stats.added_points, stats.sliced_triangles, stats.added_triangles,
-        stats.graph_nodes, stats.graph_edges, stats.graph_cycles,
-        stats.graph_ambient_cells);
+        "%s, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %f, %f, %f, %f, %f\n",
+        stats.model.c_str(), stats.triangles, stats.genus, stats.shapes,
+        stats.polygons, stats.control_points, stats.added_points,
+        stats.sliced_triangles, stats.added_triangles, stats.cells, stats.edges,
+        stats.cycles, stats.triangulation_ms, stats.flood_fill_ms,
+        stats.labelling_ms, stats.boolean_ms, stats.total_ms);
     fclose(stats_file);
   }
 }

@@ -13,13 +13,13 @@ def main():
             record = [record_list[0].replace(
                 "/", "\\").split("\\")[-1].split(".")[0]]
 
-            timings = [round(float(time), 3) for time in record_list[3:8]]
+            timings = [round(float(time), 3) for time in record_list[12:]]
             perc = [round((time/timings[-1]) * 100, 2) for time in timings]
 
             timings_str = [
                 f'{timings[i]} ({perc[i]}\%)' for i in range(len(timings))]
 
-            record += record_list[1: 2] + record_list[8:14] + \
+            record += record_list[1: 4] + record_list[6:10] + \
                 [str(timings[-1])] + timings_str[:2]
 
             record = "& ".join(record)

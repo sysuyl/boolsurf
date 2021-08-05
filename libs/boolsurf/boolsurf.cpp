@@ -1443,15 +1443,6 @@ void compute_cell_labels(bool_state& state) {
       offset[l]     = min(offset[l], cell_label[l]);
     }
   }
-
-  // Applichiamo la even-odd rule nel caso in cui le label > 1 (Nelle self
-  // intersections posso entrare in un poligono più volte senza esserne
-  // prima uscito)
-  // for (auto& ll : state.labels) {
-  //   for (auto& label : ll) {
-  //     if (label > 1) label = label % 2;
-  //   }
-  // }
 }
 
 void update_virtual_adjacencies(
