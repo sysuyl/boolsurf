@@ -445,7 +445,7 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
     mesh_material.roughness = 0.5;
     mesh_material.color     = vec3f{1.0f, 1.0f, 1.0f};
     mesh_instance.shape     = (int)scene.shapes.size() + 1;
-    auto& mesh_shape        = scene_shape{};
+    auto mesh_shape         = scene_shape{};
     mesh_shape.positions    = mesh.positions;
 
     // TODO(giacomo): Too many copies of positions.
