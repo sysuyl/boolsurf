@@ -309,9 +309,9 @@ void add_polygons(bool_state& state, const bool_mesh& mesh,
   };
 
   for (auto& test_shape : test.shapes) {
-    auto& bool_shape = state.bool_shapes.emplace_back();
+    auto bool_shape = shape{};
     for (auto id = 0; id < test_shape.size(); id++) {
-      auto& bool_polygon = bool_shape.polygons.emplace_back();
+      auto  bool_polygon = mesh_polygon{};
       auto& test_polygon = polygons[test_shape[id]];
 
       for (auto uv : test_polygon) {
@@ -330,8 +330,10 @@ void add_polygons(bool_state& state, const bool_mesh& mesh,
         continue;
       }
 
+      bool_shape.polygons.push_back(bool_polygon);
       recompute_polygon_segments(mesh, state, bool_polygon);
     }
+    if (bool_shape.polygons.size()) state.bool_shapes.push_back(bool_shape);
   }
 }
 
@@ -419,36 +421,78 @@ scene_model make_debug_scene(const bool_mesh& mesh, const bool_state& state,
 }
 
 scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
-    const scene_camera& camera, bool color_shapes, bool save_edges,
-    bool save_polygons, float line_width, const vector<vec3f>& cell_colors) {
+    const scene_camera& camera, bool color_shapes, bool color_hashgrid,
+    bool save_edges, bool save_polygons, float line_width,
+    const vector<vec3f>& cell_colors) {
   auto scene = scene_model{};
   scene.cameras.push_back(camera);
 
-  for (int i = 0; i < state.cells.size(); i++) {
-    auto& cell = state.cells[i];
+  if (color_hashgrid) {
+    auto& hashgrid_instance     = scene.instances.emplace_back();
+    hashgrid_instance.material  = (int)scene.materials.size();
+    auto& hashgrid_material     = scene.materials.emplace_back();
+    hashgrid_material.type      = scene_material_type::glossy;
+    hashgrid_material.roughness = 0.5;
+    hashgrid_material.color     = vec3f{0.4f, 0.4f, 0.4f};
+    hashgrid_instance.shape     = (int)scene.shapes.size();
+    auto hashgrid_shape         = scene_shape{};
+    hashgrid_shape.positions    = mesh.positions;
 
-    auto& instance    = scene.instances.emplace_back();
-    instance.material = (int)scene.materials.size();
-    auto& material    = scene.materials.emplace_back();
-
-    if (cell_colors.size()) {
-      material.color = cell_colors[i];
-    } else {
-      material.color = get_cell_color(state, i, color_shapes);
-    }
-
-    material.type      = scene_material_type::glossy;
-    material.roughness = 0.5;
-    instance.shape     = (int)scene.shapes.size();
-    auto shape         = scene_shape{};
+    auto& mesh_instance     = scene.instances.emplace_back();
+    mesh_instance.material  = (int)scene.materials.size();
+    auto& mesh_material     = scene.materials.emplace_back();
+    mesh_material.type      = scene_material_type::glossy;
+    mesh_material.roughness = 0.5;
+    mesh_material.color     = vec3f{1.0f, 1.0f, 1.0f};
+    mesh_instance.shape     = (int)scene.shapes.size() + 1;
+    auto& mesh_shape        = scene_shape{};
+    mesh_shape.positions    = mesh.positions;
 
     // TODO(giacomo): Too many copies of positions.
-    shape.positions = mesh.positions;
-    for (auto face : cell.faces) {
-      shape.triangles.push_back(mesh.triangles[face]);
+
+    for (auto f = 0; f < mesh.num_triangles; f++) {
+      if (contains(mesh.triangulated_faces, f)) {
+        auto& new_faces = mesh.triangulated_faces.at(f);
+        for (auto face : new_faces)
+          hashgrid_shape.triangles.push_back(mesh.triangles[face]);
+      } else {
+        printf("Here\n");
+        mesh_shape.triangles.push_back(mesh.triangles[f]);
+      }
     }
 
-    scene.shapes.push_back(shape);
+    scene.shapes.push_back(hashgrid_shape);
+    scene.shapes.push_back(mesh_shape);
+  } else {
+    for (int i = 0; i < state.cells.size(); i++) {
+      auto& cell = state.cells[i];
+
+      auto& instance    = scene.instances.emplace_back();
+      instance.material = (int)scene.materials.size();
+      auto& material    = scene.materials.emplace_back();
+
+      if (cell_colors.size()) {
+        material.color = cell_colors[i];
+      } else {
+        if (state.labels.size())
+          material.color = get_cell_color(state, i, color_shapes);
+        else
+          material.color = vec3f{1.0f, 1.0f, 1.0f};
+      }
+
+      material.type      = scene_material_type::glossy;
+      material.roughness = 0.5;
+      instance.shape     = (int)scene.shapes.size();
+      auto shape         = scene_shape{};
+
+      // TODO(giacomo): Too many copies of positions.
+      shape.positions = mesh.positions;
+      for (auto face : cell.faces) {
+        shape.triangles.push_back(mesh.triangles[face]);
+      }
+
+      scene.shapes.push_back(shape);
+    }
   }
 
   if (save_edges) {
@@ -492,34 +536,39 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
   }
 
   if (save_polygons) {
-    for (int i = 1; i < state.polygons.size(); i++) {
-      auto& polygon   = state.polygons[i];
-      auto  positions = vector<vec3f>();
-      positions.reserve(polygon.length + 1);
+    for (int s = 0; s < state.bool_shapes.size(); s++) {
+      if (state.bool_shapes[s].polygons.empty()) continue;
 
-      for (auto& edge : polygon.edges) {
-        for (auto& segment : edge) {
-          positions.push_back(
-              eval_position(mesh, {segment.face, segment.start}));
+      auto& bool_shape = state.bool_shapes[s];
+      for (int i = 0; i < bool_shape.polygons.size(); i++) {
+        auto& polygon   = bool_shape.polygons[i];
+        auto  positions = vector<vec3f>();
+        positions.reserve(polygon.length + 1);
+
+        for (auto& edge : polygon.edges) {
+          for (auto& segment : edge) {
+            positions.push_back(
+                eval_position(mesh, {segment.face, segment.start}));
+          }
         }
+
+        if (polygon.edges.size() && polygon.edges.back().size()) {
+          auto& segment = polygon.edges.back().back();
+          positions.push_back(eval_position(mesh, {segment.face, segment.end}));
+        }
+
+        if (positions.empty()) continue;
+
+        auto& instance    = scene.instances.emplace_back();
+        instance.material = (int)scene.materials.size();
+        auto& material    = scene.materials.emplace_back();
+        material.color    = get_color(s);
+        material.type     = scene_material_type::matte;
+        instance.shape    = (int)scene.shapes.size();
+
+        auto shape = create_polygon_shape(positions, line_width);
+        scene.shapes.push_back(shape);
       }
-
-      if (polygon.edges.size() && polygon.edges.back().size()) {
-        auto& segment = polygon.edges.back().back();
-        positions.push_back(eval_position(mesh, {segment.face, segment.end}));
-      }
-
-      if (positions.empty()) continue;
-
-      auto& instance    = scene.instances.emplace_back();
-      instance.material = (int)scene.materials.size();
-      auto& material    = scene.materials.emplace_back();
-      material.color    = get_color(i);
-      material.type     = scene_material_type::matte;
-      instance.shape    = (int)scene.shapes.size();
-
-      auto shape = create_polygon_shape(positions, line_width);
-      scene.shapes.push_back(shape);
     }
   }
 

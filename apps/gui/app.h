@@ -338,7 +338,7 @@ void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh) {
 
   app->mesh_material  = add_material(glscene, {0, 0, 0}, {1, 1, 1}, 1, 0, 0.4);
   app->edges_material = add_material(
-      glscene, {0, 0, 0}, {0.4, 0.4, 1}, 1, 0, 0.4);
+      glscene, {0, 0, 0}, {0.4, 0.4, 0.4}, 1, 0, 0.4);
   app->points_material = add_material(glscene, {0, 0, 0}, {0, 0, 1}, 1, 0, 0.4);
   app->paths_material  = add_material(glscene, {0, 0, 0}, {1, 1, 1}, 1, 0, 0.4);
   app->isecs_material  = add_material(glscene, {0, 0, 0}, {0, 1, 0}, 1, 0, 0.4);
@@ -534,6 +534,7 @@ void update_svg(app_state* app) {
   init_from_svg(app->state, app->mesh, app->last_clicked_point,
       app->last_svg.svg, app->drawing_size, app->svg_subdivs);
 
+  if (app->state.bool_shapes.empty()) return;
   auto  last_shape = app->state.bool_shapes.size() - 1;
   auto& shape      = app->state.bool_shapes[last_shape];
   add_shape_shape(app, last_shape);

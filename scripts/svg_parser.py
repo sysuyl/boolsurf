@@ -59,6 +59,7 @@ def parse_path_string(path_string, num_subdivisions):
     for path in paths:
         points = []
         tokens = path.split("l")
+
         for t in tokens:
             if "c" in t:
                 chains = t.split("c")
@@ -142,13 +143,16 @@ def create_json(infile, outfile, num_subdivisions):
                 shapes = []
                 path_points = parse_path_string(path, num_subdivisions)
                 for points in path_points:
-                    for p in range(len(points)):
-                        nppoint = np.array(points[p])
-                        nppoint = np.append(nppoint, 1).reshape(3, 1)
-                        nppoint = rot_transform @ nppoint
 
-                        points[p] = tuple(
-                            nppoint.reshape(1, 3).tolist()[0][:2])
+                    if "transform" in element.attrib:
+                        for p in range(len(points)):
+                            nppoint = np.array(points[p])
+
+                            nppoint = np.append(nppoint, 1).reshape(3, 1)
+                            nppoint = rot_transform @ nppoint
+
+                            points[p] = tuple(
+                                nppoint.reshape(1, 3).tolist()[0][:2])
 
                     shapes.append(len(data["polygons"]))
                     data["polygons"].append(points)
@@ -158,9 +162,13 @@ def create_json(infile, outfile, num_subdivisions):
         elif element.tag == "{http://www.w3.org/2000/svg}path":
             path_points = parse_path_string(
                 element.attrib["d"], num_subdivisions)
+            print(len(path_points))
+            shapes = []
             for path in path_points:
-                data["shapes"].append([len(data["polygons"])])
+                print(len(path))
+                shapes.append(len(data["polygons"]))
                 data["polygons"].append(path)
+            data["shapes"].append(shapes)
 
     with open(outfile, "w") as out:
         json.dump(data, out, indent=2)

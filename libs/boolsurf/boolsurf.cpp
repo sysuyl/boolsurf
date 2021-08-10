@@ -760,12 +760,8 @@ static vector<vector<int>> propagate_cell_labels(
         }
 
         if (updated_labels[s] != neighbor_labels[s]) {
-          if (visited[neighbor_id])
-            printf("Shape %d is wrong!\n", s);
-          else {
-            neighbor_labels[s] = updated_labels[s];
-            updated            = false;
-          }
+          neighbor_labels[s] = updated_labels[s];
+          updated            = false;
         }
       }
 

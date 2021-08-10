@@ -170,8 +170,8 @@ scene_model make_debug_scene(
     const bool_mesh& mesh, const bool_state& state, const scene_camera& camera);
 
 scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
-    const scene_camera& camera, bool color_shapes, bool save_edges,
-    bool save_polygons, float line_width,
+    const scene_camera& camera, bool color_shapes, bool color_hashgrid,
+    bool save_edges, bool save_polygons, float line_width,
     const vector<vec3f>& cell_colors = {});
 
 using Svg_Path = vector<array<vec2f, 4>>;

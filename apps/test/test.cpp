@@ -36,8 +36,8 @@ void save_image(const string& output_image_filename, const bool_mesh& mesh,
     const bool_state& state, const scene_camera& camera, bool color_shapes,
     bool save_edges, bool save_polygons, float line_width, int spp) {
   if (output_image_filename == "no-output") return;
-  auto scene = make_scene(
-      mesh, state, camera, color_shapes, save_edges, save_polygons, line_width);
+  auto scene = make_scene(mesh, state, camera, color_shapes, false, save_edges,
+      save_polygons, line_width);
 
   auto params    = trace_params{};
   auto error     = string{};
@@ -267,8 +267,8 @@ int main(int num_args, const char* args[]) {
   }
 
   // Saving output scene
-  auto scene = make_scene(mesh, state, test.camera, color_shapes, save_edges,
-      save_polygons, line_width);
+  auto scene = make_scene(mesh, state, test.camera, color_shapes, false,
+      save_edges, save_polygons, line_width);
   if (output_scene_filename.size()) {
     save_scene(output_scene_filename, scene, error);
   }
