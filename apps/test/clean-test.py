@@ -30,8 +30,7 @@ def riclean(dirname):
             js = json.load(infile)
 
         model = js['model']
-        model = model[:-3]
-        model += ".ply"
+        model = model[1:]
         js['model'] = model
 
         with open(file, 'w') as outfile:
