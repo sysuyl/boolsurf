@@ -88,11 +88,11 @@ def operation(jsons_dir, output_jsons_dir):
             while (a == b or shapes[a] == [] or shapes[b] == []):
                 b = random.randint(0, num_shapes-1)
 
-            type = random.randint(0, len(operations))
+            type = random.randint(0, len(operations)-1)
             print(f'{num_shapes} {a} {b} - {type}\n')
 
             operation = {'a': a, 'b': b, 'type': type}
-            js['operations'].append(operation)
+            js['operations'] = [operation]
 
             with open(f'{output_jsons_dir}/tests/{name}.json', 'w') as json_file:
                 json.dump(js, json_file, indent=2)
