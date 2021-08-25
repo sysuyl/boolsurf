@@ -92,19 +92,22 @@ int compute_mesh_genus(const bool_mesh& mesh) {
 }
 
 int main(int num_args, const char* args[]) {
-  auto test_filename         = ""s;
+  auto test_filename = ""s;
+
   auto output_image_filename = "data/render.png"s;
   auto output_scene_filename = ""s;
   auto output_json_filename  = ""s;
-  auto spp                   = 4;
-  auto model_filename        = ""s;
-  auto svg_filename          = ""s;
-  auto svg_subdivs           = 2;
-  auto drawing_size          = 0.01f;
-  auto color_shapes          = false;
-  auto save_edges            = false;
-  auto save_polygons         = false;
-  auto line_width            = 0.003f;
+  auto output_obj_filename   = ""s;
+
+  auto spp            = 4;
+  auto model_filename = ""s;
+  auto svg_filename   = ""s;
+  auto svg_subdivs    = 2;
+  auto drawing_size   = 0.01f;
+  auto color_shapes   = false;
+  auto save_edges     = false;
+  auto save_polygons  = false;
+  auto line_width     = 0.003f;
 
   auto stats_filename = ""s;
   auto append_stats   = false;
@@ -116,10 +119,13 @@ int main(int num_args, const char* args[]) {
       cli, "input", test_filename, "Input test filename (.json).", {}, false);
   add_option(cli, "output_image", output_image_filename,
       "Output image filename (.png).");
-  add_option(cli, "output_scene", output_scene_filename, "");
-  add_option(cli, "output_test", output_json_filename, "");
-  add_option(cli, "spp", spp, "Samples per pixel.");
+  add_option(cli, "output_scene", output_scene_filename, "Output scene");
+  add_option(cli, "output_test", output_json_filename, "Output test (.json)");
+  add_option(
+      cli, "output_obj", output_obj_filename, "Output model filename (.obj)");
+
   add_option(cli, "model", model_filename, "Input model filename.");
+  add_option(cli, "spp", spp, "Samples per pixel.");
   add_option(cli, "svg", svg_filename, "Input svg filename.");
   add_option(cli, "svg-subdivs", svg_subdivs, "Svg subdivisions.");
   add_option(cli, "drawing-size", drawing_size, "Size of mapped drawing.");
@@ -276,6 +282,10 @@ int main(int num_args, const char* args[]) {
   // Saving render and cell adjacency graph
   save_image(output_image_filename, mesh, state, test.camera, color_shapes,
       save_edges, save_polygons, line_width, spp);
+
+  if (output_obj_filename.size()) {
+    export_model(state, mesh, output_obj_filename);
+  }
 
   // auto graph_dir      = path_dirname(output_image_filename);
   // auto graph_filename = path_basename(output_image_filename) +
