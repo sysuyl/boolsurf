@@ -27,12 +27,15 @@ def svg(bin, dirname, svg):
     images_dir = f'{output}/images'
     scenes_dir = f'{output}/scenes'
     tests_dir = f'{output}/tests'
+    models_dir = f'{output}/models'
 
     try:
         os.mkdir(output)
         os.mkdir(images_dir)
         os.mkdir(scenes_dir)
         os.mkdir(tests_dir)
+        os.mkdir(models_dir)
+
     except:
         pass
 
@@ -50,7 +53,7 @@ def svg(bin, dirname, svg):
         msg = f'[{mesh_id}/{mesh_num}] {mesh_name}'
         print(msg + ' ' * max(0, 78-len(msg)))
 
-        cmd = f'{bin} --model {mesh_name} --output_image {images_dir}/{name}.png --output_scene {scenes_dir}/{name}.json --output_test {tests_dir}/{name}.json --stats {dirname}/stats.csv {append} {svg}'
+        cmd = f'{bin} --model {mesh_name} --output_image {images_dir}/{name}.png --output_scene {scenes_dir}/{name}.json --output_test {tests_dir}/{name}.json --output_model {models_dir}/{name}.obj --stats {dirname}/stats.csv {append} {svg}'
         print(cmd)
         if append == '':
             append = '--append-stats'
@@ -81,11 +84,13 @@ def jsons(bin, dirname):
     output = f'{dirname}/output'
     images_dir = f'{output}/images'
     scene_dir = f'{output}/scenes'
+    models_dir = f'{output}/models'
 
     try:
         os.mkdir(output)
         os.mkdir(images_dir)
         os.mkdir(scene_dir)
+        os.mkdir(models_dir)
 
     except:
         pass
@@ -110,7 +115,7 @@ def jsons(bin, dirname):
         except:
             pass
 
-        cmd = f'{bin} {json_name} --output_scene {model_scene_dir}/scene.json --output_image {images_dir}/{name}.png --stats {dirname}/stats.csv {append}'
+        cmd = f'{bin} {json_name} --output_scene {model_scene_dir}/scene.json --output_image {images_dir}/{name}.png --output_model {models_dir}/{name}.obj --stats {dirname}/stats.csv {append}'
         print(cmd)
         if append == '':
             append = '--append-stats'
