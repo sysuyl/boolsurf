@@ -3,6 +3,7 @@
 #define NANOSVG_IMPLEMENTATION
 #include "ext/nanosvg/src/nanosvg.h"
 //
+#include <yocto/yocto_modelio.h>
 #include <yocto/yocto_sceneio.h>
 
 #include "boolsurf_io.h"
@@ -143,75 +144,6 @@ bool_state state_from_test(const bool_mesh& mesh, const bool_test& test,
   return state;
 }
 
-// marzia: not the perfect spot
-bool check_ambient_cell(const bool_state& state) {
-  if (state.cells.size() == 1) return false;
-
-  // Getting max faces in ambient cell
-  auto zero               = vector<int>(state.labels[0].size(), 0);
-  auto ambient_cell_faces = 0;
-  for (int c = 0; c < state.cells.size(); c++) {
-    auto& cell = state.cells[c];
-    if (state.labels[c] != zero) continue;
-    ambient_cell_faces = max(ambient_cell_faces, (int)cell.faces.size());
-  }
-
-  printf("ambient_cell_faces: %d\n", ambient_cell_faces);
-  for (auto& cell : state.cells) {
-    if (cell.faces.size() > ambient_cell_faces) return false;
-  }
-
-  return true;
-}
-
-vector<mesh_cell> make_cell_graph_fruit() {
-  auto graph = vector<mesh_cell>();
-  auto cell0 = mesh_cell();
-  cell0.adjacency.insert({1, 2});
-  cell0.adjacency.insert({3, 1});
-  graph.push_back(cell0);
-
-  auto cell1 = mesh_cell();
-  cell1.adjacency.insert({2, 1});
-  cell1.adjacency.insert({0, -2});
-  graph.push_back(cell1);
-
-  auto cell2 = mesh_cell();
-  cell2.adjacency.insert({1, -1});
-  cell2.adjacency.insert({3, -2});
-  graph.push_back(cell2);
-
-  auto cell3 = mesh_cell();
-  cell3.adjacency.insert({2, 2});
-  cell3.adjacency.insert({0, -1});
-  graph.push_back(cell3);
-  return graph;
-}
-
-bool check_cell_adjacency(const vector<mesh_cell>& cells) {
-  auto correct_cells = make_cell_graph_fruit();
-  if (cells.size() != correct_cells.size()) return false;
-
-  auto cells_degree         = hash_map<int, int>();
-  auto correct_cells_degree = hash_map<int, int>();
-
-  for (auto c = 0; c < cells.size(); c++) {
-    auto cell_degree = cells[c].adjacency.size();
-    cells_degree[cell_degree] += 1;
-
-    auto correct_cell_degree = correct_cells[c].adjacency.size();
-    correct_cells_degree[correct_cell_degree] += 1;
-  }
-
-  for (auto& [key, value] : cells_degree) {
-    if (!contains(correct_cells_degree, key)) return false;
-    if (cells_degree[key] != correct_cells_degree[key]) return false;
-  }
-
-  // (Marzia): Aggiungi altri check sul grafo
-  return true;
-}
-
 bool_state state_from_screenspace_test(
     bool_mesh& mesh, bool_test& test, float drawing_size, bool use_projection) {
   int  seed          = 0;
@@ -241,9 +173,6 @@ bool_state state_from_screenspace_test(
       try {
         stop = compute_cells(mesh, state);
         compute_shapes(state);
-
-        stop = stop && check_ambient_cell(state);
-        stop = stop && check_cell_adjacency(state.cells);
       } catch (const std::exception&) {
         stop = true;
       }
@@ -361,63 +290,6 @@ scene_shape create_polygon_shape(
     }
   }
   return shape;
-}
-
-scene_model make_debug_scene(const bool_mesh& mesh, const bool_state& state,
-    const scene_camera& camera) {
-  auto scene = scene_model{};
-  scene.cameras.push_back(camera);
-
-  auto& instance    = scene.instances.emplace_back();
-  instance.material = (int)scene.materials.size();
-
-  auto& material     = scene.materials.emplace_back();
-  material.color     = {0.5, 0.5, 0.5};
-  material.type      = scene_material_type::glossy;
-  material.roughness = 0.5;
-
-  instance.shape = (int)scene.shapes.size();
-  auto& shape    = scene.shapes.emplace_back();
-
-  shape.positions = mesh.positions;
-  shape.triangles = mesh.triangles;
-
-  auto border_faces_map = hash_map<hash_set<int>, vector<int>>{};
-  for (int i = 0; i < mesh.borders.tags.size(); i++) {
-    auto tag     = mesh.borders.tags[i];
-    auto tag_set = hash_set<int>{};
-    if (tag.x < 0) tag_set.insert(-tag.x);
-    if (tag.y < 0) tag_set.insert(-tag.y);
-    if (tag.z < 0) tag_set.insert(-tag.z);
-    if (tag_set.empty()) continue;
-    border_faces_map[tag_set].push_back(i);
-  }
-
-  for (auto& [set, faces] : border_faces_map) {
-    auto color = vec3f{0, 0, 0};
-    for (auto& polygon_id : set) {
-      color += get_color(polygon_id);
-    }
-    color /= set.size();
-
-    auto& instance    = scene.instances.emplace_back();
-    instance.material = (int)scene.materials.size();
-
-    auto& material     = scene.materials.emplace_back();
-    material.color     = color;
-    material.type      = scene_material_type::glossy;
-    material.roughness = 0.5;
-
-    instance.shape = (int)scene.shapes.size();
-    auto& shape    = scene.shapes.emplace_back();
-
-    shape.positions = mesh.positions;
-    for (auto face : faces) {
-      shape.triangles.push_back(mesh.triangles[face]);
-    }
-  }
-
-  return scene;
 }
 
 scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
@@ -573,6 +445,34 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
   }
 
   return scene;
+}
+
+void export_model(
+    const bool_state& state, const bool_mesh& mesh, const string& filename) {
+  auto error = string{};
+  auto model = obj_model{};
+
+  auto obj = obj_shape{};
+  add_positions(obj, mesh.positions);
+  add_normals(obj, mesh.normals);
+
+  for (int c = 0; c < state.cells.size(); c++) {
+    auto& cell       = state.cells[c];
+    auto  cell_color = get_cell_color(state, c, false);
+
+    auto material    = obj_material();
+    material.name    = to_string(c);
+    material.diffuse = cell_color;
+    model.materials.push_back(material);
+
+    auto triangles = vector<vec3i>();
+    for (auto& face : cell.faces) triangles.push_back(mesh.triangles[face]);
+    add_triangles(
+        obj, triangles, c, !mesh.normals.empty(), !mesh.texcoords.empty());
+  }
+
+  model.shapes.push_back(obj);
+  save_obj(filename, model, error);
 }
 
 #include <yocto/yocto_color.h>

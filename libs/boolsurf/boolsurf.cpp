@@ -1008,7 +1008,7 @@ static pair<vector<vec3i>, vector<vec3i>> single_split_triangulation(
 
 // Constrained Delaunay Triangulation
 static pair<vector<vec3i>, vector<vec3i>> constrained_triangulation(
-    vector<vec2f>& nodes, const vector<vec2i>& edges) {
+    vector<vec2f>& nodes, const vector<vec2i>& edges, int face) {
   // Questo purtroppo serve.
   for (auto& n : nodes) n *= 1e9;
 
@@ -1051,7 +1051,7 @@ static pair<vector<vec3i>, vector<vec3i>> constrained_triangulation(
     auto  orientation = cross(b - a, c - b);
     if (fabs(orientation) < 0.00001) {
       global_state->failed = true;
-      printf("Collinear (ma serve?)\n");
+      printf("Collinear in face : %d\n", face);
       continue;
     }
 
@@ -1185,7 +1185,7 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
     } else {
       add_boundary_edge_constraints(info.edgemap, info.edges);
       tie(triangles, adjacency) = constrained_triangulation(
-          info.nodes, info.edges);
+          info.nodes, info.edges, face);
     }
 
     debug_edges()[face]     = info.edges;
@@ -1538,16 +1538,22 @@ void compute_shapes(bool_state& state) {
   }
 
   // Distribute cells to shapes.
-  // La prima shape è relativa alla cella ambiente, che è rotto per
+  // La prima shape è relativa alla cella ambiente, che è root per
   // definizione
   shapes[0].cells = hash_set<int>(
       state.ambient_cells.begin(), state.ambient_cells.end());
   shapes[0].is_root = false;
 
   for (auto c = 0; c < state.cells.size(); c++) {
+    auto count = 0;
     for (auto p = 0; p < state.labels[c].size(); p++) {
-      if (state.labels[c][p] > 0) shapes[p].cells.insert(c);
+      if (state.labels[c][p] > 0) {
+        shapes[p].cells.insert(c);
+        count += 1;
+      }
     }
+
+    if (count == 0) shapes[0].cells.insert(c);
   }
 }
 

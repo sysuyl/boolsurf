@@ -224,6 +224,13 @@ void draw_widgets(app_state* app, const gui_input& input) {
     save_scene(path_join(scene_filename, "scene.json"), scene, error);
   }
 
+  auto export_filename = path_basename(app->output_test_filename) +
+                         string("_exp.json");
+  if (draw_filedialog_button(widgets, "export model", true, "export model",
+          export_filename, true, "data/models/", filename, "*.obj")) {
+    export_model(app->state, app->mesh, export_filename);
+  }
+
   if (begin_header(widgets, "SVG", app->svg_filename.size())) {
     draw_svg_gui(widgets, app);
     end_header(widgets);
@@ -460,6 +467,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
       commit_state(app);
       compute_bool_operation(app->state, app->operation);
       app->test.operations += app->operation;
+
       update_cell_colors(app);
       app->operation = {};
     }
@@ -494,6 +502,14 @@ void draw_widgets(app_state* app, const gui_input& input) {
       commit_state(app);
       app->operation = {};
       app->test.operations.clear();
+    }
+
+    if (draw_button(widgets, "Save borders")) {
+      compute_shape_borders(app->mesh, app->state);
+
+      auto new_state = compute_border_polygons(app->state);
+      save_test(app, new_state, "data/tests/border_polygons.json");
+      printf("Saved borders\n");
     }
 
     end_header(widgets);
@@ -810,40 +826,6 @@ void key_input(app_state* app, const gui_input& input) {
                 ogl_depth_test::always;
           }
         }
-      } break;
-
-      case (int)gui_key('O'): {
-        printf("Computing operations\n");
-        for (auto& op : app->test.operations) {
-          compute_bool_operation(app->state, op);
-        }
-
-        printf("Computing borders\n");
-        update_cell_colors(app);
-        compute_shape_borders(app->mesh, app->state);
-
-        auto new_state = compute_border_polygons(app->state);
-        save_test(app, new_state, "data/tests/border_polygons.json");
-        printf("Saved borders\n");
-
-        return;
-
-        app->mesh = app->mesh_original;
-
-        // for (auto& polygon : state.polygons) {
-        //   recompute_polygon_segments(app->mesh, app->state, polygon);
-        // }
-
-        // for (auto& polygon : app->state.polygons) {
-        //   clear_shape(polygon.polyline_shape->shape);
-        // }
-
-        // app->state = state;
-        // for (int i = 0; i < app->state.polygons.size(); i++) {
-        //   auto& polygon = app->state.polygons[i];
-        //   set_polygon_shape(app->glscene, app->mesh, polygon, i);
-        // }
-        return;
       } break;
 
       case (int)gui_key('S'): {

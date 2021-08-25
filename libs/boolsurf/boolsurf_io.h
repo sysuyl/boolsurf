@@ -108,6 +108,9 @@ void add_polygons(bool_state& state, const bool_mesh& mesh,
     const scene_camera& camera, const bool_test& test, const mesh_point& center,
     float svg_size, bool screenspace, bool straigh_up = true);
 
+void export_model(
+    const bool_state& state, const bool_mesh& mesh, const string& filename);
+
 string tree_to_string(const bool_state& state, bool color_shapes);
 
 inline string tree_to_string(const vector<vector<int>>& graph) {
@@ -165,9 +168,6 @@ void save_tree_png(const bool_state& state, string filename,
 
 scene_shape create_polygon_shape(
     const vector<vec3f>& positions, float thickness);
-
-scene_model make_debug_scene(
-    const bool_mesh& mesh, const bool_state& state, const scene_camera& camera);
 
 scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
     const scene_camera& camera, bool color_shapes, bool color_hashgrid,
