@@ -53,7 +53,7 @@ def svg(bin, dirname, svg):
         msg = f'[{mesh_id}/{mesh_num}] {mesh_name}'
         print(msg + ' ' * max(0, 78-len(msg)))
 
-        cmd = f'{bin} --model {mesh_name} --output_image {images_dir}/{name}.png --output_scene {scenes_dir}/{name}.json --output_test {tests_dir}/{name}.json --output_model {models_dir}/{name}.obj --stats {dirname}/stats.csv {append} {svg}'
+        cmd = f'{bin} --model {mesh_name} --output_image {images_dir}/{name}.png --output_scene {scenes_dir}/{name}.json --output_test {tests_dir}/{name}.json --output_obj {models_dir}/{name}.obj --stats {dirname}/stats.csv {append} {svg}'
         print(cmd)
         if append == '':
             append = '--append-stats'
@@ -115,7 +115,7 @@ def jsons(bin, dirname):
         except:
             pass
 
-        cmd = f'{bin} {json_name} --output_scene {model_scene_dir}/scene.json --output_image {images_dir}/{name}.png --output_model {models_dir}/{name}.obj --stats {dirname}/stats.csv {append}'
+        cmd = f'{bin} {json_name} --output_scene {model_scene_dir}/scene.json --output_image {images_dir}/{name}.png --output_obj {models_dir}/{name}.obj --stats {dirname}/stats.csv {append}'
         print(cmd)
         if append == '':
             append = '--append-stats'

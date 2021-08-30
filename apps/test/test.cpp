@@ -283,10 +283,6 @@ int main(int num_args, const char* args[]) {
   save_image(output_image_filename, mesh, state, test.camera, color_shapes,
       save_edges, save_polygons, line_width, spp);
 
-  if (output_obj_filename.size()) {
-    export_model(state, mesh, output_obj_filename);
-  }
-
   // auto graph_dir      = path_dirname(output_image_filename);
   // auto graph_filename = path_basename(output_image_filename) +
   //                       string("_graph.png");
@@ -301,6 +297,12 @@ int main(int num_args, const char* args[]) {
 
   stats.boolean_ms = elapsed_nanoseconds(booleans_timer) / pow(10, 6);
   stats.total_ms += stats.boolean_ms;
+
+  mesh.normals = compute_normals(mesh);
+
+  if (output_obj_filename.size()) {
+    export_model(state, mesh, output_obj_filename);
+  }
 
   // output timings and stats:
   // model, model_triangles, genus,
