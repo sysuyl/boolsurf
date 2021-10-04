@@ -176,6 +176,93 @@ void bezier_last_segment(app_state* app) {
   // update_polygon(app, s, p);
 }
 
+void do_things(app_state* app) {
+  debug_triangles().clear();
+  debug_nodes().clear();
+  debug_indices().clear();
+
+  compute_cells(app->mesh, app->state);
+  if (app->state.failed) {
+    printf("Computation failed\n");
+    return;
+  }
+
+  // #ifdef MY_DEBUG
+  // save_tree_png(app->state, app->test_filename, "", app->color_shapes);
+  //#endif
+
+  compute_shapes(app->state);
+
+  if (!app->color_hashgrid) {
+    app->cell_shapes.resize(app->state.cells.size());
+    for (int i = 0; i < app->state.cells.size(); i++) {
+      app->cell_shapes[i] = add_patch_shape(app, {}, vec3f{});
+    }
+
+    update_cell_shapes(app);
+    update_cell_colors(app);
+
+    // for (auto p = 0; p < app->state.polygons.size(); p++) {
+    //   app->polygon_shapes[p]->hidden = true;
+    // }
+    app->mesh_instance->hidden = true;
+  }
+
+  // update bvh
+  app->mesh.bvh = make_triangles_bvh(
+      app->mesh.triangles, app->mesh.positions, {});
+
+  // update gpu data
+  set_positions(app->mesh_instance->shape, app->mesh.positions);
+  set_triangles(app->mesh_instance->shape, app->mesh.triangles);
+  // TODO(giacomo): serve?
+  app->mesh.normals = compute_normals(app->mesh);
+  set_normals(app->mesh_instance->shape, app->mesh.normals);
+  init_edges_and_vertices_shapes_and_points(app);
+
+  // {
+  //   auto ist      = add_instance(app->glscene);
+  //   ist->shape    = add_shape(app->glscene);
+  //   ist->material = add_material(app->glscene);
+  //   set_arrow_shapes(ist->shape, {}, {});
+  // }
+
+  if (app->color_hashgrid) {
+    auto faces = vector<int>();
+    for (auto& [face, _] : app->mesh.triangulated_faces) {
+      faces.push_back(face);
+    }
+
+    app->hashgrid_shape = add_patch_shape(
+        app, faces, app->mesh_material->color * 0.65);
+    app->hashgrid_shape->depth_test = ogl_depth_test::always;
+    for (auto& glshapes : app->shape_shapes)
+      app->glscene->instances += glshapes.polygons;
+
+    // auto inner_faces      = vector<int>{};
+    // auto outer_faces      = vector<int>{};
+    auto border_faces_map = hash_map<hash_set<int>, vector<int>>{};
+    for (int i = 0; i < app->mesh.borders.tags.size(); i++) {
+      auto tag     = app->mesh.borders.tags[i];
+      auto tag_set = hash_set<int>{};
+      if (tag.x < 0) tag_set.insert(-tag.x);
+      if (tag.y < 0) tag_set.insert(-tag.y);
+      if (tag.z < 0) tag_set.insert(-tag.z);
+      if (tag_set.empty()) continue;
+      border_faces_map[tag_set].push_back(i);
+    }
+    for (auto& [set, faces] : border_faces_map) {
+      auto color = vec3f{0, 0, 0};
+      for (auto& polygon_id : set) {
+        color += get_color(polygon_id);
+      }
+      color /= set.size();
+      app->border_faces_shapes += add_patch_shape(app, faces, color);
+      app->border_faces_shapes.back()->depth_test = ogl_depth_test::always;
+    }
+  }
+}
+
 void draw_widgets(app_state* app, const gui_input& input) {
   auto widgets = &app->widgets;
   begin_imgui(widgets, "boolsurf", {0, 0}, {320, 720});
@@ -236,7 +323,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
 
-  if (begin_header(widgets, "view")) {
+  if (begin_header(widgets, "View")) {
     auto  glmaterial = app->mesh_material;
     auto& params     = app->drawgl_prms;
     draw_checkbox(widgets, "edges", app->glscene->instances[1]->hidden, true);
@@ -244,10 +331,12 @@ void draw_widgets(app_state* app, const gui_input& input) {
     draw_checkbox(widgets, "points", app->glscene->instances[2]->hidden, true);
     continue_line(widgets);
 
-    if (draw_checkbox(widgets, "polygons", app->show_polygons)) {
-      // for (auto i : app->shape_shapes) {
-      //   i->hidden = !app->show_polygons;
-      // }
+    if (draw_checkbox(widgets, "shapes", app->show_polygons)) {
+      for (auto& shape : app->shape_shapes) {
+        for (auto& inst : shape.polygons) {
+          inst->hidden = !app->show_polygons;
+        }
+      }
 
       // if (app->show_polygons) update_polygons(app);
     }
@@ -338,43 +427,43 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
 
-  if (begin_header(widgets, "Compose shapes")) {
-    auto ff = [&](int i) { return to_string(i); };
+  // if (begin_header(widgets, "Compose shapes")) {
+  //   auto ff = [&](int i) { return to_string(i); };
 
-    auto s = ""s;
-    for (auto& shape_id : app->current_shape) s += to_string(shape_id) + " ";
-    draw_label(widgets, "Current:", s);
+  //   auto s = ""s;
+  //   for (auto& shape_id : app->current_shape) s += to_string(shape_id) + " ";
+  //   draw_label(widgets, "Current:", s);
 
-    draw_combobox(widgets, "Shape", app->selected_polygon,
-        (int)app->state.bool_shapes.size(), ff);
+  //   draw_combobox(widgets, "Shape", app->selected_polygon,
+  //       (int)app->state.bool_shapes.size(), ff);
 
-    if (draw_button(widgets, "Add")) {
-      app->current_shape.insert(app->selected_polygon);
-    }
+  //   if (draw_button(widgets, "Add")) {
+  //     app->current_shape.insert(app->selected_polygon);
+  //   }
 
-    if (draw_button(widgets, "Remove")) {
-      app->current_shape.erase(app->selected_polygon);
-    }
+  //   if (draw_button(widgets, "Remove")) {
+  //     app->current_shape.erase(app->selected_polygon);
+  //   }
 
-    if (draw_button(widgets, "Create")) {
-      auto& bool_shape = app->state.bool_shapes.emplace_back();
-      for (auto shape_id : app->current_shape) {
-        auto& shape_polygons = app->state.bool_shapes[shape_id].polygons;
-        while (shape_polygons.size()) {
-          auto polygon = shape_polygons.back();
-          shape_polygons.pop_back();
+  //   if (draw_button(widgets, "Create")) {
+  //     auto& bool_shape = app->state.bool_shapes.emplace_back();
+  //     for (auto shape_id : app->current_shape) {
+  //       auto& shape_polygons = app->state.bool_shapes[shape_id].polygons;
+  //       while (shape_polygons.size()) {
+  //         auto polygon = shape_polygons.back();
+  //         shape_polygons.pop_back();
 
-          bool_shape.polygons.push_back(polygon);
-        }
-      }
-      app->current_shape.clear();
-    }
+  //         bool_shape.polygons.push_back(polygon);
+  //       }
+  //     }
+  //     app->current_shape.clear();
+  //   }
 
-    end_header(widgets);
-  }
+  //   end_header(widgets);
+  // }
 
   if (app->last_clicked_point.face >= 0 &&
-      begin_header(widgets, "face", false)) {
+      begin_header(widgets, "Face", false)) {
     auto face = app->last_clicked_point.face;
     draw_label(widgets, "face", std::to_string(face));
 
@@ -397,7 +486,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
 
-  if (app->selected_cell >= 0 && begin_header(widgets, "cell")) {
+  if (app->selected_cell >= 0 && begin_header(widgets, "Cell")) {
     auto& cell    = app->state.cells[app->selected_cell];
     auto  cell_id = app->selected_cell;
     draw_label(widgets, "cell", to_string(app->selected_cell));
@@ -419,7 +508,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
 
-  if (app->selected_shape >= 0 && begin_header(widgets, "shapes")) {
+  if (app->selected_shape >= 0 && begin_header(widgets, "Shapes")) {
     auto& shape_id   = app->selected_shape;
     auto& shape      = app->state.bool_shapes[shape_id];
     auto  sorting_id = find_idx(app->state.shapes_sorting, shape_id);
@@ -453,7 +542,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
   }
 
   auto open_booleans = app->selected_shape >= 0;
-  if (open_booleans && begin_header(widgets, "booleans")) {
+  if (open_booleans && begin_header(widgets, "Booleans")) {
     auto ff = [&](int i) { return to_string(i); };
     draw_combobox(widgets, "a", app->operation.shape_a,
         (int)app->state.bool_shapes.size(), ff);
@@ -463,39 +552,74 @@ void draw_widgets(app_state* app, const gui_input& input) {
     auto op = (int)app->operation.type;
     draw_combobox(widgets, "operation", op, bool_operation::type_names);
     app->operation.type = (bool_operation::Type)op;
-    if (draw_button(widgets, "Apply")) {
+    if (draw_button(widgets, "Apply operation")) {
+      app->color_shapes = true;
       commit_state(app);
       compute_bool_operation(app->state, app->operation);
       app->test.operations += app->operation;
 
       update_cell_colors(app);
       app->operation = {};
-    }
+      //}
 
-    if (draw_button(widgets, "Apply All")) {
-      commit_state(app);
-      for (auto& op : app->test.operations) {
-        compute_bool_operation(app->state, op);
-      }
-      update_cell_colors(app);
-    }
+      // if (draw_button(widgets, "Apply All")) {
+      //   commit_state(app);
+      //   for (auto& op : app->test.operations) {
+      //     compute_bool_operation(app->state, op);
+      //   }
+      //   update_cell_colors(app);
+      // }
 
-    if (draw_button(widgets, "Apply difference")) {
-      commit_state(app);
+      // if (draw_button(widgets, "Apply difference")) {
+      //   commit_state(app);
 
-      // auto indices = vector<int>(app->state.shapes.size() - 1);
-      // for (auto i = 1; i < indices.size() + 1; i++) indices[(i - 1)] = i;
+      //   // auto indices = vector<int>(app->state.shapes.size() - 1);
+      //   // for (auto i = 1; i < indices.size() + 1; i++) indices[(i - 1)] =
+      //   i;
 
-      // compute_symmetrical_difference(app->state, indices);
-      // update_cell_colors(app);
-      for (int i = 0; i < app->state.cells.size(); i++) {
-        auto k = sum(app->state.labels[i]);
-        if (k % 2 == 1) {
-          // app->cell_shapes[i]->material->color = {1, 0, 0};
-        } else {
-          app->cell_shapes[i]->material->color = {1, 1, 1};
+      //   // compute_symmetrical_difference(app->state, indices);
+      //   // update_cell_colors(app);
+      //   for (int i = 0; i < app->state.cells.size(); i++) {
+      //     auto k = sum(app->state.labels[i]);
+      //     if (k % 2 == 1) {
+      //       // app->cell_shapes[i]->material->color = {1, 0, 0};
+      //     } else {
+      //       app->cell_shapes[i]->material->color = {1, 1, 1};
+      //     }
+      //   }
+      // }
+
+      // if (draw_button(widgets, "Compute borders")) {
+      compute_shape_borders(app->mesh, app->state);
+
+      for (auto& shape : app->shape_shapes) {
+        for (auto& inst : shape.polygons) {
+          inst->hidden = true;
         }
       }
+
+      auto new_state = compute_border_polygons(app->state);
+      save_test(app, new_state, "data/tests/border_polygons.json");
+
+      app->mesh = app->mesh_original;
+      app->state.bool_shapes.clear();
+      app->shape_shapes.clear();
+
+      app->state = new_state;
+      for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
+        add_shape_shape(app, s);
+      }
+
+      update_polygons(app);
+
+      for (auto& shape : app->shape_shapes) {
+        for (auto& inst : shape.polygons) {
+          inst->material->color = vec3f{0.0f, 0.0f, 0.8f};
+          inst->hidden          = false;
+        }
+      }
+
+      printf("Saved borders\n");
     }
 
     if (draw_button(widgets, "Clear operations")) {
@@ -504,18 +628,10 @@ void draw_widgets(app_state* app, const gui_input& input) {
       app->test.operations.clear();
     }
 
-    if (draw_button(widgets, "Save borders")) {
-      compute_shape_borders(app->mesh, app->state);
-
-      auto new_state = compute_border_polygons(app->state);
-      save_test(app, new_state, "data/tests/border_polygons.json");
-      printf("Saved borders\n");
-    }
-
     end_header(widgets);
   }
 
-  if (begin_header(widgets, "mesh")) {
+  if (begin_header(widgets, "Mesh")) {
     draw_label(widgets, "filename", app->model_filename);
     draw_label(
         widgets, "triangles", std::to_string(app->mesh.triangles.size()));
@@ -523,32 +639,40 @@ void draw_widgets(app_state* app, const gui_input& input) {
         widgets, "positions", std::to_string(app->mesh.positions.size()));
     end_header(widgets);
   }
-  if (draw_button(widgets, "bezier")) {
-    bezier_last_segment(app);
+
+  if (draw_button(widgets, "Execute")) {
+    do_things(app);
   }
   continue_line(widgets);
-  if (draw_button(widgets, "bezier polygons")) {
-    commit_state(app);
-    auto& mesh = app->mesh;
 
-    for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
-      for (auto p = 0; p < app->state.bool_shapes[s].polygons.size(); p++) {
-        auto& polygon        = app->state.bool_shapes[s].polygons[p];
-        auto  control_points = vector<mesh_point>{};
-        for (int i = 0; i < polygon.points.size(); i++) {
-          auto point = app->state.points[polygon.points[i]];
-          control_points += point;
-        }
-        auto bezier = compute_bezier_path(mesh.dual_solver, mesh.triangles,
-            mesh.positions, mesh.adjacencies, control_points, 4);
-        polygon.points.resize(bezier.size());
-        for (int i = 0; i < bezier.size(); i++)
-          polygon.points[i] = app->state.points.size() + i;
-        app->state.points += bezier;
-        update_polygon(app, s, p);
-      }
-    }
-  }
+  // if (draw_button(widgets, "bezier")) {
+  //   bezier_last_segment(app);
+  // }
+  // continue_line(widgets);
+
+  // if (draw_button(widgets, "bezier polygons")) {
+  //   commit_state(app);
+  //   auto& mesh = app->mesh;
+
+  //   for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
+  //     for (auto p = 0; p < app->state.bool_shapes[s].polygons.size(); p++)
+  //     {
+  //       auto& polygon        = app->state.bool_shapes[s].polygons[p];
+  //       auto  control_points = vector<mesh_point>{};
+  //       for (int i = 0; i < polygon.points.size(); i++) {
+  //         auto point = app->state.points[polygon.points[i]];
+  //         control_points += point;
+  //       }
+  //       auto bezier = compute_bezier_path(mesh.dual_solver, mesh.triangles,
+  //           mesh.positions, mesh.adjacencies, control_points, 4);
+  //       polygon.points.resize(bezier.size());
+  //       for (int i = 0; i < bezier.size(); i++)
+  //         polygon.points[i] = app->state.points.size() + i;
+  //       app->state.points += bezier;
+  //       update_polygon(app, s, p);
+  //     }
+  //   }
+  // }
 
   end_imgui(widgets);
 }
@@ -741,91 +865,15 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key('I'): {
-        debug_triangles().clear();
-        debug_nodes().clear();
-        debug_indices().clear();
+        do_things(app);
+      } break;
 
-        compute_cells(app->mesh, app->state);
-        if (app->state.failed) {
-          printf("Computation failed\n");
-          return;
-        }
+      case (int)gui_key('E'): {
+        do_things(app);
+      } break;
 
-        // #ifdef MY_DEBUG
-        // save_tree_png(app->state, app->test_filename, "", app->color_shapes);
-        //#endif
-
-        compute_shapes(app->state);
-
-        if (!app->color_hashgrid) {
-          app->cell_shapes.resize(app->state.cells.size());
-          for (int i = 0; i < app->state.cells.size(); i++) {
-            app->cell_shapes[i] = add_patch_shape(app, {}, vec3f{});
-          }
-
-          update_cell_shapes(app);
-          update_cell_colors(app);
-
-          // for (auto p = 0; p < app->state.polygons.size(); p++) {
-          //   app->polygon_shapes[p]->hidden = true;
-          // }
-          app->mesh_instance->hidden = true;
-        }
-
-        // update bvh
-        app->mesh.bvh = make_triangles_bvh(
-            app->mesh.triangles, app->mesh.positions, {});
-
-        // update gpu data
-        set_positions(app->mesh_instance->shape, app->mesh.positions);
-        set_triangles(app->mesh_instance->shape, app->mesh.triangles);
-        // TODO(giacomo): serve?
-        app->mesh.normals = compute_normals(app->mesh);
-        set_normals(app->mesh_instance->shape, app->mesh.normals);
-        init_edges_and_vertices_shapes_and_points(app);
-
-        // {
-        //   auto ist      = add_instance(app->glscene);
-        //   ist->shape    = add_shape(app->glscene);
-        //   ist->material = add_material(app->glscene);
-        //   set_arrow_shapes(ist->shape, {}, {});
-        // }
-
-        if (app->color_hashgrid) {
-          auto faces = vector<int>();
-          for (auto& [face, _] : app->mesh.triangulated_faces) {
-            faces.push_back(face);
-          }
-
-          app->hashgrid_shape = add_patch_shape(
-              app, faces, app->mesh_material->color * 0.65);
-          app->hashgrid_shape->depth_test = ogl_depth_test::always;
-          for (auto& glshapes : app->shape_shapes)
-            app->glscene->instances += glshapes.polygons;
-
-          // auto inner_faces      = vector<int>{};
-          // auto outer_faces      = vector<int>{};
-          auto border_faces_map = hash_map<hash_set<int>, vector<int>>{};
-          for (int i = 0; i < app->mesh.borders.tags.size(); i++) {
-            auto tag     = app->mesh.borders.tags[i];
-            auto tag_set = hash_set<int>{};
-            if (tag.x < 0) tag_set.insert(-tag.x);
-            if (tag.y < 0) tag_set.insert(-tag.y);
-            if (tag.z < 0) tag_set.insert(-tag.z);
-            if (tag_set.empty()) continue;
-            border_faces_map[tag_set].push_back(i);
-          }
-          for (auto& [set, faces] : border_faces_map) {
-            auto color = vec3f{0, 0, 0};
-            for (auto& polygon_id : set) {
-              color += get_color(polygon_id);
-            }
-            color /= set.size();
-            app->border_faces_shapes += add_patch_shape(app, faces, color);
-            app->border_faces_shapes.back()->depth_test =
-                ogl_depth_test::always;
-          }
-        }
+      case (int)gui_key('M'): {
+        do_things(app);
       } break;
 
       case (int)gui_key('S'): {

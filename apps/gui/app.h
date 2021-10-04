@@ -485,7 +485,7 @@ shade_instance* get_polygon_shape(
     set_polygon_shape(polygon_instance, app->mesh, polygon, app->thick_lines,
         app->line_width);
 
-  polygon_instance->depth_test = ogl_depth_test::always;
+  // polygon_instance->depth_test = ogl_depth_test::always;
   // app->polygon_shapes += polygon_instance;
 
   // auto arrow_shape    = add_shape(app->glscene);
