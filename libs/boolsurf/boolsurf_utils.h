@@ -20,8 +20,9 @@ using namespace yocto;
 #define PRINT_CALL() _PRINT_CALL(__FUNCTION__, __FILE__, __LINE__)
 
 #define _PROFILE(function) auto _profile = print_timed(string(function));
-#define PROFILE() _PROFILE(__FUNCTION__)
-
+//#define PROFILE() _PROFILE(__FUNCTION__)
+#define PROFILE() ;
+ 
 inline int mod3(int i) { return (i > 2) ? i - 3 : i; }
 
 #if 0

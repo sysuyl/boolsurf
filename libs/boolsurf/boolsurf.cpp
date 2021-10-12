@@ -1423,8 +1423,8 @@ void compute_cell_labels(bool_state& state) {
   state.labels           = propagate_cell_labels(
       state.cells, state.ambient_cells, (int)state.bool_shapes.size());
 
-  printf("Finding labelling: %f\n",
-      elapsed_nanoseconds(propagation_timer) / pow(10, 6));
+  //printf("Finding labelling: %f\n",
+  //    elapsed_nanoseconds(propagation_timer) / pow(10, 6));
 
   auto offset = vector<int>((int)state.bool_shapes.size());
   for (auto& cell_label : state.labels) {

@@ -25,11 +25,11 @@ struct test_stats {
   int edges  = 0;
   int cycles = 0;
 
-  double triangulation_ms = 0.0;
-  double flood_fill_ms    = 0.0;
-  double labelling_ms     = 0.0;
-  double boolean_ms       = 0.0;
-  double total_ms         = 0.0;
+  vector<double> triangulation_ms = {};
+  vector<double> flood_fill_ms    = {};
+  vector<double> labelling_ms     = {};
+  vector<double> boolean_ms       = {};
+  vector<double> total_ms         = {};
 };
 
 void save_image(const string& output_image_filename, const bool_mesh& mesh,
@@ -197,6 +197,7 @@ int main(int num_args, const char* args[]) {
   }
 
   auto bvh = make_triangles_bvh(mesh.triangles, mesh.positions, {});
+  auto original_mesh = mesh;
 
   // Init bool_state
   auto state = bool_state{};
@@ -229,59 +230,79 @@ int main(int num_args, const char* args[]) {
   stats.control_points += (int)state.isecs_generators.size();
   stats.genus = compute_mesh_genus(mesh);
 
-  // Execute triangulation
-  auto triangulation_timer = simple_timer{};
-  slice_mesh(mesh, state);
+  for (auto i = 0; i < 100; i++) {
+    //printf("Test: [%d/100]\n", i + 1);
+    auto total_ms = 0.0;
+    // Execute triangulation
+    auto triangulation_timer = simple_timer{};
+    slice_mesh(mesh, state);
 
-  stats.triangulation_ms = elapsed_nanoseconds(triangulation_timer) /
-                           pow(10, 6);
-  stats.total_ms += stats.triangulation_ms;
-  stats.sliced_triangles = (int)mesh.triangulated_faces.size();
-  for (auto& [face, triangles] : mesh.triangulated_faces)
-    stats.added_triangles += triangles.size();
+    auto triangulation_ms = elapsed_nanoseconds(triangulation_timer) / pow(10, 6);
+    stats.triangulation_ms.push_back(triangulation_ms);
+    total_ms += triangulation_ms;
 
-  // Flood-fill for graph creation
-  auto flood_fill_timer = simple_timer{};
-  state.cells           = make_mesh_cells(mesh.adjacencies, mesh.borders);
-  update_virtual_adjacencies(state.cells, mesh.borders);
+    stats.sliced_triangles = (int)mesh.triangulated_faces.size();
+    for (auto& [face, triangles] : mesh.triangulated_faces)
+      stats.added_triangles += triangles.size();
 
-  stats.flood_fill_ms = elapsed_nanoseconds(flood_fill_timer) / pow(10, 6);
-  stats.total_ms += stats.flood_fill_ms;
+    // Flood-fill for graph creation
+    auto flood_fill_timer = simple_timer{};
+    state.cells           = make_mesh_cells(mesh.adjacencies, mesh.borders);
+    update_virtual_adjacencies(state.cells, mesh.borders);
 
-  stats.cells = state.cells.size();
-  for (auto& cell : state.cells) stats.edges += cell.adjacency.size();
-  stats.edges /= 2;
+    auto flood_fill_ms = elapsed_nanoseconds(flood_fill_timer) / pow(10, 6);
+    stats.flood_fill_ms.push_back(flood_fill_ms);
+    total_ms += flood_fill_ms;
 
-  auto invalid_shapes = compute_invalid_shapes(
-      state.cells, (int)state.bool_shapes.size());
+    stats.cells = state.cells.size();
+    for (auto& cell : state.cells) stats.edges += cell.adjacency.size();
+    stats.edges /= 2;
 
-  if (invalid_shapes.size()) {
-    state.failed = true;
-    printf("FAILED: ");
-    for (auto& s : invalid_shapes) printf("%d ", s);
-    printf("\n");
-  } else {
-    // Label propagation
-    auto labelling_timer = simple_timer{};
-    compute_cell_labels(state);
+    auto invalid_shapes = compute_invalid_shapes(
+        state.cells, (int)state.bool_shapes.size());
 
-    stats.cycles       = (int)state.cycles.size();
-    stats.labelling_ms = elapsed_nanoseconds(labelling_timer) / pow(10, 6);
-    stats.total_ms += stats.labelling_ms;
-    printf("Total labelling time: %f\n", stats.labelling_ms);
-    compute_shapes(state);
+    if (invalid_shapes.size()) {
+      state.failed = true;
+      // printf("FAILED: ");
+      // for (auto& s : invalid_shapes) printf("%d ", s);
+      // printf("\n");
+    } else {
+      // Label propagation
+      auto labelling_timer = simple_timer{};
+      compute_cell_labels(state);
+
+      stats.cycles       = (int)state.cycles.size();
+      auto labelling_ms = elapsed_nanoseconds(labelling_timer) / pow(10, 6);
+      stats.labelling_ms.push_back(labelling_ms);
+      total_ms += labelling_ms;
+      // printf("Total labelling time: %f\n", stats.labelling_ms);
+      compute_shapes(state);
+    }
+
+    auto booleans_timer = simple_timer{};
+    for (auto& operation : test.operations) {
+      compute_bool_operation(state, operation);
+    }
+    // compute_shape_borders(mesh, state);
+
+    auto boolean_ms = elapsed_nanoseconds(booleans_timer) / pow(10, 6);
+    stats.boolean_ms.push_back(boolean_ms);
+    total_ms += boolean_ms;
+    stats.total_ms.push_back(total_ms);
+
+    mesh = original_mesh;
   }
 
   // Saving output scene
-  auto scene = make_scene(mesh, state, test.camera, color_shapes, false,
+  /*auto scene = make_scene(mesh, state, test.camera, color_shapes, false,
       save_edges, save_polygons, line_width);
   if (output_scene_filename.size()) {
     save_scene(output_scene_filename, scene, error);
-  }
+  }*/
 
   // Saving render and cell adjacency graph
-  save_image(output_image_filename, mesh, state, test.camera, color_shapes,
-      save_edges, save_polygons, line_width, spp);
+  //save_image(output_image_filename, mesh, state, test.camera, color_shapes,
+  //   save_edges, save_polygons, line_width, spp);
 
   // auto graph_dir      = path_dirname(output_image_filename);
   // auto graph_filename = path_basename(output_image_filename) +
@@ -289,20 +310,24 @@ int main(int num_args, const char* args[]) {
   // auto graph_outfile = path_join(graph_dir, graph_filename);
   // save_tree_png(state, graph_outfile.c_str(), "", color_shapes);
 
-  auto booleans_timer = simple_timer{};
-  for (auto& operation : test.operations) {
-    compute_bool_operation(state, operation);
-  }
-  // compute_shape_borders(mesh, state);
-
-  stats.boolean_ms = elapsed_nanoseconds(booleans_timer) / pow(10, 6);
-  stats.total_ms += stats.boolean_ms;
-
   mesh.normals = compute_normals(mesh);
 
-  if (output_obj_filename.size()) {
-    export_model(state, mesh, output_obj_filename);
-  }
+  //if (output_obj_filename.size()) {
+  //  export_model(state, mesh, output_obj_filename);
+  //}
+
+  auto total_tests         = stats.triangulation_ms.size();
+  auto total_triangulation = sum(stats.triangulation_ms) / total_tests;
+  auto total_flood = sum(stats.flood_fill_ms) / total_tests;
+  auto total_labelling = sum(stats.labelling_ms) / total_tests;
+  auto total_booleans = sum(stats.boolean_ms) / total_tests;
+  auto total_total = sum(stats.total_ms) / total_tests;
+  printf("Total tests %d\n", int(stats.triangulation_ms.size()));
+  printf("Total triangulation %f\n", total_triangulation);
+  printf("Total flood-fill %f\n", total_flood);
+  printf("Total labelling %f\n", total_labelling);
+  printf("Total booleans %f\n", total_booleans);
+  printf("Total time %f\n", total_total);
 
   // output timings and stats:
   // model, model_triangles, genus,
@@ -317,8 +342,8 @@ int main(int num_args, const char* args[]) {
         stats.model.c_str(), stats.triangles, stats.genus, stats.shapes,
         stats.polygons, stats.control_points, stats.added_points,
         stats.sliced_triangles, stats.added_triangles, stats.cells, stats.edges,
-        stats.cycles, stats.triangulation_ms, stats.flood_fill_ms,
-        stats.labelling_ms, stats.boolean_ms, stats.total_ms);
+        stats.cycles, total_triangulation, total_flood, total_labelling,
+        total_booleans, total_total);
     fclose(stats_file);
   }
 }
