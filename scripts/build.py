@@ -43,7 +43,7 @@ def vs():
     os.makedirs('build/vs', exist_ok=True)
     os.chdir('build/vs')
     os.system('cmake ../.. -G  "Visual Studio 16 2019" -DYOCTO_EMBREE=ON')
-    os.system('yocto_gl.sln')
+    # os.system('yocto_gl.sln')
 
 
 @cli.command()
