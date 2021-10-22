@@ -1210,10 +1210,11 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
     keys[i] = key;
     i += 1;
   }
+  mesh.triangulated_faces.reserve(hashgrid.size());
 
   // for (auto& [face, polylines] : hashgrid) {
-  auto f = [&](int i) {
-    auto  face      = keys[i];
+  auto f = [&](int index) {
+    auto  face      = keys[index];
     auto& polylines = hashgrid.at(face);
 
     // Calcola le info per la triangolazione, i.e. (nodi ed edge
