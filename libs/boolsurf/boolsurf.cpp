@@ -9,6 +9,27 @@ constexpr auto adjacent_to_nothing = -2;
 
 static bool_state* global_state = nullptr;
 
+#if 0
+#define add_debug_triangle(face, triangle) debug_triangles()[face] = triangle
+#else
+#define add_debug_triangle(face, triangle) ;
+#endif
+#if 0
+#define add_debug_edge(face, edge) debug_edges()[face] = edge
+#else
+#define add_debug_edge(face, edge) ;
+#endif
+#if 0
+#define add_debug_node(face, node) debug_nodes()[face] = node
+#else
+#define add_debug_node(face, node) ;
+#endif
+#if 0
+#define add_debug_index(face, index) debug_indices()[face] = index
+#else
+#define add_debug_index(face, index) ;
+#endif
+
 // Build adjacencies between faces (sorted counter-clockwise)
 static vector<vec3i> face_adjacencies_fast(const vector<vec3i>& triangles) {
   auto get_edge = [](const vec3i& triangle, int i) -> vec2i {
@@ -232,6 +253,7 @@ inline vec2i get_segment_vertices(const hashgrid_polyline& polyline, int i) {
 }
 
 using mesh_hashgrid = hash_map<int, vector<hashgrid_polyline>>;
+// struct mesh_hashgrid : hash_map<int, vector<hashgrid_polyline>> {};
 
 inline int add_vertex(bool_mesh& mesh, mesh_hashgrid& hashgrid,
     const mesh_point& point, int polyline_id, int vertex = -1) {
@@ -1159,26 +1181,60 @@ inline bool check_tags(
   return true;
 }
 
+#include <yocto/yocto_parallel.h>
+
+template <typename F>
+inline void parallel_for_batch(int num_threads, size_t size, F&& f) {
+  auto threads   = vector<std::thread>(num_threads);
+  auto batch_job = [&](size_t k) {
+    auto batch_size = size / num_threads;
+    auto from       = k * batch_size;
+    auto to         = std::min(from + batch_size, size);
+    for (auto i = from; i < to; i++) f(i);
+  };
+
+  for (auto k = 0; k < num_threads; k++) {
+    threads[k] = std::thread(batch_job, k);
+  }
+  for (auto k = 0; k < num_threads; k++) {
+    threads[k].join();
+  }
+}
+
 static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
-  for (auto& [face, polylines] : hashgrid) {
-    // Calcola le info per la triangolazione, i.e. (nodi ed edge constraints).
+  // auto mesh_triangles_size = atomic<size_t>{mesh.triangles.size()};
+  auto mesh_mutex = std::mutex{};
+  auto i          = 0;
+  auto keys       = vector<int>(hashgrid.size());
+  for (auto& [key, _] : hashgrid) {
+    keys[i] = key;
+    i += 1;
+  }
+
+  // for (auto& [face, polylines] : hashgrid) {
+  auto f = [&](int i) {
+    auto  face      = keys[i];
+    auto& polylines = hashgrid.at(face);
+
+    // Calcola le info per la triangolazione, i.e. (nodi ed edge
+    // constraints).
     auto info = compute_triangulation_constraints(mesh, face, polylines);
 
-    debug_nodes()[face]   = info.nodes;
-    debug_indices()[face] = info.indices;
+    add_debug_node(face, info.nodes);
+    add_debug_index(face, info.indices);
 
-    // Se la faccia contiene solo segmenti corrispondenti ad edge del triangolo
-    // stesso, non serve nessuna triangolazione.
+    // Se la faccia contiene solo segmenti corrispondenti ad edge del
+    // triangolo stesso, non serve nessuna triangolazione.
     if (info.nodes.size() == 3) {
-      mesh.triangulated_faces[info.face] = {info.face};
-      continue;
+      mesh.triangulated_faces[face] = {face};
+      return;
     }
 
     auto triangles = vector<vec3i>();
     auto adjacency = vector<vec3i>();
 
-    // Se il triangolo ha al suo interno un solo segmento allora chiamiamo la
-    // funzione di triangolazione più semplice, altrimenti chiamiamo CDT
+    // Se il triangolo ha al suo interno un solo segmento allora chiamiamo
+    // la funzione di triangolazione più semplice, altrimenti chiamiamo CDT
     if (info.edges.size() == 1) {
       tie(triangles, adjacency) = single_split_triangulation(
           info.nodes, info.edges[0]);
@@ -1188,26 +1244,37 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
           info.nodes, info.edges, face);
     }
 
-    debug_edges()[face]     = info.edges;
-    debug_triangles()[face] = triangles;
+    add_debug_edge(face, info.edges);
+    add_debug_triangle(face, triangles);
 
     // Calcoliamo l'adiacenza locale e la trasformiamo in globale.
     // auto adjacency = face_adjacencies_fast(triangles);
-    for (auto& adj : adjacency) {
-      for (auto& x : adj) {
-        if (x != adjacent_to_nothing) x += mesh.triangles.size();
+    {
+      auto lock = std::lock_guard{mesh_mutex};
+      for (auto& adj : adjacency) {
+        for (auto& x : adj) {
+          if (x != adjacent_to_nothing) x += mesh.triangles.size();
+        }
       }
-    }
-    mesh.adjacencies += adjacency;
+      // Converti triangli locali in globali.
+      for (int i = 0; i < triangles.size(); i++) {
+        auto& tr = triangles[i];
+        tr       = {info.indices[tr.x], info.indices[tr.y], info.indices[tr.z]};
+      }
 
-    // Converti triangli locali in globali.
-    for (int i = 0; i < triangles.size(); i++) {
-      auto& tr = triangles[i];
-      tr       = {info.indices[tr.x], info.indices[tr.y], info.indices[tr.z]};
-      mesh.triangulated_faces[face].push_back((int)mesh.triangles.size() + i);
+      for (int i = 0; i < triangles.size(); i++) {
+        mesh.triangulated_faces[face].push_back((int)mesh.triangles.size() + i);
+      }
+      mesh.adjacencies += adjacency;
+      mesh.triangles += triangles;
     }
-    mesh.triangles += triangles;
-  }
+  };
+
+  // for (int i = 0; i < hashgrid.size(); i++) {
+  //   f(i);
+  // }
+  // parallel_for_batch(8, hashgrid.size(), f);
+  parallel_for(hashgrid.size(), f);
 }
 
 static bool_borders border_tags(
@@ -1394,7 +1461,6 @@ static vector<int> find_ambient_cells(
 void slice_mesh(bool_mesh& mesh, bool_state& state) {
   PROFILE();
   auto& shapes = state.bool_shapes;
-  global_state = &state;
 
   // Calcoliamo i vertici nuovi della mesh
   // auto vertices             = add_vertices(mesh, polygons);
@@ -1781,18 +1847,22 @@ hash_map<int, vector<vec3i>>& debug_triangles() {
   static hash_map<int, vector<vec3i>> result = {};
   return result;
 }
+
 hash_map<int, vector<vec2i>>& debug_edges() {
   static hash_map<int, vector<vec2i>> result = {};
   return result;
 }
+
 hash_map<int, vector<vec2f>>& debug_nodes() {
   static hash_map<int, vector<vec2f>> result = {};
   return result;
 }
+
 hash_map<int, vector<int>>& debug_indices() {
   static hash_map<int, vector<int>> result = {};
   return result;
 }
+
 vector<int>& debug_result() {
   static vector<int> result = {};
   return result;
