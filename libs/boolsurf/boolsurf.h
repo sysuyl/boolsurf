@@ -8,9 +8,9 @@ using namespace std;
 const static int null_label = -999;
 
 struct bool_borders {
-  vector<vec3i>         tags         = {};
-  vector<hash_set<int>> virtual_tags = {};
-  int                   num_polygons = 0;
+  vector<vec3i>              tags         = {};
+  vector<unordered_set<int>> virtual_tags = {};
+  int                        num_polygons = 0;
 };
 
 struct bool_mesh : scene_shape {

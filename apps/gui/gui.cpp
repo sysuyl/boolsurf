@@ -241,10 +241,10 @@ void do_things(app_state* app) {
 
     // auto inner_faces      = vector<int>{};
     // auto outer_faces      = vector<int>{};
-    auto border_faces_map = hash_map<hash_set<int>, vector<int>>{};
+    auto border_faces_map = unordered_map<unordered_set<int>, vector<int>>{};
     for (int i = 0; i < app->mesh.borders.tags.size(); i++) {
       auto tag     = app->mesh.borders.tags[i];
-      auto tag_set = hash_set<int>{};
+      auto tag_set = unordered_set<int>{};
       if (tag.x < 0) tag_set.insert(-tag.x);
       if (tag.y < 0) tag_set.insert(-tag.y);
       if (tag.z < 0) tag_set.insert(-tag.z);
