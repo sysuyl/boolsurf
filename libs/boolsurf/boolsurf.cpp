@@ -891,8 +891,8 @@ static void add_polygon_intersection_points(bool_state& state,
   }
 }
 
-triangulation_info compute_triangulation_constraints(const bool_mesh& mesh,
-    int face, const vector<hashgrid_polyline>& polylines) {
+triangulation_info triangulation_constraints(const bool_mesh& mesh, int face,
+    const vector<hashgrid_polyline>& polylines) {
   auto info    = triangulation_info{};
   info.face    = face;
   info.nodes   = vector<vec2f>{{0, 0}, {1, 0}, {0, 1}};
@@ -1208,21 +1208,20 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
   // auto mesh_triangles_size = atomic<size_t>{mesh.triangles.size()};
   auto mesh_mutex = std::mutex{};
   auto i          = 0;
-  auto keys       = vector<int>(hashgrid.size());
+  auto faces      = vector<int>(hashgrid.size());
   for (auto& [key, _] : hashgrid) {
-    keys[i] = key;
-    i += 1;
+    faces[i++] = key;
   }
   mesh.triangulated_faces.reserve(hashgrid.size());
 
   // for (auto& [face, polylines] : hashgrid) {
   auto f = [&](int index) {
-    auto  face      = keys[index];
+    auto  face      = faces[index];
     auto& polylines = hashgrid.at(face);
 
     // Calcola le info per la triangolazione, i.e. (nodi ed edge
     // constraints).
-    auto info = compute_triangulation_constraints(mesh, face, polylines);
+    auto info = triangulation_constraints(mesh, face, polylines);
 
     add_debug_node(face, info.nodes);
     add_debug_index(face, info.indices);
