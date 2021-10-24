@@ -89,6 +89,9 @@ void init_mesh(bool_mesh& mesh) {
 
   mesh.graph = make_geodesic_solver(
       mesh.triangles, mesh.adjacencies, mesh.positions);
+
+  mesh.triangles.reserve(mesh.triangles.size() * 2);
+  mesh.adjacencies.reserve(mesh.adjacencies.size() * 2);
 }
 
 void reset_mesh(bool_mesh& mesh) {
@@ -1245,6 +1248,12 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
           info.nodes, info.edges, face);
     }
 
+    // Converti triangli locali in globali.
+    for (int i = 0; i < triangles.size(); i++) {
+      auto& tr = triangles[i];
+      tr       = {info.indices[tr.x], info.indices[tr.y], info.indices[tr.z]};
+    }
+
     add_debug_edge(face, info.edges);
     add_debug_triangle(face, triangles);
 
@@ -1252,19 +1261,16 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
     // auto adjacency = face_adjacencies_fast(triangles);
     {
       auto lock = std::lock_guard{mesh_mutex};
+
+      auto mesh_triangles_size = (int)mesh.triangles.size();
       for (auto& adj : adjacency) {
         for (auto& x : adj) {
-          if (x != adjacent_to_nothing) x += mesh.triangles.size();
+          if (x != adjacent_to_nothing) x += mesh_triangles_size;
         }
-      }
-      // Converti triangli locali in globali.
-      for (int i = 0; i < triangles.size(); i++) {
-        auto& tr = triangles[i];
-        tr       = {info.indices[tr.x], info.indices[tr.y], info.indices[tr.z]};
       }
 
       for (int i = 0; i < triangles.size(); i++) {
-        mesh.triangulated_faces[face].push_back((int)mesh.triangles.size() + i);
+        mesh.triangulated_faces[face].push_back(mesh_triangles_size + i);
       }
       mesh.adjacencies += adjacency;
       mesh.triangles += triangles;
