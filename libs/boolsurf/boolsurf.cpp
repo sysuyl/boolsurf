@@ -1257,23 +1257,27 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
     add_debug_edge(face, info.edges);
     add_debug_triangle(face, triangles);
 
-    // Calcoliamo l'adiacenza locale e la trasformiamo in globale.
-    // auto adjacency = face_adjacencies_fast(triangles);
+    // TODO(giacomo): Pericoloso: se resize() innesca una riallocazione, il
+    // codice dopo l'unlock che sta eseguendo su un altro thread puo' fare
+    // casino.
+    auto mesh_triangles_old_size = 0;
     {
-      auto lock = std::lock_guard{mesh_mutex};
-
-      auto mesh_triangles_size = (int)mesh.triangles.size();
-      for (auto& adj : adjacency) {
-        for (auto& x : adj) {
-          if (x != adjacent_to_nothing) x += mesh_triangles_size;
-        }
-      }
-
+      auto lock               = std::lock_guard{mesh_mutex};
+      mesh_triangles_old_size = (int)mesh.triangles.size();
+      mesh.triangles.resize(mesh_triangles_old_size + triangles.size());
+      mesh.adjacencies.resize(mesh_triangles_old_size + triangles.size());
       for (int i = 0; i < triangles.size(); i++) {
-        mesh.triangulated_faces[face].push_back(mesh_triangles_size + i);
+        mesh.triangulated_faces[face].push_back(mesh_triangles_old_size + i);
       }
-      mesh.adjacencies += adjacency;
-      mesh.triangles += triangles;
+    }
+
+    for (int i = 0; i < triangles.size(); i++) {
+      mesh.triangles[mesh_triangles_old_size + i] = triangles[i];
+    }
+    for (int i = 0; i < triangles.size(); i++) {
+      for (auto& x : adjacency[i])
+        if (x != adjacent_to_nothing) x += mesh_triangles_old_size;
+      mesh.adjacencies[mesh_triangles_old_size + i] = adjacency[i];
     }
   };
 
