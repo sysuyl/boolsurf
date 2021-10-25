@@ -9,7 +9,7 @@ constexpr auto adjacent_to_nothing = -2;
 
 static bool_state* global_state = nullptr;
 
-#define DEBUG_DATA 1
+#define DEBUG_DATA 0
 #if DEBUG_DATA
 #define add_debug_triangle(face, triangle) debug_triangles()[face] = triangle
 #else
@@ -1035,6 +1035,7 @@ static pair<vector<vec3i>, vector<vec3i>> constrained_triangulation(
         adjacency[k] = (int)neigh;
     }
 
+#if DEBUG_DATA
     // TODO: serve? (marzia): Forse no!
     auto& a           = nodes[verts.x];
     auto& b           = nodes[verts.y];
@@ -1042,9 +1043,10 @@ static pair<vector<vec3i>, vector<vec3i>> constrained_triangulation(
     auto  orientation = cross(b - a, c - b);
     if (fabs(orientation) < 0.00001) {
       global_state->failed = true;
-      printf("Collinear in face : %d\n", face);
+      printf("[%s]: Collinear in face : %d\n", __FUNCTION__, face);
       continue;
     }
+#endif
 
     triangles.push_back(verts);
     adjacencies.push_back(adjacency);
@@ -1562,6 +1564,8 @@ bool compute_cells(bool_mesh& mesh, bool_state& state) {
 
   mesh.borders.tags = vector<bool>(3 * mesh.triangles.size(), false);
   for (auto& [polygon_id, inner_face, outer_face] : mesh.polygon_borders) {
+    assert(inner_face >= 0);
+    assert(outer_face >= 0);
     auto k = find_in_vec(mesh.adjacencies[inner_face], outer_face);
     assert(k != -1);
     mesh.borders.tags[3 * inner_face + k] = true;
