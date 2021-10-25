@@ -3232,7 +3232,8 @@ static vector<float> funnel_double(
   }
 
   auto index = 1;
-  for (auto i = 1; i < portals.size(); ++i) {
+  for (auto i = 1; i < portals.size() && index < points.size(); ++i) {
+    assert(index < points.size());
     if ((portals[i].first == points[index].pos) ||
         (portals[i].second == points[index].pos)) {
       points[index].face = i;
