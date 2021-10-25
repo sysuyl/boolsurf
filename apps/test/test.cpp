@@ -242,7 +242,7 @@ int main(int num_args, const char* args[]) {
 
   // Flood-fill for graph creation
   auto flood_fill_timer = simple_timer{};
-  state.cells           = make_mesh_cells(mesh.adjacencies, mesh.borders);
+  state.cells           = make_mesh_cells(mesh);
   update_virtual_adjacencies(state.cells, mesh.borders);
 
   stats.flood_fill_ms = elapsed_nanoseconds(flood_fill_timer) / pow(10, 6);

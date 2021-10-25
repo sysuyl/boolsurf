@@ -8,7 +8,7 @@ using namespace std;
 const static int null_label = -999;
 
 struct bool_borders {
-  vector<vec3i>              tags         = {};
+  vector<bool>               tags         = {};
   vector<unordered_set<int>> virtual_tags = {};
   int                        num_polygons = 0;
 };
@@ -24,6 +24,9 @@ struct bool_mesh : scene_shape {
   int                        num_positions      = 0;
   hash_map<int, vector<int>> triangulated_faces = {};
   geodesic_solver            graph              = {};
+
+  vector<vec3i> polygon_borders = {};
+  vector<int>   face_tags       = {};
 };
 
 struct mesh_segment {
@@ -131,10 +134,9 @@ void reset_mesh(bool_mesh& mesh);
 void update_polygon(bool_state& state, const bool_mesh& mesh, int polygon_id);
 
 void              slice_mesh(bool_mesh& mesh, bool_state& state);
-vector<mesh_cell> make_mesh_cells(
-    const vector<vec3i>& adjacencies, const bool_borders& borders);
-void update_virtual_adjacencies(
-    vector<mesh_cell>& cells, const bool_borders& borders);
+vector<mesh_cell> make_mesh_cells(bool_mesh& mesh);
+void              update_virtual_adjacencies(
+                 vector<mesh_cell>& cells, const bool_borders& borders);
 hash_set<int> compute_invalid_shapes(
     const vector<mesh_cell>& cells, int num_shapes);
 void compute_cell_labels(bool_state& state);
@@ -293,8 +295,8 @@ static void flood_fill_debug(
 
   auto tag = mesh.borders.tags[face];
   auto adj = mesh.adjacencies[face];
-  printf("\nfrom %d: tag(%d %d %d) adj(%d %d %d)\n", face, tag[0], tag[1],
-      tag[2], adj[0], adj[1], adj[2]);
+  //  printf("\nfrom %d: tag(%d %d %d) adj(%d %d %d)\n", face, tag[0], tag[1],
+  //      tag[2], adj[0], adj[1], adj[2]);
 
   for (auto neighbor : mesh.adjacencies[face]) {
     if (neighbor < 0 || debug_visited()[neighbor]) continue;
@@ -302,10 +304,12 @@ static void flood_fill_debug(
     auto adj = mesh.adjacencies[neighbor];
     if (check(face, neighbor)) {
       debug_stack().push_back(neighbor);
-      printf("ok   %d: tag(%d %d %d) adj(%d %d %d)\n", neighbor, tag[0], tag[1],
-          tag[2], adj[0], adj[1], adj[2]);
+      //      printf("ok   %d: tag(%d %d %d) adj(%d %d %d)\n", neighbor, tag[0],
+      //      tag[1],
+      //          tag[2], adj[0], adj[1], adj[2]);
     }
-    printf("no   %d: tag(%d %d %d) adj(%d %d %d)\n", neighbor, tag[0], tag[1],
-        tag[2], adj[0], adj[1], adj[2]);
+    //    printf("no   %d: tag(%d %d %d) adj(%d %d %d)\n", neighbor, tag[0],
+    //    tag[1],
+    //        tag[2], adj[0], adj[1], adj[2]);
   }
 }

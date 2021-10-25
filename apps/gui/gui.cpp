@@ -229,9 +229,9 @@ void do_things(app_state* app) {
 
   if (app->color_hashgrid) {
     auto faces = vector<int>();
-    for (auto& [face, _] : app->mesh.triangulated_faces) {
-      faces.push_back(face);
-    }
+    // for (auto& [face, _] : app->mesh.triangulated_faces) {
+    //   faces.push_back(face);
+    // }
 
     app->hashgrid_shape = add_patch_shape(
         app, faces, app->mesh_material->color * 0.65);
@@ -241,25 +241,34 @@ void do_things(app_state* app) {
 
     // auto inner_faces      = vector<int>{};
     // auto outer_faces      = vector<int>{};
-    auto border_faces_map = unordered_map<unordered_set<int>, vector<int>>{};
-    for (int i = 0; i < app->mesh.borders.tags.size(); i++) {
-      auto tag     = app->mesh.borders.tags[i];
-      auto tag_set = unordered_set<int>{};
-      if (tag.x < 0) tag_set.insert(-tag.x);
-      if (tag.y < 0) tag_set.insert(-tag.y);
-      if (tag.z < 0) tag_set.insert(-tag.z);
-      if (tag_set.empty()) continue;
-      border_faces_map[tag_set].push_back(i);
-    }
-    for (auto& [set, faces] : border_faces_map) {
-      auto color = vec3f{0, 0, 0};
-      for (auto& polygon_id : set) {
-        color += get_color(polygon_id);
+    // auto border_faces_map = unordered_map<unordered_set<int>, vector<int>>{};
+    //    for (int i = 0; i < app->mesh.borders.tags.size(); i++) {
+    //      auto tag     = app->mesh.borders.tags[i];
+    //      auto tag_set = unordered_set<int>{};
+    //      if (tag.x < 0) tag_set.insert(-tag.x);
+    //      if (tag.y < 0) tag_set.insert(-tag.y);
+    //      if (tag.z < 0) tag_set.insert(-tag.z);
+    //      if (tag_set.empty()) continue;
+    //      border_faces_map[tag_set].push_back(i);
+    //    }
+    //    for (auto& [set, faces] : border_faces_map) {
+    //      auto color = vec3f{0, 0, 0};
+    //      for (auto& polygon_id : set) {
+    //        color += get_color(polygon_id);
+    //      }
+    //      color /= set.size();
+    //      app->border_faces_shapes += add_patch_shape(app, faces, color);
+    //      app->border_faces_shapes.back()->depth_test =
+    //    }
+    for (int i = 0; i < app->mesh.triangles.size(); i++) {
+      if (app->mesh.borders.tags[i * 3 + 0] or
+          app->mesh.borders.tags[i * 3 + 1] or
+          app->mesh.borders.tags[i * 3 + 2]) {
+        faces.push_back(i);
       }
-      color /= set.size();
-      app->border_faces_shapes += add_patch_shape(app, faces, color);
-      app->border_faces_shapes.back()->depth_test = ogl_depth_test::always;
     }
+    app->border_faces_shapes += add_patch_shape(app, faces, {1, 0, 0});
+    app->border_faces_shapes.back()->depth_test = ogl_depth_test::always;
   }
 }
 
@@ -478,10 +487,11 @@ void draw_widgets(app_state* app, const gui_input& input) {
             ")");
 
     if (!app->mesh.borders.tags.empty()) {
-      auto [t0, t1, t2] = app->mesh.borders.tags[face];
-      draw_label(widgets, "tags",
-          "(" + to_string(t0) + ", " + to_string(t1) + ", " + to_string(t2) +
-              ")");
+      //      auto [t0, t1, t2] = app->mesh.borders.tags[face];
+      //      draw_label(widgets, "tags",
+      //          "(" + to_string(t0) + ", " + to_string(t1) + ", " +
+      //          to_string(t2) +
+      //              ")");
     }
     end_header(widgets);
   }
@@ -892,12 +902,13 @@ void key_input(app_state* app, const gui_input& input) {
 
       case (int)gui_key('F'): {
         auto add = [&](int face, int neighbor) -> bool {
-          for (int k = 0; k < 3; k++) {
-            if (app->mesh.borders.tags[face][k] == 0) continue;
-            if (find_in_vec(app->mesh.borders.tags[neighbor],
-                    -app->mesh.borders.tags[face][k]) != -1)
-              return false;
-          }
+          //          for (int k = 0; k < 3; k++) {
+          if (app->mesh.borders.tags[face] == 0) return false;
+          //                continue;
+          //            if (find_in_vec(app->mesh.borders.tags[neighbor],
+          //                    -app->mesh.borders.tags[face][k]) != -1)
+          //              return false;
+          //          }
           return true;
         };
         auto start = app->last_clicked_point.face;
@@ -928,12 +939,13 @@ void key_input(app_state* app, const gui_input& input) {
 
       case (int)gui_key('G'): {
         auto add = [&](int face, int neighbor) -> bool {
-          for (int k = 0; k < 3; k++) {
-            if (app->mesh.borders.tags[face][k] == 0) continue;
-            if (find_in_vec(app->mesh.borders.tags[neighbor],
-                    -app->mesh.borders.tags[face][k]) != -1)
-              return false;
-          }
+          //          for (int k = 0; k < 3; k++) {
+          if (app->mesh.borders.tags[face] == false) return false;
+          //                continue;
+          //            if (find_in_vec(app->mesh.borders.tags[neighbor],
+          //                    -app->mesh.borders.tags[face][k]) != -1)
+          //              return false;
+          //          }
           return true;
         };
         auto start   = app->last_clicked_point.face;

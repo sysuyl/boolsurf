@@ -24,7 +24,7 @@ using namespace yocto;
 
 inline int mod3(int i) { return (i > 2) ? i - 3 : i; }
 
-#if 1
+#if 0
 #include "ext/robin_hood.h"
 template <typename Key, typename Value>
 using hash_map = robin_hood::unordered_flat_map<Key, Value>;
