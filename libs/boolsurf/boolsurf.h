@@ -101,10 +101,11 @@ struct bool_state {
   hash_map<int, int>   control_points      = {};
   hash_map<int, vec2i> isecs_generators    = {};
 
-  vector<mesh_cell>     cells         = {};
-  vector<int>           ambient_cells = {};
-  vector<vector<vec2i>> cycles        = {};
-  vector<vector<int>>   labels        = {};
+  vector<mesh_cell>   cells          = {};
+  vector<vector<int>> labels         = {};
+  hash_set<int>       invalid_shapes = {};
+  // vector<int>           ambient_cells = {};
+  // vector<vector<vec2i>> cycles        = {};
 
   // vector<mesh_shape> shapes         = {};
   vector<int> shapes_sorting = {};
@@ -135,10 +136,8 @@ void update_polygon(bool_state& state, const bool_mesh& mesh, int polygon_id);
 
 void              slice_mesh(bool_mesh& mesh, bool_state& state);
 vector<mesh_cell> make_mesh_cells(bool_mesh& mesh);
-void              update_virtual_adjacencies(
-                 vector<mesh_cell>& cells, const bool_borders& borders);
-hash_set<int> compute_invalid_shapes(
-    const vector<mesh_cell>& cells, int num_shapes);
+hash_set<int>     compute_invalid_shapes(
+        const vector<mesh_cell>& cells, int num_shapes);
 void compute_cell_labels(bool_state& state);
 
 bool       compute_cells(bool_mesh& mesh, bool_state& state);

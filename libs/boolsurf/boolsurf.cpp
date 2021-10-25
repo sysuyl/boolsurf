@@ -311,6 +311,7 @@ inline int add_vertex(bool_mesh& mesh, mesh_hashgrid& hashgrid,
 
 static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
     const vector<shape>& shapes, hash_map<int, int>& control_points) {
+  PROFILE();
   // La hashgrid associa ad ogni faccia una lista di polilinee.
   // Ogni polilinea è definita da una sequenza punti in coordinate
   // baricentriche, ognuno di essi assiociato al corrispondente vertice della
@@ -651,6 +652,7 @@ inline vector<vector<vec2i>> compute_graph_cycles(
 
 hash_set<int> compute_invalid_shapes(
     const vector<mesh_cell>& cells, int num_shapes) {
+  PROFILE();
   auto invalid_shapes = hash_set<int>();
   for (auto s = 1; s < num_shapes; s++) {
     auto shape_graph = compute_shape_macrograph(cells, s);
@@ -699,12 +701,15 @@ inline vector<vector<int>> compute_components(
   return components;
 }
 
-static vector<vector<int>> propagate_cell_labels(
-    const vector<mesh_cell>& cells, const vector<int>& start, int num_shapes) {
+static vector<vector<int>> propagate_cell_labels(bool_state& state) {
   PROFILE();
   // Inizializziamo le label delle celle a 0.
-  //  auto& labels = global_state->labels;
-  auto labels = vector<vector<int>>(
+  auto  num_shapes     = (int)state.bool_shapes.size();
+  auto& cells          = state.cells;
+  auto& labels         = state.labels;
+  auto& invalid_shapes = state.invalid_shapes;
+
+  labels = vector<vector<int>>(
       cells.size(), vector<int>(num_shapes, null_label));
 
   // TODO: Initialization of visit (is it ok?)
@@ -737,22 +742,21 @@ static vector<vector<int>> propagate_cell_labels(
     for (auto& [neighbor_id, shape_id] : cell.adjacency) {
       auto ushape_id = yocto::abs(shape_id);
 
-      auto& neighbor_labels     = labels[neighbor_id];
-      auto  updated_labels      = labels[cell_id];
-      updated_labels[ushape_id] = updated_labels[ushape_id] +
-                                  yocto::sign(shape_id);
+      auto& neighbor_labels = labels[neighbor_id];
+      auto  updated_labels  = labels[cell_id];
+      updated_labels[ushape_id] += yocto::sign(shape_id);
 
       auto updated = false;
       for (int s = 0; s < neighbor_labels.size(); s++) {
         if (neighbor_labels[s] == null_label) {
           neighbor_labels[s] = updated_labels[s];
           updated            = true;
-          continue;
         }
+      }
 
-        if (updated_labels[s] != neighbor_labels[s]) {
-          neighbor_labels[s] = updated_labels[s];
-          updated            = false;
+      for (int s = 0; s < neighbor_labels.size(); s++) {
+        if (updated_labels[s] % 2 != neighbor_labels[s] % 2) {
+          invalid_shapes.insert(s);
         }
       }
 
@@ -770,6 +774,7 @@ static vector<vector<int>> propagate_cell_labels(
 
 static void add_polygon_intersection_points(bool_state& state,
     hash_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
+  PROFILE();
   // Calcoliamo sia le intersezioni che le self-intersections, aggiungendo i
   // vertici nuovi alla mesh.
 
@@ -1055,6 +1060,7 @@ static pair<vector<vec3i>, vector<vec3i>> constrained_triangulation(
 }
 
 static void update_face_adjacencies(bool_mesh& mesh) {
+  PROFILE();
   // Aggiorniamo le adiacenze per i triangoli che sono stati processati
   auto border_edgemap = hash_map<vec2i, int>{};
   border_edgemap.reserve(mesh.triangulated_faces.size() * 6);
@@ -1156,11 +1162,11 @@ inline bool check_tags(
 
 template <typename F>
 inline void parallel_for_batch(int num_threads, size_t size, F&& f) {
-  auto threads   = vector<std::thread>(num_threads);
-  auto batch_job = [&](size_t k) {
-    auto batch_size = size / num_threads;
-    auto from       = k * batch_size;
-    auto to         = std::min(from + batch_size, size);
+  auto threads    = vector<std::thread>(num_threads);
+  auto batch_size = size / num_threads;
+  auto batch_job  = [&](size_t k) {
+    auto from = k * batch_size;
+    auto to   = std::min(from + batch_size, size);
     for (auto i = from; i < to; i++) f(i);
   };
 
@@ -1173,6 +1179,7 @@ inline void parallel_for_batch(int num_threads, size_t size, F&& f) {
 }
 
 static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
+  PROFILE();
   // auto mesh_triangles_size = atomic<size_t>{mesh.triangles.size()};
   auto mesh_mutex = std::mutex{};
   auto i          = 0;
@@ -1280,178 +1287,6 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
 #endif
 }
 
-static bool_borders border_tags(
-    const bool_mesh& mesh, const mesh_hashgrid& hashgrid, int num_polygons) {
-  auto borders         = bool_borders{};
-  borders.tags         = vector<bool>(mesh.triangles.size(), false);
-  borders.num_polygons = num_polygons;
-
-  // Map each mesh edge to the polygons passing through it.
-  auto border_map = hash_set<vec2i>{};
-  for (auto& [face, polylines] : hashgrid) {
-    for (auto& polyline : polylines) {
-      //      auto polygon_id = polyline.polygon;
-      for (auto i = 0; i < num_segments(polyline); i++) {
-        auto edge     = get_segment_vertices(polyline, i);
-        auto edge_key = make_edge_key(edge);
-        border_map.insert(edge_key);
-        // if (edge == edge_key)
-        //   border_map[edge_key].insert(polygon_id);
-        // else
-        //   border_map[edge_key].insert(-polygon_id);
-      }
-    }
-  }
-
-  // Map each set of colinear polygons to a virtual tag.
-  // auto virtual_tag_map = hash_map<unordered_set<int>, int>();
-  // for (auto& [key, value] : border_map) {
-  //   if (value.size() > 1 && !contains(virtual_tag_map, value)) {
-  //     virtual_tag_map[value] = num_polygons + (int)virtual_tag_map.size();
-  //   }
-  // }
-
-  // Fill border tags.
-  for (auto& [_, faces] : mesh.triangulated_faces) {
-    for (auto& face : faces) {
-      auto tag = 0;
-      for (int k = 0; k < 3; k++) {
-        auto edge = get_mesh_edge_from_index(mesh.triangles[face], k);
-        auto it   = border_map.find(edge);
-        if (it != border_map.end()) {
-          tag = 1;
-        } else if (it = border_map.find({edge.y, edge.x});
-                   it != border_map.end()) {
-          tag = 1;
-        }
-      }
-      borders.tags[face] = tag;
-    }
-  }
-
-  //  check_tags(mesh, borders.tags);
-
-  //  borders.virtual_tags = vector<unordered_set<int>>(virtual_tag_map.size());
-  //  for (auto& [key, value] : virtual_tag_map)
-  //    borders.virtual_tags[value - num_polygons] = key;
-
-  return borders;
-}
-
-static vector<int> find_ambient_cells(
-    bool_state& state, hash_set<int>& cycle_nodes) {
-  PROFILE();
-  auto roots   = find_roots(state.cells);
-  auto queue   = deque<int>(roots.begin(), roots.end());
-  auto parents = vector<vector<vector<int>>>(state.cells.size());
-  for (auto& s : queue) {
-    parents[s] = {{}};
-  }
-
-  while (queue.size()) {
-    auto node = queue.front();
-    queue.pop_front();
-
-    for (auto& [neighbor, polygon] : state.cells[node].adjacency) {
-      if (polygon < 0) continue;
-      // if (contains(cycle_nodes, node) && contains(cycle_nodes, neighbor)) {
-      //   parents[neighbor] = parents[node];
-      //   queue.push_back(neighbor);
-      //   continue;
-      // }
-      if (node == neighbor) continue;
-      bool cycle = false;
-      for (auto& p : parents[node]) {
-        if (contains(p, neighbor)) {
-          cycle = true;
-          break;
-        }
-      }
-      if (cycle) continue;
-
-      for (int i = 0; i < parents[node].size(); i++) {
-        auto p = parents[node][i];
-        p += node;
-        parents[neighbor] += p;
-      }
-
-      if (!contains(queue, neighbor)) queue.push_back(neighbor);
-    }
-  }
-
-  auto parent_maps = vector<hash_map<int, vector<vector<int>>>>(
-      state.cells.size());
-  for (int i = 0; i < state.cells.size(); i++) {
-    auto& parent_map = parent_maps[i];
-    for (auto& path : parents[i]) {
-      if (path.empty()) continue;
-      auto root = path[0];
-      if (contains(parent_map, root)) {
-        auto max_path = max(
-            parent_map[root], [](const vector<int>& x, const vector<int>& y) {
-              return x.size() > y.size();
-            });
-
-        if (path.size() == max_path.size()) {
-          parent_map[root] += path;
-        }
-        if (path.size() > max_path.size()) {
-          parent_map[root] = {path};
-        }
-      } else {
-        parent_map[root] = {path};
-      }
-    }
-  }
-
-  auto dag = vector<vector<int>>(state.cells.size());
-  for (auto i = 0; i < parent_maps.size(); i++) {
-    auto& parent_map = parent_maps[i];
-    for (auto& [_, values] : parent_map) {
-      for (auto& parent_path : values) {
-        dag[parent_path.back()].push_back(i);
-      }
-    }
-  }
-
-  queue          = deque<int>(roots.begin(), roots.end());
-  auto distances = vector<int>(state.cells.size(), 0);
-  while (queue.size()) {
-    auto node = queue.front();
-    queue.pop_front();
-
-    for (auto& neighbor : dag[node]) {
-      if (contains(cycle_nodes, node) && contains(cycle_nodes, neighbor)) {
-        if (distances[node] == distances[neighbor]) continue;
-        distances[neighbor] = distances[node];
-        queue.push_back(neighbor);
-        continue;
-      }
-
-      auto new_depth = distances[node] + 1;
-
-      if (new_depth > distances[neighbor]) {
-        distances[neighbor] = new_depth;
-        queue.push_back(neighbor);
-      }
-    }
-  }
-
-  auto result = vector<int>{};
-  for (auto& root : roots) {
-    bool found = false;
-    for (auto& child : dag[root]) {
-      if (distances[child] > 1) {
-        found = true;
-        break;
-      }
-    }
-    if (found) continue;
-    result.push_back(root);
-  }
-  return result;
-}
-
 void slice_mesh(bool_mesh& mesh, bool_state& state) {
   PROFILE();
   auto& shapes = state.bool_shapes;
@@ -1477,16 +1312,9 @@ void compute_cell_labels(bool_state& state) {
   PROFILE();
   global_state = &state;
 
-  //  save_tree_png(state, "data/graph.png", "", false);
+  propagate_cell_labels(state);
 
-  auto propagation_timer = simple_timer{};
-  state.labels           = propagate_cell_labels(
-      state.cells, state.ambient_cells, (int)state.bool_shapes.size());
-
-  printf("Finding labelling: %f\n",
-      elapsed_nanoseconds(propagation_timer) / pow(10, 6));
-
-  auto offset = vector<int>((int)state.bool_shapes.size());
+  auto offset = vector<int>((int)state.bool_shapes.size(), 0);
   for (auto& cell_label : state.labels) {
     for (auto l = 0; l < cell_label.size(); l++) {
       offset[l] = min(offset[l], cell_label[l]);
@@ -1496,72 +1324,12 @@ void compute_cell_labels(bool_state& state) {
   for (auto& cell_label : state.labels) {
     for (auto l = 0; l < cell_label.size(); l++) {
       cell_label[l] = (cell_label[l] - offset[l]) % 2;
-      offset[l]     = min(offset[l], cell_label[l]);
     }
   }
 }
 
-void update_virtual_adjacencies(
-    vector<mesh_cell>& cells, const bool_borders& borders) {
-  // Precomputing total cell number
-  auto num_virtual_cells = 0;
-  for (auto& cell : cells) {
-    for (auto [neighbor, polygon] : cell.adjacency) {
-      if (polygon < borders.num_polygons) continue;
-      num_virtual_cells += 1;
-    }
-  }
-
-  // Update with void cells
-  auto num_cells = (int)cells.size();
-  cells.reserve(num_cells + num_virtual_cells);
-  for (auto c = 0; c < num_cells; c++) {
-    auto& left                 = cells[c];
-    auto  size                 = left.adjacency.size();
-    auto  added_left_adjacency = hash_set<vec2i>();
-
-    for (auto [neighbor, polygon] : left.adjacency) {
-      if (polygon < borders.num_polygons) continue;
-
-      auto virtual_cell_id = (int)cells.size();
-      auto virtual_cell    = mesh_cell{};
-
-      auto& right    = cells[neighbor];
-      auto& polygons = borders.virtual_tags[polygon - borders.num_polygons];
-
-      for (auto p : polygons) {
-        if (p > 0) {
-          virtual_cell.adjacency.insert({neighbor, p});
-          right.adjacency.insert({virtual_cell_id, -p});
-        } else {
-          virtual_cell.adjacency.insert({c, -p});
-          added_left_adjacency.insert({virtual_cell_id, p});
-        }
-      }
-      cells.push_back(virtual_cell);
-    }
-
-    for (auto it = left.adjacency.begin(); it != left.adjacency.end();) {
-      auto [neighbor, polygon] = *it;
-      if (polygon >= borders.num_polygons)
-        it = left.adjacency.erase(it);
-      else
-        it++;
-    }
-
-    left.adjacency.insert(
-        added_left_adjacency.begin(), added_left_adjacency.end());
-  }
-}
-
-bool compute_cells(bool_mesh& mesh, bool_state& state) {
-  // Triangola mesh in modo da embeddare tutti i poligoni come mesh-edges.
+void compute_border_tags(bool_mesh& mesh, bool_state& state) {
   PROFILE();
-  global_state = &state;
-  slice_mesh(mesh, state);
-
-  if (global_state->failed) return false;
-
   mesh.borders.tags = vector<bool>(3 * mesh.triangles.size(), false);
   for (auto& [polygon_id, inner_face, outer_face] : mesh.polygon_borders) {
     assert(inner_face >= 0);
@@ -1574,6 +1342,17 @@ bool compute_cells(bool_mesh& mesh, bool_state& state) {
     assert(kk != -1);
     mesh.borders.tags[3 * outer_face + kk] = true;
   }
+}
+
+bool compute_cells(bool_mesh& mesh, bool_state& state) {
+  // Triangola mesh in modo da embeddare tutti i poligoni come mesh-edges.
+  PROFILE();
+  global_state = &state;
+  slice_mesh(mesh, state);
+
+  if (global_state->failed) return false;
+
+  compute_border_tags(mesh, state);
 
   // Trova celle e loro adiacenza via flood-fill.
   state.cells = make_mesh_cells(mesh);
@@ -1581,25 +1360,32 @@ bool compute_cells(bool_mesh& mesh, bool_state& state) {
   // // Calcoliamo possibili cicli all'interno del grafo delle adiacenze della
   // // mesh. In modo da eliminare gli archi corrispondenti.
 
-  //  auto invalid_shapes = compute_invalid_shapes(
-  //      state.cells, (int)state.bool_shapes.size());
-  //  if (invalid_shapes.size()) {
-  //    state.failed = true;
-  //    printf("FAILED: ");
-  //    for (auto& s : invalid_shapes) printf("%d ", s);
-  //    printf("\n");
-  //    return false;
-  //  }
+  auto invalid_shapes = compute_invalid_shapes(
+      state.cells, (int)state.bool_shapes.size());
+  if (invalid_shapes.size()) {
+    state.failed = true;
+    printf("FAILED: ");
+    for (auto& s : invalid_shapes) printf("%d ", s);
+    printf("\n");
+    return false;
+  }
 
-  for (auto& [polygon_id, inner_face, outer_face] : mesh.polygon_borders) {
-    auto a = mesh.face_tags[inner_face];
-    auto b = mesh.face_tags[outer_face];
-    state.cells[a].adjacency.insert({b, -polygon_id});
-    state.cells[b].adjacency.insert({a, +polygon_id});
+  {
+    PROFILE_SCOPE("tag_adjacency");
+    for (auto& [polygon_id, inner_face, outer_face] : mesh.polygon_borders) {
+      auto a = mesh.face_tags[inner_face];
+      auto b = mesh.face_tags[outer_face];
+      state.cells[a].adjacency.insert({b, -polygon_id});
+      state.cells[b].adjacency.insert({a, +polygon_id});
+    }
   }
 
   // Calcola i label delle celle con una visita sulla loro adiacenza.
   compute_cell_labels(state);
+
+  for (auto shape : state.invalid_shapes) {
+    printf("Invalid shape: %d\n", shape);
+  }
   return true;
 }
 
@@ -1619,9 +1405,9 @@ void compute_shapes(bool_state& state) {
   // Distribute cells to shapes.
   // La prima shape è relativa alla cella ambiente, che è root per
   // definizione
-  shapes[0].cells = hash_set<int>(
-      state.ambient_cells.begin(), state.ambient_cells.end());
-  shapes[0].is_root = false;
+  //  shapes[0].cells = hash_set<int>(
+  //      state.ambient_cells.begin(), state.ambient_cells.end());
+  //  shapes[0].is_root = false;
 
   for (auto c = 0; c < state.cells.size(); c++) {
     auto count = 0;
