@@ -1577,7 +1577,7 @@ bool compute_cells(bool_mesh& mesh, bool_state& state) {
 
   // Trova celle e loro adiacenza via flood-fill.
   state.cells = make_mesh_cells(mesh);
-  update_virtual_adjacencies(state.cells, mesh.borders);
+  // update_virtual_adjacencies(state.cells, mesh.borders);
   // // Calcoliamo possibili cicli all'interno del grafo delle adiacenze della
   // // mesh. In modo da eliminare gli archi corrispondenti.
 
