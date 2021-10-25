@@ -1590,7 +1590,7 @@ bool compute_cells(bool_mesh& mesh, bool_state& state) {
   for (auto& [polygon_id, inner_face, outer_face] : mesh.polygon_borders) {
     auto a = mesh.face_tags[inner_face];
     auto b = mesh.face_tags[outer_face];
-    state.cells[a].adjacency.insert({b, +polygon_id});
+    state.cells[a].adjacency.insert({b, -polygon_id});
     state.cells[b].adjacency.insert({a, +polygon_id});
   }
 
