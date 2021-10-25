@@ -9,22 +9,23 @@ constexpr auto adjacent_to_nothing = -2;
 
 static bool_state* global_state = nullptr;
 
-#if 0
+#define DEBUG_DATA 1
+#if DEBUG_DATA
 #define add_debug_triangle(face, triangle) debug_triangles()[face] = triangle
 #else
 #define add_debug_triangle(face, triangle) ;
 #endif
-#if 0
+#if DEBUG_DATA
 #define add_debug_edge(face, edge) debug_edges()[face] = edge
 #else
 #define add_debug_edge(face, edge) ;
 #endif
-#if 0
+#if DEBUG_DATA
 #define add_debug_node(face, node) debug_nodes()[face] = node
 #else
 #define add_debug_node(face, node) ;
 #endif
-#if 0
+#if DEBUG_DATA
 #define add_debug_index(face, index) debug_indices()[face] = index
 #else
 #define add_debug_index(face, index) ;
@@ -463,7 +464,11 @@ static vector<mesh_cell> flood_fill_new(vector<int>& cell_tags,
   cell_tags = vector<int>(adjacencies.size(), -1);
 
   // consume task stack
-  for (int start = adjacencies.size() - 1; start >= 0; start--) {
+  auto starts = vector<int>{(int)adjacencies.size() - 1};
+
+  while (starts.size()) {
+    auto start = starts.back();
+    starts.pop_back();
     if (cell_tags[start] >= 0) continue;
 
     // pop element from task stack
@@ -493,9 +498,12 @@ static vector<mesh_cell> flood_fill_new(vector<int>& cell_tags,
         if (neighbor < 0) continue;
 
         auto neighbor_cell = cell_tags[neighbor];
-        if (border_tags[3 * neighbor + k]) continue;
         if (neighbor_cell >= 0) continue;
-        face_stack.push_back(neighbor);
+        if (border_tags[3 * face + k]) {
+          starts.push_back(neighbor);
+        } else {
+          face_stack.push_back(neighbor);
+        }
       }
     }  // end of while
     cell.faces.shrink_to_fit();
@@ -1181,8 +1189,8 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
     // constraints).
     auto info = triangulation_constraints(mesh, face, polylines);
 
-    add_debug_node(face, info.nodes);
-    add_debug_index(face, info.indices);
+    //    add_debug_node(face, info.nodes);
+    //    add_debug_index(face, info.indices);
 
     // Se la faccia contiene solo segmenti corrispondenti ad edge del
     // triangolo stesso, non serve nessuna triangolazione.
@@ -1262,11 +1270,12 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
     }
   };
 
-  // for (int i = 0; i < hashgrid.size(); i++) {
-  //   f(i);
-  // }
-  // parallel_for_batch(8, hashgrid.size(), f);
+// parallel_for_batch(8, hashgrid.size(), f);
+#if DEBUG_DATA
+  for (int i = 0; i < hashgrid.size(); i++) f(i);
+#else
   parallel_for(hashgrid.size(), f);
+#endif
 }
 
 static bool_borders border_tags(
@@ -1466,7 +1475,7 @@ void compute_cell_labels(bool_state& state) {
   PROFILE();
   global_state = &state;
 
-//  save_tree_png(state, "data/graph.png", "", false);
+  //  save_tree_png(state, "data/graph.png", "", false);
 
   auto propagation_timer = simple_timer{};
   state.labels           = propagate_cell_labels(

@@ -293,21 +293,23 @@ static void flood_fill_debug(
 
   debug_result().push_back(face);
 
-  auto tag = mesh.borders.tags[face];
-  auto adj = mesh.adjacencies[face];
+  // auto tag = mesh.borders.tags[face];
+  // auto adj = mesh.adjacencies[face];
   //  printf("\nfrom %d: tag(%d %d %d) adj(%d %d %d)\n", face, tag[0], tag[1],
   //      tag[2], adj[0], adj[1], adj[2]);
 
-  for (auto neighbor : mesh.adjacencies[face]) {
+  // for (auto neighbor : mesh.adjacencies[face]) {
+  for (int k = 0; k < 3; k++) {
+    auto neighbor = mesh.adjacencies[face][k];
     if (neighbor < 0 || debug_visited()[neighbor]) continue;
-    auto tag = mesh.borders.tags[neighbor];
-    auto adj = mesh.adjacencies[neighbor];
-    if (check(face, neighbor)) {
+    if (check(face, k)) {
       debug_stack().push_back(neighbor);
-      //      printf("ok   %d: tag(%d %d %d) adj(%d %d %d)\n", neighbor, tag[0],
-      //      tag[1],
-      //          tag[2], adj[0], adj[1], adj[2]);
     }
+    // auto tag = mesh.borders.tags[neighbor];
+    // auto adj = mesh.adjacencies[neighbor];
+    //      printf("ok   %d: tag(%d %d %d) adj(%d %d %d)\n", neighbor, tag[0],
+    //      tag[1],
+    //          tag[2], adj[0], adj[1], adj[2]);
     //    printf("no   %d: tag(%d %d %d) adj(%d %d %d)\n", neighbor, tag[0],
     //    tag[1],
     //        tag[2], adj[0], adj[1], adj[2]);

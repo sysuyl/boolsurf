@@ -901,15 +901,8 @@ void key_input(app_state* app, const gui_input& input) {
         // } break;
 
       case (int)gui_key('F'): {
-        auto add = [&](int face, int neighbor) -> bool {
-          //          for (int k = 0; k < 3; k++) {
-          if (app->mesh.borders.tags[face] == 0) return false;
-          //                continue;
-          //            if (find_in_vec(app->mesh.borders.tags[neighbor],
-          //                    -app->mesh.borders.tags[face][k]) != -1)
-          //              return false;
-          //          }
-          return true;
+        auto add = [&](int face, int k) -> bool {
+          return !app->mesh.borders.tags[3 * face + k];
         };
         auto start = app->last_clicked_point.face;
 
@@ -939,13 +932,12 @@ void key_input(app_state* app, const gui_input& input) {
 
       case (int)gui_key('G'): {
         auto add = [&](int face, int neighbor) -> bool {
-          //          for (int k = 0; k < 3; k++) {
-          if (app->mesh.borders.tags[face] == false) return false;
-          //                continue;
-          //            if (find_in_vec(app->mesh.borders.tags[neighbor],
-          //                    -app->mesh.borders.tags[face][k]) != -1)
-          //              return false;
-          //          }
+          for (int k = 0; k < 3; k++) {
+            if (app->mesh.borders.tags[3 * face + k] == false) continue;
+            if (app->mesh.borders.tags[3 * neighbor + 0] == false) return false;
+            if (app->mesh.borders.tags[3 * neighbor + 1] == false) return false;
+            if (app->mesh.borders.tags[3 * neighbor + 2] == false) return false;
+          }
           return true;
         };
         auto start   = app->last_clicked_point.face;
