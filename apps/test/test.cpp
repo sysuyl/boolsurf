@@ -112,7 +112,7 @@ int main(int num_args, const char* args[]) {
   auto save_edges     = false;
   auto save_polygons  = false;
   auto line_width     = 0.003f;
-  auto num_tests      = 100;
+  auto num_tests      = 1;
 
   auto stats_filename = ""s;
   auto append_stats   = false;
@@ -225,25 +225,35 @@ int main(int num_args, const char* args[]) {
   stats.control_points += (int)state.isecs_generators.size();
   stats.genus = compute_mesh_genus(mesh);
 
+  auto _mesh  = mesh;
+  auto _state = state;
   for (int i = 0; i < num_tests; i++) {
     // Execute triangulation
     auto triangulation_timer = simple_timer{};
-    slice_mesh(mesh, state);
+    slice_mesh(_mesh, _state);
     stats.triangulation_ms += elapsed_milliseconds(triangulation_timer);
 
     // Flood-fill for graph creation
     auto flood_fill_timer = simple_timer{};
-    state.cells           = make_cell_graph(mesh);
+    _state.cells          = make_cell_graph(_mesh);
     stats.graph_ms += elapsed_milliseconds(flood_fill_timer);
 
     // Label propagation
-    auto propagation_timer = simple_timer{};
-    compute_cell_labels(state);
-    stats.propagation_ms += elapsed_milliseconds(propagation_timer);
+    // auto propagation_timer = simple_timer{};
+    // compute_cell_labels(_state);
+    // stats.propagation_ms += elapsed_milliseconds(propagation_timer);
 
-    auto booleans_timer = simple_timer{};
-    compute_bool_operations(state, test.operations);
-    stats.boolean_ms += elapsed_milliseconds(booleans_timer);
+    // auto booleans_timer = simple_timer{};
+    // compute_bool_operations(_state, test.operations);
+    // stats.boolean_ms += elapsed_milliseconds(booleans_timer);
+
+    if (i == num_tests - 1) {
+      mesh  = _mesh;
+      state = _state;
+    } else {
+      _mesh  = mesh;
+      _state = state;
+    }
   }
 
   // Collect stats

@@ -540,6 +540,7 @@ vector<mesh_cell> make_cell_graph(bool_mesh& mesh) {
   {
     _PROFILE_SCOPE("tag_cell_edges");
     for (auto& [polygon_id, inner_face, outer_face] : mesh.polygon_borders) {
+      if (inner_face < 0 || outer_face < 0) continue;
       auto a = mesh.face_tags[inner_face];
       auto b = mesh.face_tags[outer_face];
       cells[a].adjacency.insert({b, -polygon_id});
@@ -1313,12 +1314,10 @@ void compute_border_tags(bool_mesh& mesh, bool_state& state) {
   _PROFILE();
   mesh.borders.tags = vector<bool>(3 * mesh.triangles.size(), false);
   for (auto& [polygon_id, inner_face, outer_face] : mesh.polygon_borders) {
-    assert(inner_face >= 0);
-    assert(outer_face >= 0);
+    if (inner_face < 0 || outer_face < 0) continue;
     auto k = find_in_vec(mesh.adjacencies[inner_face], outer_face);
     assert(k != -1);
     mesh.borders.tags[3 * inner_face + k] = true;
-
     auto kk = find_in_vec(mesh.adjacencies[outer_face], inner_face);
     assert(kk != -1);
     mesh.borders.tags[3 * outer_face + kk] = true;
@@ -1348,7 +1347,6 @@ void slice_mesh(bool_mesh& mesh, bool_state& state) {
 
 void compute_cell_labels(bool_state& state) {
   _PROFILE();
-  global_state = &state;
 
   propagate_cell_labels(state);
 
