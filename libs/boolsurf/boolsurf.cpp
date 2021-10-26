@@ -1285,8 +1285,8 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
         mesh.triangulated_faces[face].push_back(mesh_triangles_old_size + i);
       }
       for (auto& pf : polygon_faces) {
-        pf.y += mesh_triangles_old_size;
-        pf.z += mesh_triangles_old_size;
+        if (pf.y >= 0) pf.y += mesh_triangles_old_size;
+        if (pf.z >= 0) pf.z += mesh_triangles_old_size;
       }
       mesh.polygon_borders += polygon_faces;
     }

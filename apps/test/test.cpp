@@ -26,8 +26,8 @@ struct test_stats {
   int cycles = 0;
 
   double triangulation_ms = 0.0;
-  double flood_fill_ms    = 0.0;
-  double labelling_ms     = 0.0;
+  double graph_ms         = 0.0;
+  double propagation_ms   = 0.0;
   double boolean_ms       = 0.0;
   double total_ms         = 0.0;
 };
@@ -112,6 +112,7 @@ int main(int num_args, const char* args[]) {
   auto save_edges     = false;
   auto save_polygons  = false;
   auto line_width     = 0.003f;
+  auto num_tests      = 100;
 
   auto stats_filename = ""s;
   auto append_stats   = false;
@@ -130,6 +131,7 @@ int main(int num_args, const char* args[]) {
 
   add_option(cli, "model", model_filename, "Input model filename.");
   add_option(cli, "spp", spp, "Samples per pixel.");
+  add_option(cli, "num-tests", num_tests, "Number of tests.");
   add_option(cli, "svg", svg_filename, "Input svg filename.");
   add_option(cli, "svg-subdivs", svg_subdivs, "Svg subdivisions.");
   add_option(cli, "drawing-size", drawing_size, "Size of mapped drawing.");
@@ -145,16 +147,6 @@ int main(int num_args, const char* args[]) {
 
   test_filename = normalize_path(test_filename);
   if (!test_filename.size()) print_fatal("No input filename");
-
-  string ioerror;
-  if (output_scene_filename.size()) {
-    output_scene_filename = normalize_path(output_scene_filename);
-    if (!make_directory(path_dirname(output_scene_filename), ioerror))
-      print_fatal(ioerror);
-    if (!make_directory(
-            path_join(path_dirname(output_scene_filename), "shapes"), ioerror))
-      print_fatal(ioerror);
-  }
 
   auto test      = bool_test{};
   auto extension = path_extension(test_filename);
@@ -181,7 +173,7 @@ int main(int num_args, const char* args[]) {
     stats_filename  = normalize_path(stats_filename);
     auto stats_file = fopen(stats_filename.c_str(), "w");
     fprintf(stats_file,
-        "model, triangles, genus, shapes, polygons, control_points, added_points, sliced_triangles, added_triangles, cells, edges, cycles, triangulation_ms, flood_fill_ms, labelling_ms, boolean_ms, total_ms,\n");
+        "model, triangles, genus, shapes, polygons, control_points, added_points, sliced_triangles, added_triangles, cells, edges, cycles, triangulation_ms, graph_ms, propagation_ms, boolean_ms, total_ms,\n");
     fclose(stats_file);
   }
 
@@ -233,39 +225,52 @@ int main(int num_args, const char* args[]) {
   stats.control_points += (int)state.isecs_generators.size();
   stats.genus = compute_mesh_genus(mesh);
 
-  // Execute triangulation
-  auto triangulation_timer = simple_timer{};
-  slice_mesh(mesh, state);
-  stats.triangulation_ms = elapsed_milliseconds(triangulation_timer);
-  stats.total_ms += stats.triangulation_ms;
-  stats.sliced_triangles = (int)mesh.triangulated_faces.size();
-  for (auto& [face, triangles] : mesh.triangulated_faces)
-    stats.added_triangles += triangles.size();
+  for (int i = 0; i < num_tests; i++) {
+    // Execute triangulation
+    auto triangulation_timer = simple_timer{};
+    slice_mesh(mesh, state);
+    stats.triangulation_ms += elapsed_milliseconds(triangulation_timer);
 
-  // Flood-fill for graph creation
-  auto flood_fill_timer = simple_timer{};
-  state.cells           = make_cell_graph(mesh);
-  stats.flood_fill_ms   = elapsed_milliseconds(flood_fill_timer);
-  stats.total_ms += stats.flood_fill_ms;
+    // Flood-fill for graph creation
+    auto flood_fill_timer = simple_timer{};
+    state.cells           = make_cell_graph(mesh);
+    stats.graph_ms += elapsed_milliseconds(flood_fill_timer);
 
-  stats.cells = (int)state.cells.size();
-  for (auto& cell : state.cells) stats.edges += cell.adjacency.size();
-  stats.edges /= 2;
-
-  if (state.invalid_shapes.size()) {
-    state.failed = true;
-    printf("FAILED: ");
-    for (auto& s : state.invalid_shapes) printf("%d ", s);
-    printf("\n");
-  } else {
     // Label propagation
-    auto labelling_timer = simple_timer{};
+    auto propagation_timer = simple_timer{};
     compute_cell_labels(state);
-    stats.labelling_ms = elapsed_milliseconds(labelling_timer);
-    stats.total_ms += stats.labelling_ms;
-    compute_shapes(state);
+    stats.propagation_ms += elapsed_milliseconds(propagation_timer);
+
+    auto booleans_timer = simple_timer{};
+    compute_bool_operations(state, test.operations);
+    stats.boolean_ms += elapsed_milliseconds(booleans_timer);
   }
 
+  // Collect stats
+  {
+    stats.sliced_triangles = (int)mesh.triangulated_faces.size();
+
+    for (auto& [face, triangles] : mesh.triangulated_faces)
+      stats.added_triangles += triangles.size();
+
+    stats.cells = (int)state.cells.size();
+    for (auto& cell : state.cells) stats.edges += cell.adjacency.size();
+    stats.edges /= 2;
+
+    if (state.invalid_shapes.size()) {
+      state.failed = true;
+      printf("FAILED: ");
+      for (auto& s : state.invalid_shapes) printf("%d ", s);
+      printf("\n");
+    } else {
+    }
+  }
+  stats.triangulation_ms /= num_tests;
+  stats.graph_ms /= num_tests;
+  stats.propagation_ms /= num_tests;
+  stats.boolean_ms /= num_tests;
+  stats.total_ms = stats.triangulation_ms + stats.graph_ms +
+                   stats.propagation_ms + stats.boolean_ms;
   printf("total time: %lf\n", stats.total_ms);
 
   // Saving output scene
@@ -276,6 +281,13 @@ int main(int num_args, const char* args[]) {
   }
 
   if (output_scene_filename.size()) {
+    auto ioerror          = string{};
+    output_scene_filename = normalize_path(output_scene_filename);
+    if (!make_directory(path_dirname(output_scene_filename), ioerror))
+      print_fatal(ioerror);
+    if (!make_directory(
+            path_join(path_dirname(output_scene_filename), "shapes"), ioerror))
+      print_fatal(ioerror);
     save_scene(output_scene_filename, scene, error);
   }
 
@@ -291,23 +303,14 @@ int main(int num_args, const char* args[]) {
   // auto graph_outfile = path_join(graph_dir, graph_filename);
   // save_tree_png(state, graph_outfile.c_str(), "", color_shapes);
 
-
-    auto booleans_timer = simple_timer{};
-    for (auto& operation : test.operations) {
-      compute_bool_operation(state, operation);
-    }
-    stats.boolean_ms = elapsed_milliseconds(booleans_timer);
-    stats.total_ms += stats.boolean_ms;
-
-  mesh.normals = compute_normals(mesh);
-
   if (output_obj_filename.size()) {
+    mesh.normals = compute_normals(mesh);
     export_model(state, mesh, output_obj_filename);
   }
 
   // output timings and stats:
   // model, model_triangles, genus,
-  // triangulation_secs, flood_fill_secs, labelling_secs, boolean_secs,
+  // triangulation_secs, flood_fill_secs, propagation_secs, boolean_secs,
   // total_secs, polygons, control_points, added_points, sliced_triangles,
   // added_triangles, graph_nodes, graph_edges, graph_cycles,
   // graph_ambient_cells
@@ -319,8 +322,8 @@ int main(int num_args, const char* args[]) {
         stats.model.c_str(), stats.triangles, stats.genus, stats.shapes,
         stats.polygons, stats.control_points, stats.added_points,
         stats.sliced_triangles, stats.added_triangles, stats.cells, stats.edges,
-        stats.cycles, stats.triangulation_ms, stats.flood_fill_ms,
-        stats.labelling_ms, stats.boolean_ms, stats.total_ms);
+        stats.cycles, stats.triangulation_ms, stats.graph_ms,
+        stats.propagation_ms, stats.boolean_ms, stats.total_ms);
     fclose(stats_file);
   }
 }
