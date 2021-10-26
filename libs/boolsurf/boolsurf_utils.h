@@ -19,9 +19,6 @@ using namespace yocto;
 
 #define PRINT_CALL() _PRINT_CALL(__FUNCTION__, __FILE__, __LINE__)
 
-#define PROFILE_SCOPE(name) auto _profile = print_timed(string(name));
-#define PROFILE() PROFILE_SCOPE(__FUNCTION__)
-
 inline int mod3(int i) { return (i > 2) ? i - 3 : i; }
 
 #if 1

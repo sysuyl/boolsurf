@@ -88,11 +88,12 @@ inline bool_shape make_polygon_shape(const bool_mesh& mesh,
       p.z = p.z * 0.5 + 0.5;
     }
 
-    shape.quads     = cylinder.quads;
-    shape.positions = cylinder.positions;
-    shape.normals   = cylinder.normals;
-    shape.froms     = froms;
-    shape.tos       = tos;
+    shape.quads      = cylinder.quads;
+    shape.positions  = cylinder.positions;
+    shape.normals    = cylinder.normals;
+    shape.froms      = froms;
+    shape.tos        = tos;
+    shape.depth_test = ogl_depth_test::less;
   }
   return shape;
 }

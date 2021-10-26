@@ -42,7 +42,7 @@ def xcode():
 def vs():
     os.makedirs('build/vs', exist_ok=True)
     os.chdir('build/vs')
-    os.system('cmake ../.. -G  "Visual Studio 15 2017" -DYOCTO_EMBREE=OFF')
+    os.system('cmake ../.. -G  "Visual Studio 16 2019" -DYOCTO_EMBREE=ON')
     # os.system('yocto_gl.sln')
 
 

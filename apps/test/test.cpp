@@ -291,15 +291,14 @@ int main(int num_args, const char* args[]) {
   // auto graph_outfile = path_join(graph_dir, graph_filename);
   // save_tree_png(state, graph_outfile.c_str(), "", color_shapes);
 
-  {
-    PROFILE_SCOPE("booleans");
+
     auto booleans_timer = simple_timer{};
     for (auto& operation : test.operations) {
       compute_bool_operation(state, operation);
     }
     stats.boolean_ms = elapsed_milliseconds(booleans_timer);
     stats.total_ms += stats.boolean_ms;
-  }
+
   mesh.normals = compute_normals(mesh);
 
   if (output_obj_filename.size()) {
