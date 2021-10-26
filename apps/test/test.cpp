@@ -239,13 +239,13 @@ int main(int num_args, const char* args[]) {
     stats.graph_ms += elapsed_milliseconds(flood_fill_timer);
 
     // Label propagation
-    // auto propagation_timer = simple_timer{};
-    // compute_cell_labels(_state);
-    // stats.propagation_ms += elapsed_milliseconds(propagation_timer);
+    auto propagation_timer = simple_timer{};
+    compute_cell_labels(_state);
+    stats.propagation_ms += elapsed_milliseconds(propagation_timer);
 
-    // auto booleans_timer = simple_timer{};
-    // compute_bool_operations(_state, test.operations);
-    // stats.boolean_ms += elapsed_milliseconds(booleans_timer);
+    auto booleans_timer = simple_timer{};
+    compute_bool_operations(_state, test.operations);
+    stats.boolean_ms += elapsed_milliseconds(booleans_timer);
 
     if (i == num_tests - 1) {
       mesh  = _mesh;
