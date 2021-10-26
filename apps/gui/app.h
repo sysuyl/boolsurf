@@ -536,7 +536,6 @@ void update_svg(app_state* app) {
 
   if (app->state.bool_shapes.empty()) return;
   auto  last_shape = app->state.bool_shapes.size() - 1;
-  auto& shape      = app->state.bool_shapes[last_shape];
   add_shape_shape(app, last_shape);
 
   update_polygons(app);

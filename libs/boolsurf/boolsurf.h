@@ -7,10 +7,19 @@ using namespace std;
 
 const static int null_label = -999;
 
+struct scope_timer {
+  string  message    = "";
+  int64_t start_time = -1;
+  bool    print      = true;
+  scope_timer(const string& msg);
+  ~scope_timer();  // print time when scope ends
+};
+#define _PROFILE_SCOPE(name) ;
+// #define _PROFILE_SCOPE(name) auto _profile = scope_timer(string(name));
+#define _PROFILE() _PROFILE_SCOPE(__FUNCTION__)
+
 struct bool_borders {
-  vector<bool>               tags         = {};
-  vector<unordered_set<int>> virtual_tags = {};
-  int                        num_polygons = 0;
+  vector<bool> tags = {};
 };
 
 struct bool_mesh : scene_shape {
@@ -135,10 +144,8 @@ void reset_mesh(bool_mesh& mesh);
 void update_polygon(bool_state& state, const bool_mesh& mesh, int polygon_id);
 
 void              slice_mesh(bool_mesh& mesh, bool_state& state);
-vector<mesh_cell> make_mesh_cells(bool_mesh& mesh);
-hash_set<int>     compute_invalid_shapes(
-        const vector<mesh_cell>& cells, int num_shapes);
-void compute_cell_labels(bool_state& state);
+vector<mesh_cell> make_cell_graph(bool_mesh& mesh);
+void              compute_cell_labels(bool_state& state);
 
 bool       compute_cells(bool_mesh& mesh, bool_state& state);
 void       compute_shapes(bool_state& state);

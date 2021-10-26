@@ -31,6 +31,28 @@ static bool_state* global_state = nullptr;
 #define add_debug_index(face, index) ;
 #endif
 
+static int scope_timer_indent = 0;
+scope_timer::scope_timer(const string& msg) {
+  if (scope_timer_indent == 0) printf("       \n");
+  printf("[timer]");
+  printf(" %.*s", scope_timer_indent, "|||||||||||||||||||||||||");
+  // printf("%d", scope_timer_indent);
+  printf("%s started\n", msg.c_str());
+  scope_timer_indent += 1;
+  message    = msg;
+  start_time = get_time_();
+}
+
+scope_timer::~scope_timer() {
+  scope_timer_indent -= 1;
+  if (start_time < 0) return;
+  auto elapsed = get_time_() - start_time;
+  printf("[timer]");
+  printf(" %.*s", scope_timer_indent, "|||||||||||||||||||||||||");
+  // printf("%d", scope_timer_indent);
+  printf("%s %s\n", message.c_str(), format_duration(elapsed).c_str());
+}
+
 // Build adjacencies between faces (sorted counter-clockwise)
 static vector<vec3i> face_adjacencies_fast(const vector<vec3i>& triangles) {
   auto get_edge = [](const vec3i& triangle, int i) -> vec2i {
@@ -311,7 +333,7 @@ inline int add_vertex(bool_mesh& mesh, mesh_hashgrid& hashgrid,
 
 static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
     const vector<shape>& shapes, hash_map<int, int>& control_points) {
-  PROFILE();
+  _PROFILE();
   // La hashgrid associa ad ogni faccia una lista di polilinee.
   // Ogni polilinea è definita da una sequenza punti in coordinate
   // baricentriche, ognuno di essi assiociato al corrispondente vertice della
@@ -455,14 +477,10 @@ static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
 void save_tree_png(const bool_state& state, string filename,
     const string& extra, bool color_shapes);
 
-// TODO(giacomo): CAMBIAMI NOME
-static vector<mesh_cell> flood_fill_new(vector<int>& cell_tags,
-    const vector<vec3i>& adjacencies, const vector<bool>& border_tags,
-    int num_polygons) {
-  //  auto& result = global_state->cells;
+static vector<mesh_cell> make_mesh_cells(vector<int>& cell_tags,
+    const vector<vec3i>& adjacencies, const vector<bool>& border_tags) {
   auto result = vector<mesh_cell>{};
-
-  cell_tags = vector<int>(adjacencies.size(), -1);
+  cell_tags   = vector<int>(adjacencies.size(), -1);
 
   // consume task stack
   auto starts = vector<int>{(int)adjacencies.size() - 1};
@@ -510,22 +528,26 @@ static vector<mesh_cell> flood_fill_new(vector<int>& cell_tags,
     cell.faces.shrink_to_fit();
   }  // end of while
 
-  // static int c = 0;
-  // // save_tree_png(*global_state, "data/tests/flood_fill_" + to_string(c) +
-  // // ".png",
-  // // "", false);
-  // c += 1;
-
   return result;
 }
 
-vector<mesh_cell> make_mesh_cells(bool_mesh& mesh) {
-  PROFILE();
+vector<mesh_cell> make_cell_graph(bool_mesh& mesh) {
+  _PROFILE();
   // Iniziamo dall'ultima faccia che sicuramente non e' stata distrutta.
-  auto starts = vector<int>{(int)mesh.adjacencies.size() - 1};
-  auto result = flood_fill_new(mesh.face_tags, mesh.adjacencies,
-      mesh.borders.tags, mesh.borders.num_polygons);
-  return result;
+  auto cells = make_mesh_cells(
+      mesh.face_tags, mesh.adjacencies, mesh.borders.tags);
+
+  {
+    _PROFILE_SCOPE("tag_cell_edges");
+    for (auto& [polygon_id, inner_face, outer_face] : mesh.polygon_borders) {
+      auto a = mesh.face_tags[inner_face];
+      auto b = mesh.face_tags[outer_face];
+      cells[a].adjacency.insert({b, -polygon_id});
+      cells[b].adjacency.insert({a, +polygon_id});
+    }
+  }
+
+  return cells;
 }
 
 static vector<int> find_roots(const vector<mesh_cell>& cells) {
@@ -640,7 +662,7 @@ static void compute_cycles(const vector<mesh_cell>& cells, int node,
 
 inline vector<vector<vec2i>> compute_graph_cycles(
     const vector<mesh_cell>& cells) {
-  // PROFILE();
+  // _PROFILE();
   auto visited        = vector<int>(cells.size(), 0);
   auto parents        = vector<vec2i>(cells.size(), {0, 0});
   auto cycles         = vector<vector<vec2i>>();
@@ -652,7 +674,7 @@ inline vector<vector<vec2i>> compute_graph_cycles(
 
 hash_set<int> compute_invalid_shapes(
     const vector<mesh_cell>& cells, int num_shapes) {
-  PROFILE();
+  _PROFILE();
   auto invalid_shapes = hash_set<int>();
   for (auto s = 1; s < num_shapes; s++) {
     auto shape_graph = compute_shape_macrograph(cells, s);
@@ -702,7 +724,7 @@ inline vector<vector<int>> compute_components(
 }
 
 static vector<vector<int>> propagate_cell_labels(bool_state& state) {
-  PROFILE();
+  _PROFILE();
   // Inizializziamo le label delle celle a 0.
   auto  num_shapes     = (int)state.bool_shapes.size();
   auto& cells          = state.cells;
@@ -774,7 +796,7 @@ static vector<vector<int>> propagate_cell_labels(bool_state& state) {
 
 static void add_polygon_intersection_points(bool_state& state,
     hash_map<int, vector<hashgrid_polyline>>& hashgrid, bool_mesh& mesh) {
-  PROFILE();
+  _PROFILE();
   // Calcoliamo sia le intersezioni che le self-intersections, aggiungendo i
   // vertici nuovi alla mesh.
 
@@ -1049,7 +1071,7 @@ static pair<vector<vec3i>, vector<vec3i>> constrained_triangulation(
     if (fabs(orientation) < 0.00001) {
       global_state->failed = true;
       printf("[%s]: Collinear in face : %d\n", __FUNCTION__, face);
-      continue;
+      return {};
     }
 #endif
 
@@ -1060,7 +1082,7 @@ static pair<vector<vec3i>, vector<vec3i>> constrained_triangulation(
 }
 
 static void update_face_adjacencies(bool_mesh& mesh) {
-  PROFILE();
+  _PROFILE();
   // Aggiorniamo le adiacenze per i triangoli che sono stati processati
   auto border_edgemap = hash_map<vec2i, int>{};
   border_edgemap.reserve(mesh.triangulated_faces.size() * 6);
@@ -1179,7 +1201,7 @@ inline void parallel_for_batch(int num_threads, size_t size, F&& f) {
 }
 
 static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
-  PROFILE();
+  _PROFILE();
   // auto mesh_triangles_size = atomic<size_t>{mesh.triangles.size()};
   auto mesh_mutex = std::mutex{};
   auto i          = 0;
@@ -1190,7 +1212,7 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
   mesh.triangulated_faces.reserve(hashgrid.size());
 
   // for (auto& [face, polylines] : hashgrid) {
-  auto f = [&](int index) {
+  auto f = [&](size_t index) {
     auto  face      = faces[index];
     auto& polylines = hashgrid.at(face);
 
@@ -1287,8 +1309,24 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
 #endif
 }
 
+void compute_border_tags(bool_mesh& mesh, bool_state& state) {
+  _PROFILE();
+  mesh.borders.tags = vector<bool>(3 * mesh.triangles.size(), false);
+  for (auto& [polygon_id, inner_face, outer_face] : mesh.polygon_borders) {
+    assert(inner_face >= 0);
+    assert(outer_face >= 0);
+    auto k = find_in_vec(mesh.adjacencies[inner_face], outer_face);
+    assert(k != -1);
+    mesh.borders.tags[3 * inner_face + k] = true;
+
+    auto kk = find_in_vec(mesh.adjacencies[outer_face], inner_face);
+    assert(kk != -1);
+    mesh.borders.tags[3 * outer_face + kk] = true;
+  }
+}
+
 void slice_mesh(bool_mesh& mesh, bool_state& state) {
-  PROFILE();
+  _PROFILE();
   auto& shapes = state.bool_shapes;
 
   // Calcoliamo i vertici nuovi della mesh
@@ -1305,11 +1343,11 @@ void slice_mesh(bool_mesh& mesh, bool_state& state) {
   update_face_adjacencies(mesh);
 
   // Calcola i border_tags per le facce triangolata.
-  //  mesh.borders = border_tags(mesh, hashgrid, (int)shapes.size());
+  compute_border_tags(mesh, state);
 }
 
 void compute_cell_labels(bool_state& state) {
-  PROFILE();
+  _PROFILE();
   global_state = &state;
 
   propagate_cell_labels(state);
@@ -1328,64 +1366,19 @@ void compute_cell_labels(bool_state& state) {
   }
 }
 
-void compute_border_tags(bool_mesh& mesh, bool_state& state) {
-  PROFILE();
-  mesh.borders.tags = vector<bool>(3 * mesh.triangles.size(), false);
-  for (auto& [polygon_id, inner_face, outer_face] : mesh.polygon_borders) {
-    assert(inner_face >= 0);
-    assert(outer_face >= 0);
-    auto k = find_in_vec(mesh.adjacencies[inner_face], outer_face);
-    assert(k != -1);
-    mesh.borders.tags[3 * inner_face + k] = true;
-
-    auto kk = find_in_vec(mesh.adjacencies[outer_face], inner_face);
-    assert(kk != -1);
-    mesh.borders.tags[3 * outer_face + kk] = true;
-  }
-}
-
 bool compute_cells(bool_mesh& mesh, bool_state& state) {
   // Triangola mesh in modo da embeddare tutti i poligoni come mesh-edges.
-  PROFILE();
+  _PROFILE();
   global_state = &state;
   slice_mesh(mesh, state);
 
   if (global_state->failed) return false;
 
-  compute_border_tags(mesh, state);
-
   // Trova celle e loro adiacenza via flood-fill.
-  state.cells = make_mesh_cells(mesh);
-  // update_virtual_adjacencies(state.cells, mesh.borders);
-  // // Calcoliamo possibili cicli all'interno del grafo delle adiacenze della
-  // // mesh. In modo da eliminare gli archi corrispondenti.
-
-  auto invalid_shapes = compute_invalid_shapes(
-      state.cells, (int)state.bool_shapes.size());
-  if (invalid_shapes.size()) {
-    state.failed = true;
-    printf("FAILED: ");
-    for (auto& s : invalid_shapes) printf("%d ", s);
-    printf("\n");
-    return false;
-  }
-
-  {
-    PROFILE_SCOPE("tag_adjacency");
-    for (auto& [polygon_id, inner_face, outer_face] : mesh.polygon_borders) {
-      auto a = mesh.face_tags[inner_face];
-      auto b = mesh.face_tags[outer_face];
-      state.cells[a].adjacency.insert({b, -polygon_id});
-      state.cells[b].adjacency.insert({a, +polygon_id});
-    }
-  }
+  state.cells = make_cell_graph(mesh);
 
   // Calcola i label delle celle con una visita sulla loro adiacenza.
   compute_cell_labels(state);
-
-  for (auto shape : state.invalid_shapes) {
-    printf("Invalid shape: %d\n", shape);
-  }
   return true;
 }
 
@@ -1599,7 +1592,7 @@ void compute_bool_operation(bool_state& state, const bool_operation& op) {
 
 void compute_bool_operations(
     bool_state& state, const vector<bool_operation>& ops) {
-  PROFILE();
+  _PROFILE();
   for (auto& op : ops) {
     compute_bool_operation(state, op);
   }

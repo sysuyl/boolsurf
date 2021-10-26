@@ -165,12 +165,11 @@ void bezier_last_segment(app_state* app) {
   auto bezier = compute_bezier_path(mesh.dual_solver, mesh.triangles,
       mesh.positions, mesh.adjacencies, control_points, 4);
 
-  auto  polygon_id = (int)app->state.polygons.size() - 1;
   auto& polygon    = app->state.polygons.back();
   app->state.points.resize(app->state.points.size() - 4);
   polygon.points.resize(polygon.points.size() - 4);
   for (int i = 0; i < bezier.size(); i++) {
-    polygon.points.push_back(app->state.points.size() + i);
+    polygon.points.push_back((int)app->state.points.size() + i);
   }
   app->state.points += bezier;
   // update_polygon(app, s, p);
@@ -182,9 +181,8 @@ void do_things(app_state* app) {
   debug_indices().clear();
 
   compute_cells(app->mesh, app->state);
-  if (app->state.failed) {
-    printf("Computation failed\n");
-    return;
+  for (auto shape : app->state.invalid_shapes) {
+    printf("Invalid shape: %d\n", shape);
   }
 
   // #ifdef MY_DEBUG
