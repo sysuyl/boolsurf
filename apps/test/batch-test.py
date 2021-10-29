@@ -59,8 +59,8 @@ def svg(bin, dirname, svg):
             append = '--append-stats'
 
         try:
-            retcode = subprocess.run(cmd, timeout=60, shell=True).returncode
-            if retcode == 0:
+            return_code = subprocess.run(cmd, timeout=60, shell=True).returncode
+            if return_code == 0:
                 result['num_ok'] += 1
                 result['ok'] += [mesh_name]
             else:
@@ -120,17 +120,20 @@ def jsons(bin, dirname):
         if append == '':
             append = '--append-stats'
 
-        try:
-            retcode = subprocess.run(cmd, timeout=60, shell=True).returncode
-            if retcode == 0:
-                result['num_ok'] += 1
-                result['ok'] += [json_name]
-            else:
-                result['num_errors'] += 1
-                result['errors'] += [json_name]
-        except:
+        #try:
+        return_code = subprocess.run(cmd, timeout=60, shell=True).returncode
+        if return_code == 0:
+            print('fatto')
+            result['num_ok'] += 1
+            result['ok'] += [json_name]
+        else:
+            print('ERRORE ', return_code)
             result['num_errors'] += 1
             result['errors'] += [json_name]
+
+        #except:
+        #    result['num_errors'] += 1
+        #    result['errors'] += [json_name]
 
     with open(f'{output}/trace-result.json', 'wt') as f:
         json.dump(result, f, indent=2)

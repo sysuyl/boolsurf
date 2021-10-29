@@ -244,6 +244,7 @@ int main(int num_args, const char* args[]) {
     stats.propagation_ms += elapsed_milliseconds(propagation_timer);
 
     auto booleans_timer = simple_timer{};
+    compute_shapes(_state);
     compute_bool_operations(_state, test.operations);
     stats.boolean_ms += elapsed_milliseconds(booleans_timer);
 
@@ -262,6 +263,7 @@ int main(int num_args, const char* args[]) {
 
     for (auto& [face, triangles] : mesh.triangulated_faces)
       stats.added_triangles += triangles.size();
+
 
     stats.cells = (int)state.cells.size();
     for (auto& cell : state.cells) stats.edges += cell.adjacency.size();

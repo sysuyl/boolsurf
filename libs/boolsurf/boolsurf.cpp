@@ -1384,7 +1384,6 @@ void compute_shapes(bool_state& state) {
   // Calcoliamo le informazioni sulla shape, come le celle che ne fanno parte
   auto& shapes  = state.bool_shapes;
   auto& sorting = state.shapes_sorting;
-  shapes.resize(state.bool_shapes.size());
   sorting.resize(state.bool_shapes.size());
 
   // Assign a polygon and a color to each shape.
@@ -1402,7 +1401,7 @@ void compute_shapes(bool_state& state) {
 
   for (auto c = 0; c < state.cells.size(); c++) {
     auto count = 0;
-    for (auto p = 0; p < state.labels[c].size(); p++) {
+    for (auto p = 1; p < state.labels[c].size(); p++) {
       if (state.labels[c][p] > 0) {
         shapes[p].cells.insert(c);
         count += 1;
