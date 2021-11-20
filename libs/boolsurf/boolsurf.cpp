@@ -1447,6 +1447,7 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
     compute_generator_polygons(state, s, generator_polygons);
 
     auto components = compute_components(state, bool_shape);
+
     for (auto& component : components) {
       // Step 1: Calcoliamo gli edges che stanno sul bordo
       auto edges = hash_set<vec2i>();
@@ -1455,15 +1456,18 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
         auto& cell = state.cells[c];
         // Per ogni cella che compone la shape calcolo il bordo a partire
         // dalle facce che ne fanno parte
+
         for (auto face : cell.faces) {
           // Se è una faccia interna allora non costituirà il bordo
-          if (mesh.borders.tags[3 * face] == false) continue;
+          for (auto k = 0; k < 3; k++) {
+            if (mesh.borders.tags[3 * face + k] == false) continue;
+          }
 
           // Per ogni lato del triangolo considero solamente quelli che sono
           // di bordo (tag != 0)
           auto& tri = mesh.triangles[face];
           for (auto k = 0; k < 3; k++) {
-            auto tag = mesh.borders.tags[3 * face];
+            auto tag = mesh.borders.tags[3 * face + k];
             if (tag == false) continue;
             auto edge     = get_mesh_edge_from_index(tri, k);
             auto rev_edge = vec2i{edge.y, edge.x};
