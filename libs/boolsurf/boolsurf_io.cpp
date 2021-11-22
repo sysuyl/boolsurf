@@ -326,7 +326,7 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
       if (contains(mesh.triangulated_faces, f)) {
         auto& new_faces = mesh.triangulated_faces.at(f);
         for (auto face : new_faces)
-          hashgrid_shape.triangles.push_back(mesh.triangles[face]);
+          hashgrid_shape.triangles.push_back(mesh.triangles[face.id]);
       } else {
         printf("Here\n");
         mesh_shape.triangles.push_back(mesh.triangles[f]);

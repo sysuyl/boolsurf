@@ -22,17 +22,22 @@ struct bool_borders {
   vector<bool> tags = {};
 };
 
+struct facet {
+  std::array<vec2f, 3> corners = {};
+  int                  id      = -1;
+};
+
 struct bool_mesh : scene_shape {
   vector<vec3i>        adjacencies = {};
   dual_geodesic_solver dual_solver = {};
   bool_borders         borders     = {};
 
-  shape_bvh                  bvh                = {};
-  bbox3f                     bbox               = {};
-  int                        num_triangles      = 0;
-  int                        num_positions      = 0;
-  hash_map<int, vector<int>> triangulated_faces = {};
-  geodesic_solver            graph              = {};
+  shape_bvh                    bvh                = {};
+  bbox3f                       bbox               = {};
+  int                          num_triangles      = 0;
+  int                          num_positions      = 0;
+  hash_map<int, vector<facet>> triangulated_faces = {};
+  geodesic_solver              graph              = {};
 
   vector<vec3i> polygon_borders = {};
   vector<int>   face_tags       = {};

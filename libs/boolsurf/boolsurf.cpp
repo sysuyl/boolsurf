@@ -1031,6 +1031,10 @@ static pair<vector<vec3i>, vector<vec3i>> constrained_triangulation(
   // Questo purtroppo serve.
   for (auto& n : nodes) n *= 1e9;
 
+  auto  result      = pair<vector<vec3i>, vector<vec3i>>{};
+  auto& triangles   = result.first;
+  auto& adjacencies = result.second;
+
   // (marzia): qui usiamo float, ma si possono usare anche i double
   using Float = float;
   auto cdt = CDT::Triangulation<Float>(CDT::FindingClosestPoint::ClosestRandom);
@@ -1044,10 +1048,8 @@ static pair<vector<vec3i>, vector<vec3i>> constrained_triangulation(
       [](const vec2i& edge) -> int { return edge.y; });
 
   cdt.eraseOuterTriangles();
-  auto adjacencies = vector<vec3i>();
   adjacencies.reserve(cdt.triangles.size());
 
-  auto triangles = vector<vec3i>();
   triangles.reserve(cdt.triangles.size());
 
   for (auto& tri : cdt.triangles) {
@@ -1079,7 +1081,7 @@ static pair<vector<vec3i>, vector<vec3i>> constrained_triangulation(
     triangles.push_back(verts);
     adjacencies.push_back(adjacency);
   }
-  return {triangles, adjacencies};
+  return result;
 }
 
 static void update_face_adjacencies(bool_mesh& mesh) {
@@ -1093,14 +1095,14 @@ static void update_face_adjacencies(bool_mesh& mesh) {
     // Converto il triangolo in triplette di vertici globali.
     auto triangles = vector<vec3i>(faces.size());
     for (int i = 0; i < faces.size(); i++) {
-      triangles[i] = mesh.triangles[faces[i]];
+      triangles[i] = mesh.triangles[faces[i].id];
     }
 
     for (int i = 0; i < faces.size(); i++) {
       // Guardo se nell'adiacenza ci sono dei triangoli mancanti
       // (segnati con adjacent_to_nothing per non confonderli i -1 già
       // presenti nell'adiacenza della mesh originale).
-      auto& adj = mesh.adjacencies[faces[i]];
+      auto& adj = mesh.adjacencies[faces[i].id];
       for (int k = 0; k < 3; k++) {
         if (adj[k] != adjacent_to_nothing) continue;
 
@@ -1118,10 +1120,10 @@ static void update_face_adjacencies(bool_mesh& mesh) {
               auto neighbor = mesh.adjacencies[face][kk];
               if (neighbor == -1) continue;
 
-              mesh.adjacencies[faces[i]][k] = neighbor;
+              mesh.adjacencies[faces[i].id][k] = neighbor;
 
               auto it = find_in_vec(mesh.adjacencies[neighbor], face);
-              mesh.adjacencies[neighbor][it] = faces[i];
+              mesh.adjacencies[neighbor][it] = faces[i].id;
             }
           }
           continue;
@@ -1136,15 +1138,15 @@ static void update_face_adjacencies(bool_mesh& mesh) {
         // l'adiacenza tra il triangolo corrente e il neighbor già trovato.
         if (it == border_edgemap.end()) {
           // border_edgemap.insert(it, {edge_key, faces[i]});
-          border_edgemap[edge_key] = faces[i];
+          border_edgemap[edge_key] = faces[i].id;
         } else {
-          auto neighbor                 = it->second;
-          mesh.adjacencies[faces[i]][k] = neighbor;
+          auto neighbor                    = it->second;
+          mesh.adjacencies[faces[i].id][k] = neighbor;
           for (int kk = 0; kk < 3; ++kk) {
             auto edge2 = get_mesh_edge_from_index(mesh.triangles[neighbor], kk);
             edge2      = make_edge_key(edge2);
             if (edge2 == edge_key) {
-              mesh.adjacencies[neighbor][kk] = faces[i];
+              mesh.adjacencies[neighbor][kk] = faces[i].id;
               break;
             }
           }
@@ -1227,10 +1229,12 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
     // Se la faccia contiene solo segmenti corrispondenti ad edge del
     // triangolo stesso, non serve nessuna triangolazione.
     if (info.nodes.size() == 3) {
-      mesh.triangulated_faces[face] = {face};
+      auto nodes = std::array<vec2f, 3>{vec2f{0, 0}, vec2f{1, 0}, vec2f{0, 1}};
+      mesh.triangulated_faces[face] = {facet{nodes, face}};
       return;
     }
-
+      
+    auto triangulated_faces = vector<facet>{};
     auto triangles = vector<vec3i>();
     auto adjacency = vector<vec3i>();
 
@@ -1247,7 +1251,10 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
     // Converti triangli locali in globali.
     for (int i = 0; i < triangles.size(); i++) {
       auto& tr = triangles[i];
-      tr       = {info.indices[tr.x], info.indices[tr.y], info.indices[tr.z]};
+      auto  n  = std::array<vec2f, 3>{
+          info.nodes[tr[0]], info.nodes[tr[1]], info.nodes[tr[2]]};
+      triangulated_faces.push_back({n, -1});
+      tr = {info.indices[tr.x], info.indices[tr.y], info.indices[tr.z]};
     }
 
     vector<vec3i> polygon_faces;
@@ -1283,8 +1290,9 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
       mesh.triangles.resize(mesh_triangles_old_size + triangles.size());
       mesh.adjacencies.resize(mesh_triangles_old_size + triangles.size());
       for (int i = 0; i < triangles.size(); i++) {
-        mesh.triangulated_faces[face].push_back(mesh_triangles_old_size + i);
+        triangulated_faces[i].id = mesh_triangles_old_size + i;
       }
+      mesh.triangulated_faces[face] = triangulated_faces;
       for (auto& pf : polygon_faces) {
         if (pf.y >= 0) pf.y += mesh_triangles_old_size;
         if (pf.z >= 0) pf.z += mesh_triangles_old_size;
