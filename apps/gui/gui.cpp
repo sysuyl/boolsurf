@@ -165,7 +165,7 @@ void bezier_last_segment(app_state* app) {
   auto bezier = compute_bezier_path(mesh.dual_solver, mesh.triangles,
       mesh.positions, mesh.adjacencies, control_points, 4);
 
-  auto& polygon    = app->state.polygons.back();
+  auto& polygon = app->state.polygons.back();
   app->state.points.resize(app->state.points.size() - 4);
   polygon.points.resize(polygon.points.size() - 4);
   for (int i = 0; i < bezier.size(); i++) {
@@ -648,9 +648,32 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
 
+  if (draw_button(widgets, "Close curve")) {
+    if (app->state.bool_shapes.empty()) return;
+    auto& bool_shape = app->state.bool_shapes.back();
+
+    if (bool_shape.polygons.empty()) return;
+    auto& last_polygon = bool_shape.polygons.back();
+
+    if (last_polygon.points.size() > 2) {
+      commit_state(app);
+
+      auto shape_id = (int)app->state.bool_shapes.size() - 1;
+
+      auto& polygon = bool_shape.polygons.emplace_back();
+      auto  p_shape = get_polygon_shape(app, polygon, shape_id);
+      app->shape_shapes[shape_id].polygons.push_back(p_shape);
+    }
+  }
+
+  if (draw_button(widgets, "Open curve")) {
+    do_things(app);
+  }
+
   if (draw_button(widgets, "Execute")) {
     do_things(app);
   }
+
   continue_line(widgets);
 
   // if (draw_button(widgets, "bezier")) {
@@ -804,6 +827,7 @@ void mouse_input(app_state* app, const gui_input& input) {
     auto polygon_points = (int)polygon.points.size();
 
     update_polygon(app, shape_id, polygon_id, polygon_points - 2);
+    // update_polygon(app, shape_id, polygon_id, polygon_points - 2);
     // update_polygon(app, polygon_id, polygon_points - 2);
   }
 }

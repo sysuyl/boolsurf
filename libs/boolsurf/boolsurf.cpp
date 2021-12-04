@@ -216,20 +216,23 @@ vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
 
 void recompute_polygon_segments(const bool_mesh& mesh, const bool_state& state,
     mesh_polygon& polygon, int index) {
-  if (index > 0) {
-    auto& last_segment = polygon.edges.back();
-    polygon.length -= last_segment.size();
-    polygon.edges.pop_back();
-  } else {
-    polygon.length = 0;
-    polygon.edges.clear();
-  }
+  // Remove this to automatically close the curves
+  //   if (index > 0) {
+  //     auto& last_segment = polygon.edges.back();
+  //     polygon.length -= last_segment.size();
+  //     polygon.edges.pop_back();
+  //   } else {
+  //     polygon.length = 0;
+  //     polygon.edges.clear();
+  //   }
 
   auto faces = hash_set<int>();
-  for (int i = index; i < polygon.points.size(); i++) {
+  for (int i = index; i < polygon.points.size() - 1; i++) {
     auto start = polygon.points[i];
     faces.insert(state.points[start].face);
-    auto end  = polygon.points[(i + 1) % polygon.points.size()];
+    // auto end  = polygon.points[(i + 1) % polygon.points.size()];
+    auto end = polygon.points[i + 1];
+
     auto path = compute_geodesic_path(
         mesh, state.points[start], state.points[end]);
     auto threshold = 0.001f;
@@ -1233,10 +1236,10 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
       mesh.triangulated_faces[face] = {facet{nodes, face}};
       return;
     }
-      
+
     auto triangulated_faces = vector<facet>{};
-    auto triangles = vector<vec3i>();
-    auto adjacency = vector<vec3i>();
+    auto triangles          = vector<vec3i>();
+    auto adjacency          = vector<vec3i>();
 
     // Se il triangolo ha al suo interno un solo segmento allora chiamiamo
     // la funzione di triangolazione più semplice, altrimenti chiamiamo CDT
