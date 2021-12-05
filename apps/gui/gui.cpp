@@ -175,6 +175,24 @@ void bezier_last_segment(app_state* app) {
   // update_polygon(app, s, p);
 }
 
+void commit_updates(app_state* app) {
+  if (app->state.bool_shapes.empty()) return;
+  auto& bool_shape = app->state.bool_shapes.back();
+
+  if (bool_shape.polygons.empty()) return;
+  auto& last_polygon = bool_shape.polygons.back();
+
+  if (last_polygon.points.size() > 2) {
+    commit_state(app);
+
+    auto shape_id = (int)app->state.bool_shapes.size() - 1;
+
+    auto& polygon = bool_shape.polygons.emplace_back();
+    auto  p_shape = get_polygon_shape(app, polygon, shape_id);
+    app->shape_shapes[shape_id].polygons.push_back(p_shape);
+  }
+}
+
 void do_things(app_state* app) {
   debug_triangles().clear();
   debug_nodes().clear();
@@ -651,23 +669,19 @@ void draw_widgets(app_state* app, const gui_input& input) {
   if (draw_button(widgets, "Close curve")) {
     if (app->state.bool_shapes.empty()) return;
     auto& bool_shape = app->state.bool_shapes.back();
+    auto  shape_id   = int(app->state.bool_shapes.size()) - 1;
 
     if (bool_shape.polygons.empty()) return;
     auto& last_polygon = bool_shape.polygons.back();
+    auto  polygon_id   = int(bool_shape.polygons.size()) - 1;
 
-    if (last_polygon.points.size() > 2) {
-      commit_state(app);
-
-      auto shape_id = (int)app->state.bool_shapes.size() - 1;
-
-      auto& polygon = bool_shape.polygons.emplace_back();
-      auto  p_shape = get_polygon_shape(app, polygon, shape_id);
-      app->shape_shapes[shape_id].polygons.push_back(p_shape);
-    }
+    update_polygon(app, shape_id, polygon_id, last_polygon.points.size() - 1);
+    commit_updates(app);
+    // Is contained in a single face should be added?
   }
 
   if (draw_button(widgets, "Open curve")) {
-    do_things(app);
+    commit_updates(app);
   }
 
   if (draw_button(widgets, "Execute")) {
@@ -823,7 +837,6 @@ void mouse_input(app_state* app, const gui_input& input) {
 
     // Add point to state.
     app->state.points.push_back(point);
-
     auto polygon_points = (int)polygon.points.size();
 
     update_polygon(app, shape_id, polygon_id, polygon_points - 2);
@@ -1001,21 +1014,7 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key::enter: {
-        if (app->state.bool_shapes.empty()) return;
-        auto& bool_shape = app->state.bool_shapes.back();
-
-        if (bool_shape.polygons.empty()) return;
-        auto& last_polygon = bool_shape.polygons.back();
-
-        if (last_polygon.points.size() > 2) {
-          commit_state(app);
-
-          auto shape_id = (int)app->state.bool_shapes.size() - 1;
-
-          auto& polygon = bool_shape.polygons.emplace_back();
-          auto  p_shape = get_polygon_shape(app, polygon, shape_id);
-          app->shape_shapes[shape_id].polygons.push_back(p_shape);
-        }
+        commit_updates(app);
       }
 
       break;

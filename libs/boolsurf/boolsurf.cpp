@@ -217,6 +217,7 @@ vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
 void recompute_polygon_segments(const bool_mesh& mesh, const bool_state& state,
     mesh_polygon& polygon, int index) {
   // Remove this to automatically close the curves
+
   //   if (index > 0) {
   //     auto& last_segment = polygon.edges.back();
   //     polygon.length -= last_segment.size();
@@ -230,8 +231,24 @@ void recompute_polygon_segments(const bool_mesh& mesh, const bool_state& state,
   for (int i = index; i < polygon.points.size() - 1; i++) {
     auto start = polygon.points[i];
     faces.insert(state.points[start].face);
-    // auto end  = polygon.points[(i + 1) % polygon.points.size()];
     auto end = polygon.points[i + 1];
+
+    auto path = compute_geodesic_path(
+        mesh, state.points[start], state.points[end]);
+    auto threshold = 0.001f;
+    for (auto& l : path.lerps) {
+      l = yocto::clamp(l, 0 + threshold, 1 - threshold);
+    }
+    auto segments = mesh_segments(
+        mesh.triangles, path.strip, path.lerps, path.start, path.end);
+
+    polygon.edges.push_back(segments);
+    polygon.length += segments.size();
+  }
+
+  if (index == polygon.points.size() - 1) {
+    auto start = polygon.points[index];
+    auto end   = polygon.points[0];
 
     auto path = compute_geodesic_path(
         mesh, state.points[start], state.points[end]);
