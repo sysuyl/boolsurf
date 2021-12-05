@@ -673,6 +673,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
     if (bool_shape.polygons.empty()) return;
     auto& last_polygon = bool_shape.polygons.back();
+    last_polygon.is_closed = true;
     auto  polygon_id   = int(bool_shape.polygons.size()) - 1;
 
     update_polygon(app, shape_id, polygon_id, last_polygon.points.size() - 1);

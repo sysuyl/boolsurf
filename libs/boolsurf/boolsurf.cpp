@@ -366,6 +366,9 @@ static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
       auto& polygon = polygons[polygon_id];
       if (polygon.length == 0) continue;
       if (polygon.edges.empty()) continue;
+      if (!polygon.is_closed) {
+        continue;
+      }
 
       // La polilinea della prima faccia del poligono viene processata alla fine
       // (perché si trova tra il primo e l'ultimo edge)
