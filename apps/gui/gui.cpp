@@ -701,6 +701,10 @@ void draw_widgets(app_state* app, const gui_input& input) {
       if (app->state.labels[c][app->selected_shape] == 1)
         shape_cells.push_back(c);
 
+    auto clipped_segments = vector<vector<mesh_segment>>();
+    clipped_segments.emplace_back();
+    auto external = true;
+
     for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
       auto& shape = app->state.bool_shapes[s];
 
@@ -708,32 +712,38 @@ void draw_widgets(app_state* app, const gui_input& input) {
         auto& polygon = shape.polygons[p];
         if (polygon.is_closed) continue;
 
-        auto faces = vector<int>();
         for (auto& edge : polygon.edges) {
           for (auto& segment : edge) {
             auto face = segment.face;
 
+            if (external && clipped_segments.back().size()) {
+              clipped_segments.emplace_back();
+              external = false;
+            }
+
             if (contains(app->mesh.triangulated_faces, face)) {
               for (auto& tri_face : app->mesh.triangulated_faces[face]) {
                 if (contains(shape_cells, app->mesh.face_tags[tri_face.id])) {
-                  faces.push_back(tri_face.id);
+                  clipped_segments.back().push_back(segment);
+                  external = false;
                 }
               }
+            } else if (contains(shape_cells, app->mesh.face_tags[face])) {
+              clipped_segments.back().push_back(segment);
+              external = false;
             } else {
-              if (contains(shape_cells, app->mesh.face_tags[face])) {
-                faces.push_back(face);
-              }
+              external = true;
             }
           }
         }
+      }
+    }
 
-        // Temporary patch
-        if (app->temp_patch) {
-          set_patch_shape(app->temp_patch->shape, app->mesh, faces);
-        } else {
-          app->temp_patch = add_patch_shape(app, faces, {0, 1, 0});
-        }
-        app->temp_patch->depth_test = ogl_depth_test::always;
+    printf("Segments: %d\n", clipped_segments.size());
+    for (auto& clipped_segment : clipped_segments) {
+      for (auto& segment : clipped_segment) {
+        draw_mesh_segment(
+            app->glscene, app->mesh, app->isecs_material, segment);
       }
     }
   }
