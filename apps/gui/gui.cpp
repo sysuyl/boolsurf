@@ -691,29 +691,36 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
   // continue_line(widgets);
   auto ff = [&](int i) { return to_string(i); };
-  draw_combobox(
-      widgets, "Cells", app->selected_shape, (int)app->state.cells.size(), ff);
+  draw_combobox(widgets, "Cells", app->selected_shape,
+      (int)app->state.bool_shapes.size(), ff);
 
   if (draw_button(widgets, "Clip")) {
+    auto shape_cells = vector<int>();
+
+    for (auto c = 0; c < app->state.labels.size(); c++)
+      if (app->state.labels[c][app->selected_shape] == 1)
+        shape_cells.push_back(c);
+
     for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
       auto& shape = app->state.bool_shapes[s];
+
       for (auto p = 0; p < app->state.bool_shapes[s].polygons.size(); p++) {
         auto& polygon = shape.polygons[p];
         if (polygon.is_closed) continue;
-        printf("Debugging polygon: %d %d\n", s, p);
 
         auto faces = vector<int>();
-        for (auto& side : polygon.edges) {
-          for (auto& segment : side) {
+        for (auto& edge : polygon.edges) {
+          for (auto& segment : edge) {
             auto face = segment.face;
+
             if (contains(app->mesh.triangulated_faces, face)) {
               for (auto& tri_face : app->mesh.triangulated_faces[face]) {
-                if (app->mesh.face_tags[tri_face.id] == app->selected_shape) {
+                if (contains(shape_cells, app->mesh.face_tags[tri_face.id])) {
                   faces.push_back(tri_face.id);
                 }
               }
             } else {
-              if (app->mesh.face_tags[face] == app->selected_shape) {
+              if (contains(shape_cells, app->mesh.face_tags[face])) {
                 faces.push_back(face);
               }
             }
