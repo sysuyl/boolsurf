@@ -672,9 +672,9 @@ void draw_widgets(app_state* app, const gui_input& input) {
     auto  shape_id   = int(app->state.bool_shapes.size()) - 1;
 
     if (bool_shape.polygons.empty()) return;
-    auto& last_polygon = bool_shape.polygons.back();
+    auto& last_polygon     = bool_shape.polygons.back();
     last_polygon.is_closed = true;
-    auto  polygon_id   = int(bool_shape.polygons.size()) - 1;
+    auto polygon_id        = int(bool_shape.polygons.size()) - 1;
 
     update_polygon(app, shape_id, polygon_id, last_polygon.points.size() - 1);
     commit_updates(app);
@@ -689,7 +689,47 @@ void draw_widgets(app_state* app, const gui_input& input) {
     do_things(app);
   }
 
-  continue_line(widgets);
+  // continue_line(widgets);
+  auto ff = [&](int i) { return to_string(i); };
+  draw_combobox(
+      widgets, "Cells", app->selected_shape, (int)app->state.cells.size(), ff);
+
+  if (draw_button(widgets, "Clip")) {
+    for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
+      auto& shape = app->state.bool_shapes[s];
+      for (auto p = 0; p < app->state.bool_shapes[s].polygons.size(); p++) {
+        auto& polygon = shape.polygons[p];
+        if (polygon.is_closed) continue;
+        printf("Debugging polygon: %d %d\n", s, p);
+
+        auto faces = vector<int>();
+        for (auto& side : polygon.edges) {
+          for (auto& segment : side) {
+            auto face = segment.face;
+            if (contains(app->mesh.triangulated_faces, face)) {
+              for (auto& tri_face : app->mesh.triangulated_faces[face]) {
+                if (app->mesh.face_tags[tri_face.id] == app->selected_shape) {
+                  faces.push_back(tri_face.id);
+                }
+              }
+            } else {
+              if (app->mesh.face_tags[face] == app->selected_shape) {
+                faces.push_back(face);
+              }
+            }
+          }
+        }
+
+        // Temporary patch
+        if (app->temp_patch) {
+          set_patch_shape(app->temp_patch->shape, app->mesh, faces);
+        } else {
+          app->temp_patch = add_patch_shape(app, faces, {0, 1, 0});
+        }
+        app->temp_patch->depth_test = ogl_depth_test::always;
+      }
+    }
+  }
 
   // if (draw_button(widgets, "bezier")) {
   //   bezier_last_segment(app);
