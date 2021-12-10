@@ -366,6 +366,8 @@ static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
       auto& polygon = polygons[polygon_id];
       if (polygon.length == 0) continue;
       if (polygon.edges.empty()) continue;
+
+      // Open polygons are handled in update_hashgrid()
       if (!polygon.is_closed) {
         continue;
       }
@@ -475,6 +477,69 @@ static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
         }
 
         if (e > 0 && last_vertex != -1)
+          control_points[last_vertex] =
+              polygon.points[(e + 1) % polygon.edges.size()];
+      }
+    }
+  }
+  return hashgrid;
+}
+
+// Qui vengono gestiti solo i poligoni aperti (per comodità in una funzione
+// separata)
+static mesh_hashgrid update_hashgrid(mesh_hashgrid& hashgrid, bool_mesh& mesh,
+    const vector<shape>& shapes, hash_map<int, int>& control_points) {
+  _PROFILE();
+
+  for (auto shape_id = 0; shape_id < shapes.size(); shape_id++) {
+    auto& polygons = shapes[shape_id].polygons;
+    for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
+      auto& polygon = polygons[polygon_id];
+      if (polygon.length == 0) continue;
+      if (polygon.edges.empty()) continue;
+      if (polygon.is_closed) continue;
+
+      // La polilinea della prima faccia del poligono viene processata alla fine
+      // (perché si trova tra il primo e l'ultimo edge)
+
+      int last_face   = -1;
+      int last_vertex = -1;
+
+      for (auto e = 0; e < polygon.edges.size(); e++) {
+        auto& edge = polygon.edges[e];
+
+        for (auto s = 0; s < edge.size(); s++) {
+          auto& segment = edge[s];
+
+          auto& entry = hashgrid[segment.face];
+
+          // Se la faccia del segmento che stiamo processando è diversa
+          // dall'ultima salvata allora creiamo una nuova polilinea, altrimenti
+          // accodiamo le nuove informazioni.
+          if (segment.face != last_face) {
+            auto  polyline_id = (int)entry.size();
+            auto& polyline    = entry.emplace_back();
+            // polyline.polygon  = polygon_id;
+            polyline.polygon = shape_id;
+
+            last_vertex = add_vertex(mesh, hashgrid,
+                {segment.face, segment.start}, polyline_id, last_vertex);
+
+            last_vertex = add_vertex(
+                mesh, hashgrid, {segment.face, segment.end}, polyline_id);
+
+          } else {
+            auto  polyline_id = (int)entry.size() - 1;
+            auto& polyline    = entry.back();
+            assert(segment.end != polyline.points.back());
+
+            last_vertex = add_vertex(
+                mesh, hashgrid, {segment.face, segment.end}, polyline_id);
+          }
+          last_face = segment.face;
+        }
+
+        if (last_vertex != -1)
           control_points[last_vertex] =
               polygon.points[(e + 1) % polygon.edges.size()];
       }
@@ -1366,6 +1431,17 @@ void slice_mesh(bool_mesh& mesh, bool_state& state) {
   // Calcoliamo hashgrid e intersezioni tra poligoni,
   // aggiungendo ulteriori vertici nuovi alla mesh
   auto hashgrid = compute_hashgrid(mesh, shapes, state.control_points);
+  update_hashgrid(hashgrid, mesh, shapes, state.control_points);
+
+  //   for (auto& [face, polylines] : hashgrid) {
+  //     printf("Face: %d\n", face);
+  //     for (auto& polyline : polylines) {
+  //       for (auto v = 0; v < polyline.vertices.size(); v++) {
+  //         printf("\tVertex: %d\n", polyline.vertices[v]);
+  //       }
+  //     }
+  //   }
+
   add_polygon_intersection_points(state, hashgrid, mesh);
 
   // Triangolazione e aggiornamento dell'adiacenza
