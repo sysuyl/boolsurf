@@ -487,9 +487,11 @@ static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
 
 // Qui vengono gestiti solo i poligoni aperti (per comodità in una funzione
 // separata)
-static mesh_hashgrid update_hashgrid(mesh_hashgrid& hashgrid, bool_mesh& mesh,
+static mesh_hashgrid compute_open_shapes_hashgrid(bool_mesh& mesh,
     const vector<shape>& shapes, hash_map<int, int>& control_points) {
   _PROFILE();
+
+  auto hashgrid = mesh_hashgrid();
 
   for (auto shape_id = 0; shape_id < shapes.size(); shape_id++) {
     auto& polygons = shapes[shape_id].polygons;
@@ -1430,19 +1432,34 @@ void slice_mesh(bool_mesh& mesh, bool_state& state) {
 
   // Calcoliamo hashgrid e intersezioni tra poligoni,
   // aggiungendo ulteriori vertici nuovi alla mesh
-  auto hashgrid = compute_hashgrid(mesh, shapes, state.control_points);
-  update_hashgrid(hashgrid, mesh, shapes, state.control_points);
+  auto hashgrid      = compute_hashgrid(mesh, shapes, state.control_points);
+  auto open_hashgrid = compute_open_shapes_hashgrid(
+      mesh, shapes, state.control_points);
 
-  //   for (auto& [face, polylines] : hashgrid) {
-  //     printf("Face: %d\n", face);
-  //     for (auto& polyline : polylines) {
-  //       for (auto v = 0; v < polyline.vertices.size(); v++) {
-  //         printf("\tVertex: %d\n", polyline.vertices[v]);
-  //       }
-  //     }
-  //   }
+  // Todo (marzia): Qui c'è ripetizione di dati
+  auto total_hashgrid = mesh_hashgrid();
+  for (auto& [key, polylines] : hashgrid) {
+    for (auto& polyline : polylines) {
+      total_hashgrid[key].push_back(polyline);
+    }
+  }
 
-  add_polygon_intersection_points(state, hashgrid, mesh);
+  for (auto& [key, polylines] : open_hashgrid) {
+    for (auto& polyline : polylines) {
+      total_hashgrid[key].push_back(polyline);
+    }
+  }
+
+  for (auto& [face, polylines] : total_hashgrid) {
+    printf("Face: %d\n", face);
+    for (auto& polyline : polylines) {
+      for (auto v = 0; v < polyline.vertices.size(); v++) {
+        printf("\tVertex: %d\n", polyline.vertices[v]);
+      }
+    }
+  }
+
+  add_polygon_intersection_points(state, total_hashgrid, mesh);
 
   // Triangolazione e aggiornamento dell'adiacenza
   triangulate(mesh, hashgrid);
