@@ -106,6 +106,17 @@ struct mesh_cell {
 //   vector<vector<int>> border_points = {};
 //   shade_instance*     borders_shape = nullptr;
 // };
+struct hashgrid_polyline {
+  int shape_id   = -1;
+  int polygon_id = -1;
+
+  vector<vec2f> points   = {};
+  vector<int>   vertices = {};
+
+  bool is_closed = false;
+};
+
+using mesh_hashgrid = hash_map<int, vector<hashgrid_polyline>>;
 
 struct bool_state {
   vector<mesh_polygon> polygons    = {{}};
@@ -119,6 +130,8 @@ struct bool_state {
   vector<mesh_cell>   cells          = {};
   vector<vector<int>> labels         = {};
   hash_set<int>       invalid_shapes = {};
+  mesh_hashgrid       hashgrid       = {};
+
   // vector<int>           ambient_cells = {};
   // vector<vector<vec2i>> cycles        = {};
 

@@ -25,7 +25,7 @@ def release(clear=False):
 def debug(clear=False):
     os.makedirs('build/terminal/Debug', exist_ok=True)
     os.chdir('build/terminal/Debug')
-    os.system('cmake ../../.. -GNinja -DCMAKE_BUILD_TYPE=Debug -DYOCTO_EMBREE=ON')
+    os.system('cmake ../../.. -GNinja -DCMAKE_BUILD_TYPE=Debug -DYOCTO_EMBREE=OFF')
     os.system('cmake --build . --parallel 8' +
               (' --clean-first' if clear else ''))
 

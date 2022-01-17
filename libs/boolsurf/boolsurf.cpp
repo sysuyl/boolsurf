@@ -266,14 +266,6 @@ void recompute_polygon_segments(const bool_mesh& mesh, const bool_state& state,
   polygon.is_contained_in_single_face = (faces.size() == 1);
 }
 
-struct hashgrid_polyline {
-  int           polygon  = -1;
-  vector<vec2f> points   = {};
-  vector<int>   vertices = {};
-
-  bool is_closed = false;
-};
-
 inline int num_segments(const hashgrid_polyline& polyline) {
   if (polyline.is_closed) return (int)polyline.points.size();
   return (int)polyline.points.size() - 1;
@@ -298,7 +290,6 @@ inline vec2i get_segment_vertices(const hashgrid_polyline& polyline, int i) {
   }
 }
 
-using mesh_hashgrid = hash_map<int, vector<hashgrid_polyline>>;
 // struct mesh_hashgrid : hash_map<int, vector<hashgrid_polyline>> {};
 
 inline int add_vertex(bool_mesh& mesh, mesh_hashgrid& hashgrid,
@@ -405,7 +396,8 @@ static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
             auto  polyline_id = (int)entry.size();
             auto& polyline    = entry.emplace_back();
             // polyline.polygon  = polygon_id;
-            polyline.polygon = shape_id;
+            polyline.shape_id   = shape_id;
+            polyline.polygon_id = polygon_id;
 
             last_vertex = add_vertex(mesh, hashgrid,
                 {segment.face, segment.start}, polyline_id, last_vertex);
@@ -436,7 +428,9 @@ static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
         auto  polyline_id = (int)entry.size();
         auto& polyline    = entry.emplace_back();
         // polyline.polygon   = polygon_id;
-        polyline.polygon   = shape_id;
+        polyline.shape_id   = shape_id;
+        polyline.polygon_id = polygon_id;
+
         polyline.is_closed = true;
 
         for (auto e = 0; e < polygon.edges.size(); e++) {
@@ -492,9 +486,10 @@ static mesh_hashgrid compute_open_shapes_hashgrid(bool_mesh& mesh,
   _PROFILE();
 
   auto hashgrid = mesh_hashgrid();
-
   for (auto shape_id = 0; shape_id < shapes.size(); shape_id++) {
     auto& polygons = shapes[shape_id].polygons;
+
+    auto& shape_vertices = vector<vector<vector<int>>>();
     for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
       auto& polygon = polygons[polygon_id];
       if (polygon.length == 0) continue;
@@ -507,6 +502,7 @@ static mesh_hashgrid compute_open_shapes_hashgrid(bool_mesh& mesh,
       int last_face   = -1;
       int last_vertex = -1;
 
+      auto polygon_vertices = vector<vector<int>>();
       for (auto e = 0; e < polygon.edges.size(); e++) {
         auto& edge = polygon.edges[e];
 
@@ -522,7 +518,8 @@ static mesh_hashgrid compute_open_shapes_hashgrid(bool_mesh& mesh,
             auto  polyline_id = (int)entry.size();
             auto& polyline    = entry.emplace_back();
             // polyline.polygon  = polygon_id;
-            polyline.polygon = shape_id;
+            polyline.shape_id   = shape_id;
+            polyline.polygon_id = polygon_id;
 
             last_vertex = add_vertex(mesh, hashgrid,
                 {segment.face, segment.start}, polyline_id, last_vertex);
@@ -547,6 +544,7 @@ static mesh_hashgrid compute_open_shapes_hashgrid(bool_mesh& mesh,
       }
     }
   }
+
   return hashgrid;
 }
 
@@ -919,7 +917,7 @@ static void add_polygon_intersection_points(bool_state& state,
           auto point                   = mesh_point{face, uv};
           auto vertex                  = add_vertex(mesh, hashgrid, point, -1);
           state.control_points[vertex] = (int)state.points.size();
-          state.isecs_generators[vertex] = {poly.polygon, poly.polygon};
+          state.isecs_generators[vertex] = {poly.shape_id, poly.shape_id};
 
           state.points.push_back(point);
           // printf("self-intersection: polygon %d, vertex %d\n", poly.polygon,
@@ -957,7 +955,7 @@ static void add_polygon_intersection_points(bool_state& state,
             auto point  = mesh_point{face, uv};
             auto vertex = add_vertex(mesh, hashgrid, point, -1);
             state.control_points[vertex]   = (int)state.points.size();
-            state.isecs_generators[vertex] = {poly0.polygon, poly1.polygon};
+            state.isecs_generators[vertex] = {poly0.shape_id, poly1.shape_id};
 
             state.points.push_back(point);
 
@@ -1350,10 +1348,10 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
     vector<vec3i> polygon_faces;
     auto          border_map = hash_map<vec2i, int>{};
     for (auto& polyline : polylines) {
-      auto polygon_id = polyline.polygon;
+      auto shape_id = polyline.shape_id;
       for (auto i = 0; i < num_segments(polyline); i++) {
         auto edge        = get_segment_vertices(polyline, i);
-        border_map[edge] = polygon_id;
+        border_map[edge] = shape_id;
       }
     }
 
@@ -1432,7 +1430,8 @@ void slice_mesh(bool_mesh& mesh, bool_state& state) {
 
   // Calcoliamo hashgrid e intersezioni tra poligoni,
   // aggiungendo ulteriori vertici nuovi alla mesh
-  auto hashgrid      = compute_hashgrid(mesh, shapes, state.control_points);
+  auto hashgrid = compute_hashgrid(mesh, shapes, state.control_points);
+
   auto open_hashgrid = compute_open_shapes_hashgrid(
       mesh, shapes, state.control_points);
 
@@ -1450,16 +1449,8 @@ void slice_mesh(bool_mesh& mesh, bool_state& state) {
     }
   }
 
-  for (auto& [face, polylines] : total_hashgrid) {
-    printf("Face: %d\n", face);
-    for (auto& polyline : polylines) {
-      for (auto v = 0; v < polyline.vertices.size(); v++) {
-        printf("\tVertex: %d\n", polyline.vertices[v]);
-      }
-    }
-  }
-
   add_polygon_intersection_points(state, total_hashgrid, mesh);
+  state.hashgrid = total_hashgrid;
 
   // Triangolazione e aggiornamento dell'adiacenza
   triangulate(mesh, hashgrid);
