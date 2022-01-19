@@ -218,20 +218,28 @@ void recompute_polygon_segments(const bool_mesh& mesh, const bool_state& state,
     mesh_polygon& polygon, int index) {
   // Remove this to automatically close the curves
 
-  //   if (index > 0) {
-  //     auto& last_segment = polygon.edges.back();
-  //     polygon.length -= last_segment.size();
-  //     polygon.edges.pop_back();
-  //   } else {
-  //     polygon.length = 0;
-  //     polygon.edges.clear();
-  //   }
+  if (index > 0) {
+    auto& last_segment = polygon.edges.back();
+    polygon.length -= last_segment.size();
+    polygon.edges.pop_back();
+  } else {
+    polygon.length = 0;
+    polygon.edges.clear();
+  }
 
   auto faces = hash_set<int>();
-  for (int i = index; i < polygon.points.size() - 1; i++) {
+
+  auto num_points = polygon.is_closed ? polygon.points.size()
+                                      : polygon.points.size() - 1;
+
+  for (int i = index; i < num_points; i++) {
     auto start = polygon.points[i];
+
+    auto end = polygon.is_closed
+                   ? polygon.points[(i + 1) % polygon.points.size()]
+                   : polygon.points[(i + 1)];
+
     faces.insert(state.points[start].face);
-    auto end = polygon.points[i + 1];
 
     auto path = compute_geodesic_path(
         mesh, state.points[start], state.points[end]);

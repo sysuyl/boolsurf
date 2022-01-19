@@ -59,7 +59,7 @@ struct mesh_polygon {
   int                          length = 0;
 
   bool is_contained_in_single_face = false;
-  bool is_closed                   = false;
+  bool is_closed                   = true;
 };
 
 struct shape {

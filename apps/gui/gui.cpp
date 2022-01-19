@@ -184,7 +184,6 @@ void commit_updates(app_state* app) {
 
   if (last_polygon.points.size() > 2) {
     commit_state(app);
-
     auto shape_id = (int)app->state.bool_shapes.size() - 1;
 
     auto& polygon = bool_shape.polygons.emplace_back();
@@ -676,12 +675,23 @@ void draw_widgets(app_state* app, const gui_input& input) {
     last_polygon.is_closed = true;
     auto polygon_id        = int(bool_shape.polygons.size()) - 1;
 
-    update_polygon(app, shape_id, polygon_id, last_polygon.points.size() - 1);
+    // update_polygon(app, shape_id, polygon_id, last_polygon.points.size() -
+    // 1);
     commit_updates(app);
-    // Is contained in a single face should be added?
+    // // Is contained in a single face should be added?
   }
 
   if (draw_button(widgets, "Open curve")) {
+    if (app->state.bool_shapes.empty()) return;
+    auto& bool_shape = app->state.bool_shapes.back();
+    auto  shape_id   = int(app->state.bool_shapes.size()) - 1;
+
+    if (bool_shape.polygons.empty()) return;
+    auto& last_polygon     = bool_shape.polygons.back();
+    last_polygon.is_closed = false;
+    auto polygon_id        = int(bool_shape.polygons.size()) - 1;
+
+    update_polygon(app, shape_id, polygon_id, last_polygon.points.size());
     commit_updates(app);
   }
 
@@ -812,8 +822,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
             if (contains(app->state.control_points, point)) {
               clipped_polygon.push_back(app->state.control_points[point]);
               // printf("%d -> %d\n", point, app->state.control_points[point]);
-              // draw_sphere(app->glscene, app->mesh, app->points_material,
-              //    {app->mesh.positions[point]}, 0.008f);
+              draw_sphere(app->glscene, app->mesh, app->points_material,
+                  {app->mesh.positions[point]}, 0.005f);
             }
           }
         }
@@ -824,7 +834,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     auto new_state   = bool_state{};
     new_state.points = app->state.points;
 
-    for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
+    for (auto s = 1; s < app->state.bool_shapes.size(); s++) {
       auto& shape     = app->state.bool_shapes[s];
       auto& new_shape = new_state.bool_shapes.emplace_back();
 
@@ -832,8 +842,10 @@ void draw_widgets(app_state* app, const gui_input& input) {
         auto index = vec2i{s, p};
         if (contains(clipped_shapes, index)) {
           for (auto& clipped_polygon : clipped_shapes[index]) {
-            auto& new_polygon  = new_shape.polygons.emplace_back();
-            new_polygon.points = clipped_polygon;
+            if (!clipped_polygon.size()) continue;
+            auto& new_polygon     = new_shape.polygons.emplace_back();
+            new_polygon.points    = clipped_polygon;
+            new_polygon.is_closed = false;
           }
         } else {
           auto& new_polygon  = new_shape.polygons.emplace_back();
@@ -846,22 +858,22 @@ void draw_widgets(app_state* app, const gui_input& input) {
     }
 
     // TODO (fix polygons)
-    // for (auto& shape : app->shape_shapes) {
-    //   for (auto& inst : shape.polygons) {
-    //     inst->hidden = true;
-    //   }
-    // }
+    for (auto& shape : app->shape_shapes) {
+      for (auto& inst : shape.polygons) {
+        inst->hidden = true;
+      }
+    }
 
-    // app->mesh = app->mesh_original;
-    // app->state.bool_shapes.clear();
-    // app->shape_shapes.clear();
+    app->mesh = app->mesh_original;
+    app->state.bool_shapes.clear();
+    app->shape_shapes.clear();
 
-    // app->state = new_state;
-    // for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
-    //   add_shape_shape(app, s);
-    // }
+    app->state = new_state;
+    for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
+      add_shape_shape(app, s);
+    }
 
-    // update_polygons(app); <-- problem is here
+    update_polygons(app);
 
     // for (auto s = 0; s < app->shape_shapes.size(); s++) {
     //   for (auto& inst : app->shape_shapes[s].polygons) {
@@ -1015,7 +1027,6 @@ void mouse_input(app_state* app, const gui_input& input) {
     auto  polygon_id = (int)bool_shape.polygons.size() - 1;
     auto& polygon    = bool_shape.polygons.back();
     polygon.points.push_back((int)app->state.points.size());
-
     // Add point to state.
     app->state.points.push_back(point);
     auto polygon_points = (int)polygon.points.size();
@@ -1195,7 +1206,19 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key::enter: {
+        if (app->state.bool_shapes.empty()) return;
+        auto& bool_shape = app->state.bool_shapes.back();
+        auto  shape_id   = int(app->state.bool_shapes.size()) - 1;
+
+        if (bool_shape.polygons.empty()) return;
+        auto& last_polygon     = bool_shape.polygons.back();
+        last_polygon.is_closed = true;
+        auto polygon_id        = int(bool_shape.polygons.size()) - 1;
+
+        // update_polygon(app, shape_id, polygon_id, last_polygon.points.size()
+        // - 1);
         commit_updates(app);
+
       }
 
       break;
