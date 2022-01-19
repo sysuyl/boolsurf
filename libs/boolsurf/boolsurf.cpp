@@ -217,6 +217,7 @@ vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
 void recompute_polygon_segments(const bool_mesh& mesh, const bool_state& state,
     mesh_polygon& polygon, int index) {
   // Remove this to automatically close the curves
+  if (polygon.points.size() == 0) return;
 
   if (index > 0) {
     auto& last_segment = polygon.edges.back();

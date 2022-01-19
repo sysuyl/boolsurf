@@ -30,6 +30,7 @@ bool save_test(const bool_test& test, const string& filename) {
   js["points"]      = test.points;
   js["shapes"]      = test.shapes;
   js["polygons"]    = test.polygons;
+  js["are_closed"]  = test.are_closed;
   js["model"]       = test.model;
   js["operations"]  = test.operations;
   js["camera"]      = test.camera;
@@ -84,6 +85,16 @@ bool load_test(bool_test& test, const string& filename) {
       test.polygons = js["polygons"].get<vector<vector<int>>>();
     }
 
+    if (js.find("are_closed") != js.end()) {
+      test.are_closed = js["are_closed"].get<vector<bool>>();
+    } else {
+      auto num_polygons = (int)test.polygons.size();
+      test.are_closed   = vector<bool>();
+      for (auto i = 0; i < num_polygons; i++) {
+        test.are_closed.push_back(true);
+      }
+    }
+
     if (js.find("shapes") != js.end()) {
       test.shapes = js["shapes"].get<vector<vector<int>>>();
     }
@@ -100,6 +111,7 @@ bool load_test(bool_test& test, const string& filename) {
     if (js.find("model") != js.end()) {
       test.model = js["model"].get<string>();
     }
+
   } catch (std::exception& e) {
     printf("[%s]: %s\n", __FUNCTION__, e.what());
     return false;
@@ -121,13 +133,15 @@ bool_state state_from_test(const bool_mesh& mesh, const bool_test& test,
   }
 
   if (test.shapes.empty()) {
-    for (auto& test_polygon : test.polygons) {
+    for (auto p = 0; p < test.polygons.size(); p++) {
       // Add new 1-polygon shape to state
       // if (test_polygon.empty()) continue;
+      auto& test_polygon = test.polygons[p];
 
-      auto& bool_shape = state.bool_shapes.emplace_back();
-      auto& polygon    = bool_shape.polygons.emplace_back();
-      polygon.points   = test_polygon;
+      auto& bool_shape  = state.bool_shapes.emplace_back();
+      auto& polygon     = bool_shape.polygons.emplace_back();
+      polygon.points    = test_polygon;
+      polygon.is_closed = test.are_closed[p];
       recompute_polygon_segments(mesh, state, polygon);
     }
   } else {
@@ -136,6 +150,8 @@ bool_state state_from_test(const bool_mesh& mesh, const bool_test& test,
       for (auto& polygon_id : test_shape) {
         auto& polygon  = bool_shape.polygons.emplace_back();
         polygon.points = test.polygons[polygon_id];
+
+        polygon.is_closed = test.are_closed[polygon_id];
         recompute_polygon_segments(mesh, state, polygon);
       }
     }

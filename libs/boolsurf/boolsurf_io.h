@@ -85,6 +85,7 @@ struct bool_test {
   string                model;
   vector<mesh_point>    points;
   vector<vector<int>>   polygons;
+  vector<bool>          are_closed;
   vector<vector<int>>   shapes;
   vector<vector<vec2f>> polygons_screenspace;
 

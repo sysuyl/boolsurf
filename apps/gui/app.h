@@ -543,9 +543,11 @@ void update_svg(app_state* app) {
 
 void save_test(
     app_state* app, const bool_state& state, const string& filename) {
-  app->test.points   = state.points;
-  app->test.polygons = {{}};
-  app->test.shapes   = {{0}};
+  app->test.points     = state.points;
+  app->test.polygons   = {{}};
+  app->test.shapes     = {{0}};
+  app->test.are_closed = {false};
+
   for (auto s = 0; s < state.bool_shapes.size(); s++) {
     auto test_shape = vector<int>();
     for (auto p = 0; p < state.bool_shapes[s].polygons.size(); p++) {
@@ -554,11 +556,14 @@ void save_test(
       if (polygon.points.size()) {
         test_shape.push_back((int)app->test.polygons.size());
         app->test.polygons.push_back(polygon.points);
+        app->test.are_closed.push_back(polygon.is_closed);
       }
     }
 
     if (test_shape.size()) app->test.shapes.push_back(test_shape);
   }
+
+  if (app->test.are_closed.size() == 1) app->test.are_closed = {};
 
   app->test.camera.frame    = app->glcamera->frame;
   app->test.camera.lens     = app->glcamera->lens;

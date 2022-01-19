@@ -60,14 +60,19 @@ void save_image(
 
 void save_test(const bool_state& state, const scene_camera& camera,
     const string& filename) {
-  auto test     = bool_test{};
-  test.points   = state.points;
-  test.polygons = {{}};
+  auto test       = bool_test{};
+  test.points     = state.points;
+  test.polygons   = {{}};
+  test.are_closed = vector<bool>();
+
   for (auto& mesh_polygon : state.polygons) {
     if (mesh_polygon.points.size()) {
       test.polygons.push_back(mesh_polygon.points);
+      printf("%d\n", mesh_polygon.is_closed);
+      test.are_closed.push_back(mesh_polygon.is_closed);
     }
   }
+
   test.camera.frame    = camera.frame;
   test.camera.lens     = camera.lens;
   test.camera.aspect   = camera.aspect;
@@ -263,7 +268,6 @@ int main(int num_args, const char* args[]) {
 
     for (auto& [face, triangles] : mesh.triangulated_faces)
       stats.added_triangles += triangles.size();
-
 
     stats.cells = (int)state.cells.size();
     for (auto& cell : state.cells) stats.edges += cell.adjacency.size();
