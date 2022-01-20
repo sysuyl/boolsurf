@@ -1459,6 +1459,8 @@ void slice_mesh(bool_mesh& mesh, bool_state& state) {
   }
 
   add_polygon_intersection_points(state, total_hashgrid, mesh);
+  add_polygon_intersection_points(state, hashgrid, mesh);
+
   state.hashgrid = total_hashgrid;
 
   // Triangolazione e aggiornamento dell'adiacenza
