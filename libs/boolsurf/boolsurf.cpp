@@ -498,7 +498,7 @@ static mesh_hashgrid compute_open_shapes_hashgrid(bool_mesh& mesh,
   for (auto shape_id = 0; shape_id < shapes.size(); shape_id++) {
     auto& polygons = shapes[shape_id].polygons;
 
-    auto& shape_vertices = vector<vector<vector<int>>>();
+    auto shape_vertices = vector<vector<vector<int>>>();
     for (auto polygon_id = 0; polygon_id < polygons.size(); polygon_id++) {
       auto& polygon = polygons[polygon_id];
       if (polygon.length == 0) continue;
