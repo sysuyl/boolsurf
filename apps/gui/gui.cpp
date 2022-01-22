@@ -822,8 +822,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
             if (contains(app->state.control_points, point)) {
               clipped_polygon.push_back(app->state.control_points[point]);
               // printf("%d -> %d\n", point, app->state.control_points[point]);
-              draw_sphere(app->glscene, app->mesh, app->points_material,
-                  {app->mesh.positions[point]}, 0.005f);
+              // draw_sphere(app->glscene, app->mesh, app->points_material,
+              //    {app->mesh.positions[point]}, 0.005f);
             }
           }
         }
@@ -847,7 +847,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
             new_polygon.points    = clipped_polygon;
             new_polygon.is_closed = false;
           }
-        } else {
+        } else if (s == app->selected_shape) {
           auto& new_polygon  = new_shape.polygons.emplace_back();
           new_polygon.points = shape.polygons[p].points;
         }
@@ -855,6 +855,11 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
       printf("Shape: %d\n", s);
       for (auto& polygon : new_shape.polygons) print("polygon", polygon.points);
+    }
+
+    for (auto c = 0; c < app->state.cells.size(); c++) {
+      if (!contains(shape_cells, c))
+        app->cell_shapes[c]->material->color = vec3f{0.9, 0.9, 0.9};
     }
 
     // TODO (fix polygons)
@@ -875,12 +880,12 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
     update_polygons(app);
 
-    // for (auto s = 0; s < app->shape_shapes.size(); s++) {
-    //   for (auto& inst : app->shape_shapes[s].polygons) {
-    //     inst->material->color = get_color(s);
-    //     inst->hidden          = false;
-    //   }
-    // }
+    for (auto s = 0; s < app->shape_shapes.size(); s++) {
+      for (auto& inst : app->shape_shapes[s].polygons) {
+        inst->material->color = get_color(s);
+        inst->hidden          = false;
+      }
+    }
   }
 
   // if (draw_button(widgets, "bezier")) {

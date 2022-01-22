@@ -217,6 +217,42 @@ void update_polygons(app_state* app) {
     }
   }
 
+  // // Cleaning input shapes (?)
+  // for (auto s = 1; s < app->state.bool_shapes.size(); s++) {
+  //   auto& shape = app->state.bool_shapes[s];
+  //   for (int p = shape.polygons.size() - 1; p >= 0; p--) {
+  //     auto& polygon = shape.polygons[p];
+
+  //     if (!polygon.points.size()) {
+  //       shape.polygons.erase(shape.polygons.end() - (p + 1));
+  //       printf("Removed void polygon\n");
+  //       continue;
+  //     }
+
+  //     for (int e = polygon.edges.size() - 1; e >= 0; e--) {
+  //       auto& edge = polygon.edges[e];
+
+  //       if (!edge.size()) {
+  //         polygon.edges.erase(polygon.edges.begin() + e);
+  //         printf("Removed void edge\n");
+  //       }
+  //     }
+  //     // for (auto& edge : polygon.edges) {
+  //     //   if (!edge.size()) {
+  //     //     remove(polygon.edges.begin(), polygon.edges.end(), edge);
+  //     //     printf("Removed void edge\n");
+  //     //   }
+  //     // }
+  //   }
+
+  //   // if (!shape.polygons.size()) {
+  //   //   remove(
+  //   //       app->state.bool_shapes.begin(), app->state.bool_shapes.end(),
+  //   //       shape);
+  //   //   printf("Removed void shape\n");
+  //   // }
+  // }
+
   for (auto s = app->state.bool_shapes.size(); s < app->shape_shapes.size();
        s++) {
     for (auto p = 0; p < app->shape_shapes[s].polygons.size(); p++) {

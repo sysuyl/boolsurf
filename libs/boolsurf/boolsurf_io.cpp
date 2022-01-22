@@ -270,7 +270,7 @@ void add_polygons(bool_state& state, const bool_mesh& mesh,
       }
 
       if (bool_polygon.points.size() <= 2) {
-        assert(0);
+        // assert(0);
         bool_polygon.points.clear();
         continue;
       }
