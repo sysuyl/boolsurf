@@ -99,6 +99,37 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
     }
 
     update_polygons(app);
+
+    // Cleaning input shapes (?)
+    for (auto s = 1; s < app->state.bool_shapes.size(); s++) {
+      auto& shape = app->state.bool_shapes[s];
+      for (int p = shape.polygons.size() - 1; p >= 0; p--) {
+        auto& polygon = shape.polygons[p];
+
+        if (!polygon.points.size()) {
+          shape.polygons.erase(shape.polygons.begin() + p);
+          printf("Removed void polygon\n");
+          continue;
+        }
+
+        for (int e = polygon.edges.size() - 1; e >= 0; e--) {
+          auto& edge = polygon.edges[e];
+
+          if (!edge.size()) {
+            polygon.edges.erase(polygon.edges.begin() + e);
+            printf("Removed void edge\n");
+          }
+        }
+      }
+
+      // if (!shape.polygons.size()) {
+      //   remove(
+      //       app->state.bool_shapes.begin(), app->state.bool_shapes.end(),
+      //       shape);
+      //   printf("Removed void shape\n");
+      // }
+    }
+
     app->last_svg.last_shape = (int)app->state.bool_shapes.size() - 1;
   }
 
@@ -1334,6 +1365,36 @@ int main(int argc, const char* argv[]) {
     init_from_test(app);
 
     update_polygons(app);
+
+    // Cleaning input shapes (?)
+    for (auto s = 1; s < app->state.bool_shapes.size(); s++) {
+      auto& shape = app->state.bool_shapes[s];
+      for (int p = shape.polygons.size() - 1; p >= 0; p--) {
+        auto& polygon = shape.polygons[p];
+
+        if (!polygon.points.size()) {
+          shape.polygons.erase(shape.polygons.begin() + p);
+          printf("Removed void polygon\n");
+          continue;
+        }
+
+        for (int e = polygon.edges.size() - 1; e >= 0; e--) {
+          auto& edge = polygon.edges[e];
+
+          if (!edge.size()) {
+            polygon.edges.erase(polygon.edges.begin() + e);
+            printf("Removed void edge\n");
+          }
+        }
+      }
+
+      // if (!shape.polygons.size()) {
+      //   remove(
+      //       app->state.bool_shapes.begin(), app->state.bool_shapes.end(),
+      //       shape);
+      //   printf("Removed void shape\n");
+      // }
+    }
   }
 
   // app->state.polygons.push_back({});

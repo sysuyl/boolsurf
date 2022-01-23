@@ -7,6 +7,7 @@ import sys
 import matplotlib.pyplot as plt
 import json
 
+
 def to_xy(point):
     return (point.real, point.imag)
 
@@ -19,6 +20,7 @@ def flatten(items):
                 yield sub_x
         else:
             yield x
+
 
 def subdivide_bezier(points):
     result = [points[0]]
@@ -50,6 +52,7 @@ def bezier(points, num_subdivisions):
         points = result[:]
     return result
 
+
 def transform_points(points, transform):
     conv_points = []
     for point in points:
@@ -68,7 +71,8 @@ def normalize(conv_group_paths, scale=1.0):
         for cp_id, conv_paths in enumerate(conv_group_path):
             for p_id, path in enumerate(conv_paths):
                 for id, point in enumerate(path):
-                    conv_point = ((point[0] / max_value * 2 - 1) * scale, (point[1] / max_value * 2 - 1) * scale)
+                    conv_point = (
+                        (point[0] / max_value * 2 - 1) * scale, (point[1] / max_value * 2 - 1) * scale)
                     conv_group_paths[cgp_id][cp_id][p_id][id] = conv_point
 
     return conv_group_paths
@@ -81,11 +85,14 @@ def parse_svg(svg_file, num_subdivisions):
     for group in doc.getElementsByTagName('g'):
 
         transform = group.getAttribute('transform')
-        if transform == "": continue
-        matrix = transform[7:-1].split(",")
+        if transform == "":
+            rot_transform = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        else:
+            matrix = transform[7:-1].split(",")
 
-        rot_transform = np.array(matrix, dtype=float).reshape(3, 2).transpose()
-        rot_transform = np.append(rot_transform, [[0, 0, 1]], axis=0)
+            rot_transform = np.array(
+                matrix, dtype=float).reshape(3, 2).transpose()
+            rot_transform = np.append(rot_transform, [[0, 0, 1]], axis=0)
 
         for path_group in group.getElementsByTagName('path'):
             shape = []
@@ -102,13 +109,15 @@ def parse_svg(svg_file, num_subdivisions):
                     current_polygon += points
 
                 elif isinstance(segment, CubicBezier):
-                    points = [to_xy(segment.start), to_xy(segment.control1), to_xy(segment.control2), to_xy(segment.end)]
+                    points = [to_xy(segment.start), to_xy(segment.control1), to_xy(
+                        segment.control2), to_xy(segment.end)]
                     points = bezier(points, num_subdivisions)
                     points = transform_points(points, rot_transform)
 
-                    if len(current_polygon) == 0: current_polygon += points
-                    else: current_polygon += points[1:]
-
+                    if len(current_polygon) == 0:
+                        current_polygon += points
+                    else:
+                        current_polygon += points[1:]
 
                 elif isinstance(segment, Close):
                     if len(current_polygon) > 0:
@@ -119,7 +128,7 @@ def parse_svg(svg_file, num_subdivisions):
 
             if len(current_polygon) > 0:
                 shape.append(current_polygon)
-            
+
             shapes.append(shape)
 
     #shapes = normalize(shapes)
@@ -141,14 +150,15 @@ def draw_points(points):
 
 
 def create_json(outfile, shapes_paths):
-    data = {"screenspace": True, "shapes": [], "polygons": [], "are_closed":[]}
+    data = {"screenspace": True, "shapes": [],
+            "polygons": [], "are_closed": []}
 
     for shape in shapes_paths:
         shape_ids = []
         for polygon in shape:
             shape_ids.append(len(data["polygons"]))
 
-            if (polygon[0]==polygon[-1]):
+            if (polygon[0] == polygon[-1]):
                 data["polygons"].append(polygon[:-1])
                 data["are_closed"].append(True)
             else:
