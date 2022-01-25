@@ -224,6 +224,36 @@ void commit_updates(app_state* app) {
 }
 
 void do_things(app_state* app) {
+  // Cleaning input shapes (?)
+  for (auto s = 1; s < app->state.bool_shapes.size(); s++) {
+    auto& shape = app->state.bool_shapes[s];
+    for (int p = shape.polygons.size() - 1; p >= 0; p--) {
+      auto& polygon = shape.polygons[p];
+
+      if (!polygon.points.size()) {
+        shape.polygons.erase(shape.polygons.begin() + p);
+        printf("Removed void polygon\n");
+        continue;
+      }
+
+      for (int e = polygon.edges.size() - 1; e >= 0; e--) {
+        auto& edge = polygon.edges[e];
+
+        if (!edge.size()) {
+          polygon.edges.erase(polygon.edges.begin() + e);
+          printf("Removed void edge\n");
+        }
+      }
+    }
+
+    // if (!shape.polygons.size()) {
+    //   remove(
+    //       app->state.bool_shapes.begin(), app->state.bool_shapes.end(),
+    //       shape);
+    //   printf("Removed void shape\n");
+    // }
+  }
+
   debug_triangles().clear();
   debug_nodes().clear();
   debug_indices().clear();
@@ -343,10 +373,10 @@ void draw_widgets(app_state* app, const gui_input& input) {
   continue_line(widgets);
 
   if (draw_button(widgets, "save scene")) {
-    auto& cell_colors = app->test.cell_colors;
-    for (int i = 0; i < cell_colors.size(); i++) {
-      cell_colors[i] = app->cell_shapes[i]->material->color;
-    }
+    // auto& cell_colors = app->test.cell_colors;
+    // for (int i = 0; i < cell_colors.size(); i++) {
+    //   cell_colors[i] = app->cell_shapes[i]->material->color;
+    // }
 
     auto error = string{};
     if (!make_directory(scene_filename, error)) {
@@ -360,7 +390,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     // Saving output scene
     auto scene = make_scene(app->mesh, app->state, app->camera,
         app->color_shapes, app->color_hashgrid, app->save_edges,
-        app->save_polygons, app->line_width, cell_colors);
+        app->save_polygons, app->line_width, {});
 
     // auto scene = make_debug_scene(app->mesh, app->state, app->camera);
     save_scene(path_join(scene_filename, "scene.json"), scene, error);
@@ -864,6 +894,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     // Creating a new bool_state
     auto new_state   = bool_state{};
     new_state.points = app->state.points;
+    new_state.cells  = app->state.cells;
 
     for (auto s = 1; s < app->state.bool_shapes.size(); s++) {
       auto& shape     = app->state.bool_shapes[s];
@@ -1365,36 +1396,6 @@ int main(int argc, const char* argv[]) {
     init_from_test(app);
 
     update_polygons(app);
-
-    // Cleaning input shapes (?)
-    for (auto s = 1; s < app->state.bool_shapes.size(); s++) {
-      auto& shape = app->state.bool_shapes[s];
-      for (int p = shape.polygons.size() - 1; p >= 0; p--) {
-        auto& polygon = shape.polygons[p];
-
-        if (!polygon.points.size()) {
-          shape.polygons.erase(shape.polygons.begin() + p);
-          printf("Removed void polygon\n");
-          continue;
-        }
-
-        for (int e = polygon.edges.size() - 1; e >= 0; e--) {
-          auto& edge = polygon.edges[e];
-
-          if (!edge.size()) {
-            polygon.edges.erase(polygon.edges.begin() + e);
-            printf("Removed void edge\n");
-          }
-        }
-      }
-
-      // if (!shape.polygons.size()) {
-      //   remove(
-      //       app->state.bool_shapes.begin(), app->state.bool_shapes.end(),
-      //       shape);
-      //   printf("Removed void shape\n");
-      // }
-    }
   }
 
   // app->state.polygons.push_back({});

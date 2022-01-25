@@ -280,36 +280,6 @@ void add_polygons(bool_state& state, const bool_mesh& mesh,
     }
     if (bool_shape.polygons.size()) state.bool_shapes.push_back(bool_shape);
   }
-
-  // Cleaning input shapes (?)
-  for (auto s = 1; s < app->state.bool_shapes.size(); s++) {
-    auto& shape = app->state.bool_shapes[s];
-    for (int p = shape.polygons.size() - 1; p >= 0; p--) {
-      auto& polygon = shape.polygons[p];
-
-      if (!polygon.points.size()) {
-        shape.polygons.erase(shape.polygons.begin() + p);
-        printf("Removed void polygon\n");
-        continue;
-      }
-
-      for (int e = polygon.edges.size() - 1; e >= 0; e--) {
-        auto& edge = polygon.edges[e];
-
-        if (!edge.size()) {
-          polygon.edges.erase(polygon.edges.begin() + e);
-          printf("Removed void edge\n");
-        }
-      }
-    }
-
-    // if (!shape.polygons.size()) {
-    //   remove(
-    //       app->state.bool_shapes.begin(), app->state.bool_shapes.end(),
-    //       shape);
-    //   printf("Removed void shape\n");
-    // }
-  }
 }
 
 scene_shape create_polygon_shape(
@@ -384,19 +354,21 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
   } else {
     for (int i = 0; i < state.cells.size(); i++) {
       auto& cell = state.cells[i];
+      printf("Cells\n");
 
       auto& instance    = scene.instances.emplace_back();
       instance.material = (int)scene.materials.size();
       auto& material    = scene.materials.emplace_back();
 
-      if (cell_colors.size()) {
-        material.color = cell_colors[i];
-      } else {
-        if (state.labels.size())
-          material.color = get_cell_color(state, i, color_shapes);
-        else
-          material.color = vec3f{1.0f, 1.0f, 1.0f};
-      }
+      //   if (cell_colors.size()) {
+      //     material.color = cell_colors[i];
+      //   } else {
+      //     if (state.labels.size())
+      //       material.color = get_cell_color(state, i, color_shapes);
+      //     else
+      //       material.color = vec3f{1.0f, 1.0f, 1.0f};
+      //   }
+      material.color = vec3f{0.9f, 0.9f, 0.9f};
 
       material.type      = scene_material_type::glossy;
       material.roughness = 0.5;
