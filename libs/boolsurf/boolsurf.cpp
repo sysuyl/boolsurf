@@ -574,7 +574,7 @@ static mesh_hashgrid compute_open_shapes_hashgrid(bool_mesh& mesh,
 void save_tree_png(const bool_state& state, string filename,
     const string& extra, bool color_shapes);
 
-static vector<mesh_cell> make_mesh_cells(vector<int>& cell_tags,
+vector<mesh_cell> make_mesh_cells(vector<int>& cell_tags,
     const vector<vec3i>& adjacencies, const vector<bool>& border_tags) {
   auto result = vector<mesh_cell>{};
   cell_tags   = vector<int>(adjacencies.size(), -1);
@@ -1423,19 +1423,24 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
 #endif
 }
 
+void compute_polygon_border_tags(bool_mesh& mesh,
+    const vector<vec2i>& polygon_borders, vector<bool>& border_tags) {
+  for (auto& [inner_face, outer_face] : polygon_borders) {
+    if (inner_face < 0 || outer_face < 0) continue;
+    auto k = find_in_vec(mesh.adjacencies[inner_face], outer_face);
+    assert(k != -1);
+    border_tags[3 * inner_face + k] = true;
+    auto kk = find_in_vec(mesh.adjacencies[outer_face], inner_face);
+    assert(kk != -1);
+    border_tags[3 * outer_face + kk] = true;
+  }
+}
+
 void compute_border_tags(bool_mesh& mesh, bool_state& state) {
   _PROFILE();
   mesh.borders.tags = vector<bool>(3 * mesh.triangles.size(), false);
   for (auto& [ids, faces] : mesh.polygon_borders) {
-    for (auto& [inner_face, outer_face] : faces) {
-      if (inner_face < 0 || outer_face < 0) continue;
-      auto k = find_in_vec(mesh.adjacencies[inner_face], outer_face);
-      assert(k != -1);
-      mesh.borders.tags[3 * inner_face + k] = true;
-      auto kk = find_in_vec(mesh.adjacencies[outer_face], inner_face);
-      assert(kk != -1);
-      mesh.borders.tags[3 * outer_face + kk] = true;
-    }
+    compute_polygon_border_tags(mesh, faces, mesh.borders.tags);
   }
 }
 

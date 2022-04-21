@@ -167,10 +167,15 @@ void              slice_mesh(bool_mesh& mesh, bool_state& state);
 vector<mesh_cell> make_cell_graph(bool_mesh& mesh);
 void              compute_cell_labels(bool_state& state);
 
-bool       compute_cells(bool_mesh& mesh, bool_state& state);
+bool              compute_cells(bool_mesh& mesh, bool_state& state);
+vector<mesh_cell> make_mesh_cells(vector<int>& cell_tags,
+    const vector<vec3i>& adjacencies, const vector<bool>& border_tags);
+
 void       compute_shapes(bool_state& state);
 void       compute_shape_borders(const bool_mesh& mesh, bool_state& state);
 bool_state compute_border_polygons(const bool_state& state);
+void       compute_polygon_border_tags(bool_mesh& mesh,
+          const vector<vec2i>& polygon_borders, vector<bool>& border_tags);
 void       compute_bool_operation(bool_state& state, const bool_operation& op);
 void       compute_bool_operations(
           bool_state& state, const vector<bool_operation>& ops);
