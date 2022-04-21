@@ -1432,13 +1432,14 @@ void compute_border_tags(bool_mesh& mesh, bool_state& state) {
 void slice_mesh(bool_mesh& mesh, bool_state& state) {
   _PROFILE();
   auto& shapes = state.bool_shapes;
-  for (auto& shape : shapes) {
-    for (auto& polygon : shape.polygons) {
-      printf("Points: %d\n", polygon.points.size());
-      printf("Length: %d\n", polygon.length);
-    }
-    printf("\n");
-  }
+
+  // for (auto& shape : shapes) {
+  //   for (auto& polygon : shape.polygons) {
+  //     printf("Points: %d\n", polygon.points.size());
+  //     printf("Length: %d\n", polygon.length);
+  //   }
+  //   printf("\n");
+  // }
 
   // Calcoliamo i vertici nuovi della mesh
   // auto vertices             = add_vertices(mesh, polygons);

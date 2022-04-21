@@ -259,8 +259,11 @@ void do_things(app_state* app) {
   debug_indices().clear();
 
   compute_cells(app->mesh, app->state);
-  for (auto shape : app->state.invalid_shapes) {
-    printf("Invalid shape: %d\n", shape);
+  if (app->state.invalid_shapes.size()) {
+    for (auto shape : app->state.invalid_shapes) {
+      printf("Invalid shape: %d\n", shape);
+      return;
+    }
   }
 
   // #ifdef MY_DEBUG
