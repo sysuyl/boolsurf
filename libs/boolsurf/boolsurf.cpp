@@ -191,7 +191,7 @@ vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
     } else {
       vec2f uvw[3] = {{0, 0}, {1, 0}, {0, 1}};
       auto  k      = find_adjacent_triangle(
-          triangles[strip[i]], triangles[strip[i - 1]]);
+                triangles[strip[i]], triangles[strip[i - 1]]);
       auto a   = uvw[mod3(k)];
       auto b   = uvw[mod3(k + 1)];
       start_uv = lerp(a, b, 1 - lerps[i - 1]);
@@ -203,7 +203,7 @@ vector<mesh_segment> mesh_segments(const vector<vec3i>& triangles,
     } else {
       vec2f uvw[3] = {{0, 0}, {1, 0}, {0, 1}};
       auto  k      = find_adjacent_triangle(
-          triangles[strip[i]], triangles[strip[i + 1]]);
+                triangles[strip[i]], triangles[strip[i + 1]]);
       auto a = uvw[k];
       auto b = uvw[mod3(k + 1)];
       end_uv = lerp(a, b, lerps[i]);
@@ -636,12 +636,15 @@ vector<mesh_cell> make_cell_graph(bool_mesh& mesh) {
 
   {
     _PROFILE_SCOPE("tag_cell_edges");
-    for (auto& [polygon_id, inner_face, outer_face] : mesh.polygon_borders) {
-      if (inner_face < 0 || outer_face < 0) continue;
-      auto a = mesh.face_tags[inner_face];
-      auto b = mesh.face_tags[outer_face];
-      cells[a].adjacency.insert({b, -polygon_id});
-      cells[b].adjacency.insert({a, +polygon_id});
+    for (auto& [ids, faces] : mesh.polygon_borders) {
+      auto& shape_id = ids.x;
+      for (auto& [inner_face, outer_face] : faces) {
+        if (inner_face < 0 || outer_face < 0) continue;
+        auto a = mesh.face_tags[inner_face];
+        auto b = mesh.face_tags[outer_face];
+        cells[a].adjacency.insert({b, -shape_id});
+        cells[b].adjacency.insert({a, +shape_id});
+      }
     }
   }
 
@@ -1345,6 +1348,7 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
       tie(triangles, adjacency) = constrained_triangulation(
           info.nodes, info.edges, face);
     }
+
     // Converti triangli locali in globali.
     for (int i = 0; i < triangles.size(); i++) {
       auto& tr = triangles[i];
@@ -1354,13 +1358,17 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
       tr = {info.indices[tr.x], info.indices[tr.y], info.indices[tr.z]};
     }
 
-    vector<vec3i> polygon_faces;
-    auto          border_map = hash_map<vec2i, int>{};
+    vector<vec4i> polygon_faces;
+
+    // Border map: from edge (expressed in mesh vertices to shape_id)
+    auto border_map = hash_map<vec2i, vec2i>{};
     for (auto& polyline : polylines) {
-      auto shape_id = polyline.shape_id;
+      auto shape_id   = polyline.shape_id;
+      auto polygon_id = polyline.polygon_id;
+
       for (auto i = 0; i < num_segments(polyline); i++) {
         auto edge        = get_segment_vertices(polyline, i);
-        border_map[edge] = shape_id;
+        border_map[edge] = vec2i{shape_id, polygon_id};
       }
     }
 
@@ -1368,8 +1376,8 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
       for (int k = 0; k < 3; k++) {
         auto edge = get_mesh_edge_from_index(triangles[i], k);
         if (auto it = border_map.find(edge); it != border_map.end()) {
-          auto polygon = it->second;
-          polygon_faces.push_back({polygon, i, adjacency[i][k]});
+          auto ids = it->second;
+          polygon_faces.push_back({ids.x, ids.y, i, adjacency[i][k]});
         }
       }
     }
@@ -1391,10 +1399,10 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
       }
       mesh.triangulated_faces[face] = triangulated_faces;
       for (auto& pf : polygon_faces) {
-        if (pf.y >= 0) pf.y += mesh_triangles_old_size;
         if (pf.z >= 0) pf.z += mesh_triangles_old_size;
+        if (pf.w >= 0) pf.w += mesh_triangles_old_size;
+        mesh.polygon_borders[{pf.x, pf.y}].push_back({pf.z, pf.w});
       }
-      mesh.polygon_borders += polygon_faces;
     }
 
     for (int i = 0; i < triangles.size(); i++) {
@@ -1418,14 +1426,16 @@ static void triangulate(bool_mesh& mesh, const mesh_hashgrid& hashgrid) {
 void compute_border_tags(bool_mesh& mesh, bool_state& state) {
   _PROFILE();
   mesh.borders.tags = vector<bool>(3 * mesh.triangles.size(), false);
-  for (auto& [polygon_id, inner_face, outer_face] : mesh.polygon_borders) {
-    if (inner_face < 0 || outer_face < 0) continue;
-    auto k = find_in_vec(mesh.adjacencies[inner_face], outer_face);
-    assert(k != -1);
-    mesh.borders.tags[3 * inner_face + k] = true;
-    auto kk = find_in_vec(mesh.adjacencies[outer_face], inner_face);
-    assert(kk != -1);
-    mesh.borders.tags[3 * outer_face + kk] = true;
+  for (auto& [ids, faces] : mesh.polygon_borders) {
+    for (auto& [inner_face, outer_face] : faces) {
+      if (inner_face < 0 || outer_face < 0) continue;
+      auto k = find_in_vec(mesh.adjacencies[inner_face], outer_face);
+      assert(k != -1);
+      mesh.borders.tags[3 * inner_face + k] = true;
+      auto kk = find_in_vec(mesh.adjacencies[outer_face], inner_face);
+      assert(kk != -1);
+      mesh.borders.tags[3 * outer_face + kk] = true;
+    }
   }
 }
 

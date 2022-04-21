@@ -39,8 +39,9 @@ struct bool_mesh : scene_shape {
   hash_map<int, vector<facet>> triangulated_faces = {};
   geodesic_solver              graph              = {};
 
-  vector<vec3i> polygon_borders = {};
-  vector<int>   face_tags       = {};
+  // Shape, Polygon -> Vector({Right face, Left face})
+  hash_map<vec2i, vector<vec2i>> polygon_borders = {};
+  vector<int>                    face_tags       = {};
 };
 
 struct mesh_segment {

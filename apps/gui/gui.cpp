@@ -260,8 +260,21 @@ void do_things(app_state* app) {
 
   compute_cells(app->mesh, app->state);
   if (app->state.invalid_shapes.size()) {
-    for (auto shape : app->state.invalid_shapes) {
-      printf("Invalid shape: %d\n", shape);
+    for (auto shape_id : app->state.invalid_shapes) {
+      printf("Invalid shape: %d\n", shape_id);
+      auto& shape = app->state.bool_shapes[shape_id];
+
+      for (auto poly_id = 0; poly_id < shape.polygons.size(); poly_id++) {
+        auto& faces = app->mesh.polygon_borders[{shape_id, poly_id}];
+        for (auto& [inner_face, outer_face] : faces) {
+          auto& inner_face_tag = app->mesh.face_tags[inner_face];
+          auto& outer_face_tag = app->mesh.face_tags[outer_face];
+
+          printf("%d %d - %d (%d) %d (%d)\n", shape_id, poly_id, inner_face,
+              inner_face_tag, outer_face, outer_face_tag);
+        }
+      }
+
       return;
     }
   }
@@ -320,7 +333,8 @@ void do_things(app_state* app) {
 
     // auto inner_faces      = vector<int>{};
     // auto outer_faces      = vector<int>{};
-    // auto border_faces_map = unordered_map<unordered_set<int>, vector<int>>{};
+    // auto border_faces_map = unordered_map<unordered_set<int>,
+    // vector<int>>{};
     //    for (int i = 0; i < app->mesh.borders.tags.size(); i++) {
     //      auto tag     = app->mesh.borders.tags[i];
     //      auto tag_set = unordered_set<int>{};
@@ -519,8 +533,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
   //   auto ff = [&](int i) { return to_string(i); };
 
   //   auto s = ""s;
-  //   for (auto& shape_id : app->current_shape) s += to_string(shape_id) + " ";
-  //   draw_label(widgets, "Current:", s);
+  //   for (auto& shape_id : app->current_shape) s += to_string(shape_id) + "
+  //   "; draw_label(widgets, "Current:", s);
 
   //   draw_combobox(widgets, "Shape", app->selected_polygon,
   //       (int)app->state.bool_shapes.size(), ff);
@@ -885,8 +899,9 @@ void draw_widgets(app_state* app, const gui_input& input) {
           for (auto& point : curve) {
             if (contains(app->state.control_points, point)) {
               clipped_polygon.push_back(app->state.control_points[point]);
-              // printf("%d -> %d\n", point, app->state.control_points[point]);
-              // draw_sphere(app->glscene, app->mesh, app->points_material,
+              // printf("%d -> %d\n", point,
+              // app->state.control_points[point]); draw_sphere(app->glscene,
+              // app->mesh, app->points_material,
               //    {app->mesh.positions[point]}, 0.005f);
             }
           }
@@ -1285,7 +1300,8 @@ void key_input(app_state* app, const gui_input& input) {
         last_polygon.is_closed = true;
         auto polygon_id        = int(bool_shape.polygons.size()) - 1;
 
-        // update_polygon(app, shape_id, polygon_id, last_polygon.points.size()
+        // update_polygon(app, shape_id, polygon_id,
+        // last_polygon.points.size()
         // - 1);
         commit_updates(app);
 
