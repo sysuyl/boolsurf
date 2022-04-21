@@ -198,6 +198,7 @@ int main(int num_args, const char* args[]) {
   }
 
   auto bvh = make_triangles_bvh(mesh.triangles, mesh.positions, {});
+  auto original_mesh = mesh;
 
   // Init bool_state
   auto state = bool_state{};
