@@ -1283,6 +1283,27 @@ inline bool check_tags(
   return true;
 }
 
+bool check_invalid_polygons(
+    bool_mesh& mesh, const vector<vec2i>& polygon_face_borders) {
+  auto polygon_border_tags = vector<bool>(3 * mesh.triangles.size(), false);
+  compute_polygon_border_tags(mesh, polygon_face_borders, polygon_border_tags);
+
+  auto polygon_face_tags = vector<int>(
+      vector<int>(mesh.adjacencies.size(), -1));
+  auto polygon_cells = make_mesh_cells(
+      polygon_face_tags, mesh.adjacencies, polygon_border_tags);
+
+  for (auto& [inner_face, outer_face] : polygon_face_borders) {
+    auto& inner_face_tag = polygon_face_tags[inner_face];
+    auto& outer_face_tag = polygon_face_tags[outer_face];
+
+    if (inner_face_tag == outer_face_tag) {
+      return false;
+    }
+  }
+  return true;
+}
+
 #include <yocto/yocto_parallel.h>
 
 template <typename F>

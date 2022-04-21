@@ -265,33 +265,19 @@ void do_things(app_state* app) {
       auto& shape = app->state.bool_shapes[shape_id];
 
       for (auto poly_id = 0; poly_id < shape.polygons.size(); poly_id++) {
-        auto& faces = app->mesh.polygon_borders[{shape_id, poly_id}];
-
-        auto polygon_border_tags = vector<bool>(
-            3 * app->mesh.triangles.size(), false);
-        compute_polygon_border_tags(app->mesh, faces, polygon_border_tags);
-
-        auto polygon_face_tags = vector<int>(
-            vector<int>(app->mesh.adjacencies.size(), -1));
-        auto polygon_cells = make_mesh_cells(
-            polygon_face_tags, app->mesh.adjacencies, polygon_border_tags);
-
-        for (auto& [inner_face, outer_face] : faces) {
-          auto& inner_face_tag = polygon_face_tags[inner_face];
-          auto& outer_face_tag = polygon_face_tags[outer_face];
-
-          if (inner_face_tag == outer_face_tag) {
-            printf("Invalid polygon: %d\n", poly_id);
-            break;
-          }
-
-          // printf("%d %d - %d (%d) %d (%d)\n", shape_id, poly_id, inner_face,
-          //     inner_face_tag, outer_face, outer_face_tag);
+        auto& polygon_border_faces =
+            app->mesh.polygon_borders[{shape_id, poly_id}];
+        auto is_valid = check_invalid_polygons(app->mesh, polygon_border_faces);
+        if (!is_valid) {
+          printf("Invalid polygon: %d\n", poly_id);
         }
-      }
 
-      return;
+        // printf("%d %d - %d (%d) %d (%d)\n", shape_id, poly_id, inner_face,
+        //     inner_face_tag, outer_face, outer_face_tag);
+      }
     }
+
+    return;
   }
 
   // #ifdef MY_DEBUG
