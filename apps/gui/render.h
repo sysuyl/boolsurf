@@ -62,6 +62,92 @@ inline vector<vec3f> polygon_normals(
   return normals;
 }
 
+[[nodiscard]] shade_instance* draw_segment(shade_scene* scene,
+    const bool_mesh& mesh, shade_material* material, const vec3f& start,
+    const vec3f& end, float radius = 0.0006f) {
+  auto cylinder = make_uvcylinder({4, 1, 1}, {radius, 1});
+  for (auto& p : cylinder.positions) {
+    p.z = p.z * 0.5 + 0.5;
+  }
+
+  auto shape = add_shape(scene);
+  set_quads(shape, cylinder.quads);
+  set_positions(shape, cylinder.positions);
+  set_normals(shape, cylinder.normals);
+  set_texcoords(shape, cylinder.texcoords);
+  set_instances(shape, {start}, {end});
+  return add_instance(scene, identity3x4f, shape, material, false);
+}
+
+inline vector<mesh_point> compute_parallel_loop(
+    bool_mesh& mesh, const mesh_polygon& polygon) {
+  auto parallel_points = vector<mesh_point>();
+  parallel_points.reserve(polygon.points.size());
+
+  for (auto e = 0; e < polygon.edges.size(); e++) {
+    // auto& mpoint = points[polygon.points[e]];
+    auto segment     = polygon.edges[e].front();
+    auto start_point = mesh_point{segment.face, segment.start};
+    auto end_point   = mesh_point{segment.face, segment.end};
+
+    // Computing the tangent (?)
+    auto start_tr = triangle_coordinates(
+        mesh.triangles, mesh.positions, end_point);
+    auto tangent = interpolate_triangle(
+        start_tr[0], start_tr[1], start_tr[2], segment.start);
+    tangent     = normalize(tangent);
+    auto normal = vec2f{tangent.y, -tangent.x};
+
+    auto path     = straightest_path(mesh, start_point, normal, 0.01f);
+    path.end.uv.x = clamp(path.end.uv.x, 0.0f, 1.0f);
+    path.end.uv.y = clamp(path.end.uv.y, 0.0f, 1.0f);
+    parallel_points.push_back(path.end);
+
+    // auto segments = mesh_segments(
+    //     mesh.triangles, path.strip, path.lerps, path.start, path.end);
+
+    // Other way of computing tangent
+    // auto tangent1 = normalize(ns.start - ns.end);
+    // auto normal1  = vec2f{tangent1.x, -tangent1.y};
+
+    // auto path1 = straightest_path(mesh, {ns.face, ns.start}, normal1, 0.05f);
+    // path1.end.uv.x = clamp(path1.end.uv.x, 0.0f, 1.0f);
+    // path1.end.uv.y = clamp(path1.end.uv.y, 0.0f, 1.0f);
+
+    // auto segments1 = mesh_segments(
+    //     mesh.triangles, path1.strip, path1.lerps, path1.start, path1.end);
+    // auto& endpoint1 = path1.end;
+
+    // for (auto& segment : segments) {
+    //   auto pos_start = eval_position(mesh, {segment.face, segment.start});
+    //   auto pos_end   = eval_position(mesh, {segment.face, segment.end});
+
+    //   draw_segment(scene, mesh, material, pos_start, pos_end, 0.0006f);
+    // }
+
+    // // auto index = e == 0 ? polygon.edges.size() - 1 : e - 1;
+    // // auto ls    = polygon.edges[index].back();
+    // printf("Mesh point: %d (%f %f)\n", ns.face, ns.start.x, ns.start.y);
+    // // printf("Last segment: %d (%f %f) -> (%f %f)\n", ls.face, ls.start.x,
+    // //     ls.start.y, ls.end.x, ls.end.y);
+    // printf("Next segment: %d (%f %f) -> (%f %f)\n", ns.face, ns.start.x,
+    //     ns.start.y, ns.end.x, ns.end.y);
+    // // printf("Tangent: %f %f\n", tangent.x, tangent.y);
+    // // printf("Direction: %f %f\n", normal.x, normal.y);
+    // // printf(
+    // //     "End point: %d %f %f\n", endpoint.face, endpoint.uv.x,
+    // //     endpoint.uv.y);
+
+    // printf("Direction: %f %f\n", tangent.x, tangent.y);
+    // printf(
+    //     "End point: %d %f %f\n", endpoint.face, endpoint.uv.x,
+    //     endpoint.uv.y);
+    // printf("\n");
+  }
+
+  return parallel_points;
+}
+
 inline bool_shape make_polygon_shape(const bool_mesh& mesh,
     const vector<vec3f>& positions, bool thick, float line_width) {
   auto shape = bool_shape{};
@@ -357,23 +443,6 @@ inline void save_triangulation(const string& filename, int face) {
     printf("%s: %s\n", __FUNCTION__, error.c_str());
   }
 #endif
-}
-
-[[nodiscard]] shade_instance* draw_segment(shade_scene* scene,
-    const bool_mesh& mesh, shade_material* material, const vec3f& start,
-    const vec3f& end, float radius = 0.0006f) {
-  auto cylinder = make_uvcylinder({4, 1, 1}, {radius, 1});
-  for (auto& p : cylinder.positions) {
-    p.z = p.z * 0.5 + 0.5;
-  }
-
-  auto shape = add_shape(scene);
-  set_quads(shape, cylinder.quads);
-  set_positions(shape, cylinder.positions);
-  set_normals(shape, cylinder.normals);
-  set_texcoords(shape, cylinder.texcoords);
-  set_instances(shape, {start}, {end});
-  return add_instance(scene, identity3x4f, shape, material, false);
 }
 
 [[nodiscard]] shade_instance* draw_mesh_segment(shade_scene* scene,
