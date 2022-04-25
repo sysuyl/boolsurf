@@ -112,43 +112,6 @@ inline vector<vec3f> polygon_normals(
   return draw_segment(scene, mesh, material, pos_start, pos_end, radius / 2);
 }
 
-inline vector<mesh_point> compute_parallel_loop(shade_scene* scene,
-    shade_material* material, bool_mesh& mesh, const mesh_polygon& polygon) {
-  auto parallel_points = vector<mesh_point>();
-  parallel_points.reserve(polygon.points.size());
-
-  for (auto e = 0; e < polygon.edges.size(); e++) {
-    auto segment     = polygon.edges[e].front();
-    auto start_point = mesh_point{segment.face, segment.start};
-    auto end_point   = mesh_point{segment.face, segment.end};
-
-    // Computing the tangent (?)
-    auto start_tr = triangle_coordinates(
-        mesh.triangles, mesh.positions, end_point);
-    auto tangent = interpolate_triangle(
-        start_tr[0], start_tr[1], start_tr[2], segment.start);
-    tangent     = normalize(tangent);
-    auto normal = vec2f{tangent.y, -tangent.x};
-
-    auto path     = straightest_path(mesh, start_point, normal, 0.01f);
-    path.end.uv.x = clamp(path.end.uv.x, 0.0f, 1.0f);
-    path.end.uv.y = clamp(path.end.uv.y, 0.0f, 1.0f);
-    parallel_points.push_back(path.end);
-
-    // Debugging normals
-    // auto segments = mesh_segments(
-    //     mesh.triangles, path.strip, path.lerps, path.start, path.end);
-    // for (auto& segment : segments) {
-    //   draw_mesh_point(scene, mesh, material, path.end, 0.0008f);
-    //   draw_mesh_segment(scene, mesh, material, segment);
-    // }
-  }
-
-  // Parallel loop is traced in the opposite direction
-  std::reverse(parallel_points.begin(), parallel_points.end());
-  return parallel_points;
-}
-
 inline bool_shape make_polygon_shape(const bool_mesh& mesh,
     const vector<vec3f>& positions, bool thick, float line_width) {
   auto shape = bool_shape{};

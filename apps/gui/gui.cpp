@@ -271,8 +271,8 @@ void do_things(app_state* app) {
         auto is_valid = check_polygon_validity(app->mesh, s, p);
         if (!is_valid) {
           printf("Invalid polygon: %d\n", p);
-          auto parallel_points = compute_parallel_loop(app->glscene,
-              app->isecs_material, app->mesh_original, shape.polygons[p]);
+          auto parallel_points = compute_parallel_loop(
+              app->mesh_original, shape.polygons[p]);
 
           auto& parallel_polygon = parallel_polygons.emplace_back();
           for (auto& point : parallel_points) {

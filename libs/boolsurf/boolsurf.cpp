@@ -1304,6 +1304,35 @@ bool check_polygon_validity(bool_mesh& mesh, int shape_id, int polygon_id) {
   return true;
 }
 
+vector<mesh_point> compute_parallel_loop(
+    bool_mesh& mesh, const mesh_polygon& polygon) {
+  auto parallel_points = vector<mesh_point>();
+  parallel_points.reserve(polygon.points.size());
+
+  for (auto e = 0; e < polygon.edges.size(); e++) {
+    auto segment     = polygon.edges[e].front();
+    auto start_point = mesh_point{segment.face, segment.start};
+    auto end_point   = mesh_point{segment.face, segment.end};
+
+    // Computing the tangent (?)
+    auto start_tr = triangle_coordinates(
+        mesh.triangles, mesh.positions, end_point);
+    auto tangent = interpolate_triangle(
+        start_tr[0], start_tr[1], start_tr[2], segment.start);
+    tangent     = normalize(tangent);
+    auto normal = vec2f{tangent.y, -tangent.x};
+
+    auto path     = straightest_path(mesh, start_point, normal, 0.01f);
+    path.end.uv.x = clamp(path.end.uv.x, 0.0f, 1.0f);
+    path.end.uv.y = clamp(path.end.uv.y, 0.0f, 1.0f);
+    parallel_points.push_back(path.end);
+  }
+
+  // Parallel loop is traced in the opposite direction
+  std::reverse(parallel_points.begin(), parallel_points.end());
+  return parallel_points;
+}
+
 #include <yocto/yocto_parallel.h>
 
 template <typename F>
