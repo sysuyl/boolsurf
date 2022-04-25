@@ -260,61 +260,41 @@ void do_things(app_state* app) {
 
   compute_cells(app->mesh, app->state);
 
-  // update bvh
-  app->mesh.bvh = make_triangles_bvh(
-      app->mesh.triangles, app->mesh.positions, {});
-  app->mesh.dual_solver = make_dual_geodesic_solver(
-      app->mesh.triangles, app->mesh.positions, app->mesh.adjacencies);
-  app->mesh.graph = make_geodesic_solver(
-      app->mesh.triangles, app->mesh.adjacencies, app->mesh.positions);
-
-  // update gpu data
-  set_positions(app->mesh_instance->shape, app->mesh.positions);
-  set_triangles(app->mesh_instance->shape, app->mesh.triangles);
-  // TODO(giacomo): serve?
-  app->mesh.normals = compute_normals(app->mesh);
-  set_normals(app->mesh_instance->shape, app->mesh.normals);
-  init_edges_and_vertices_shapes_and_points(app);
-
   if (app->state.invalid_shapes.size()) {
-    for (auto shape_id : app->state.invalid_shapes) {
-      printf("Invalid shape: %d\n", shape_id);
-      auto& shape              = app->state.bool_shapes[shape_id];
+    for (auto s : app->state.invalid_shapes) {
+      printf("Invalid shape: %d\n", s);
+      auto& shape              = app->state.bool_shapes[s];
       auto  num_shape_polygons = shape.polygons.size();
 
       auto parallel_polygons = vector<mesh_polygon>{};
-      for (auto poly_id = 0; poly_id < num_shape_polygons; poly_id++) {
-        auto& polygon_border_faces =
-            app->mesh.polygon_borders[{shape_id, poly_id}];
-        auto is_valid = check_invalid_polygons(app->mesh, polygon_border_faces);
+      for (auto p = 0; p < num_shape_polygons; p++) {
+        auto is_valid = check_polygon_validity(app->mesh, s, p);
         if (!is_valid) {
-          printf("Invalid polygon: %d\n", poly_id);
-          auto parallel_points = compute_parallel_loop(
-              app->mesh, shape.polygons[poly_id]);
+          printf("Invalid polygon: %d\n", p);
+          auto parallel_points = compute_parallel_loop(app->glscene,
+              app->isecs_material, app->mesh_original, shape.polygons[p]);
 
           auto& parallel_polygon = parallel_polygons.emplace_back();
           for (auto& point : parallel_points) {
             parallel_polygon.points.push_back((int)app->state.points.size());
             app->state.points.push_back(point);
-            printf("Id: %d - %d (%f %f)\n", parallel_polygon.points.back(),
-                point.face, point.uv.x, point.uv.y);
           }
         }
       }
 
       shape.polygons += parallel_polygons;
-      printf("New polygons: %d\n", shape.polygons.size());
-      for (auto poly_id = num_shape_polygons; poly_id < shape.polygons.size();
-           poly_id++) {
-        printf("Recomputing: %d\n", poly_id);
-        auto p_shape = get_polygon_shape(
-            app, shape.polygons[poly_id], shape_id);
-        app->shape_shapes[shape_id].polygons.push_back(p_shape);
-
-        update_polygon(app, shape_id, poly_id);
-      }
     }
 
+    app->state.invalid_shapes.clear();
+    app->mesh = app->mesh_original;
+    app->shape_shapes.clear();
+    for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
+      auto& shape = app->state.bool_shapes[s];
+      for (auto p = 0; p < shape.polygons.size(); p++)
+        recompute_polygon_segments(app->mesh, app->state, shape.polygons[p]);
+
+      add_shape_shape(app, s);
+    }
     return;
   }
 
@@ -338,6 +318,22 @@ void do_things(app_state* app) {
     // }
     app->mesh_instance->hidden = true;
   }
+
+  // update bvh
+  app->mesh.bvh = make_triangles_bvh(
+      app->mesh.triangles, app->mesh.positions, {});
+  app->mesh.dual_solver = make_dual_geodesic_solver(
+      app->mesh.triangles, app->mesh.positions, app->mesh.adjacencies);
+  app->mesh.graph = make_geodesic_solver(
+      app->mesh.triangles, app->mesh.adjacencies, app->mesh.positions);
+
+  // update gpu data
+  set_positions(app->mesh_instance->shape, app->mesh.positions);
+  set_triangles(app->mesh_instance->shape, app->mesh.triangles);
+  // TODO(giacomo): serve?
+  app->mesh.normals = compute_normals(app->mesh);
+  set_normals(app->mesh_instance->shape, app->mesh.normals);
+  init_edges_and_vertices_shapes_and_points(app);
 
   // {
   //   auto ist      = add_instance(app->glscene);

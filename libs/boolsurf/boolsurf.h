@@ -176,8 +176,7 @@ void       compute_shape_borders(const bool_mesh& mesh, bool_state& state);
 bool_state compute_border_polygons(const bool_state& state);
 void       compute_polygon_border_tags(bool_mesh& mesh,
           const vector<vec2i>& polygon_borders, vector<bool>& border_tags);
-bool       check_invalid_polygons(
-          bool_mesh& mesh, const vector<vec2i>& polygon_face_borders);
+bool check_polygon_validity(bool_mesh& mesh, int shape_id, int polygon_id);
 void compute_bool_operation(bool_state& state, const bool_operation& op);
 void compute_bool_operations(
     bool_state& state, const vector<bool_operation>& ops);

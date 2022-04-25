@@ -1283,9 +1283,9 @@ inline bool check_tags(
   return true;
 }
 
-bool check_invalid_polygons(
-    bool_mesh& mesh, const vector<vec2i>& polygon_face_borders) {
-  auto polygon_border_tags = vector<bool>(3 * mesh.triangles.size(), false);
+bool check_polygon_validity(bool_mesh& mesh, int shape_id, int polygon_id) {
+  auto& polygon_face_borders = mesh.polygon_borders[{shape_id, polygon_id}];
+  auto  polygon_border_tags  = vector<bool>(3 * mesh.triangles.size(), false);
   compute_polygon_border_tags(mesh, polygon_face_borders, polygon_border_tags);
 
   auto polygon_face_tags = vector<int>(
