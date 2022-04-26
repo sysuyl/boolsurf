@@ -343,6 +343,7 @@ int main(int num_args, const char* args[]) {
         stats.propagation_ms, stats.boolean_ms, stats.total_ms);
     fclose(stats_file);
   }
+  return 0;
 }
 }  // namespace yocto
 

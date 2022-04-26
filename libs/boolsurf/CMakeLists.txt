@@ -13,6 +13,11 @@ target_link_libraries(boolsurf PUBLIC yocto)
 find_package(cinolib REQUIRED)
 target_link_libraries(boolsurf PUBLIC cinolib)
 
+if(WIN32)
+  target_compile_definitions(boolsurf PUBLIC "NOMINMAX")
+  target_compile_definitions(boolsurf PUBLIC "WIN32_LEAN_AND_MEAN")
+endif()
+
 # warning flags
 if(APPLE)
   target_compile_options(yocto PUBLIC -Wall -Wconversion -Wno-sign-conversion -Wno-implicit-float-conversion)

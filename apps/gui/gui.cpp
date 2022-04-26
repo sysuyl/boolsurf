@@ -1,3 +1,5 @@
+#define NOMINMAX
+
 #include <deque>
 
 #include "../../libs/yocto_gui/ext/imgui/imgui.h"

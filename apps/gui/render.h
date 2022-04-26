@@ -1,3 +1,5 @@
+#define NOMINMAX
+
 #ifndef _WIN32
 #include <yocto_gui/yocto_font.h>
 #endif

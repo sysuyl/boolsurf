@@ -1,8 +1,11 @@
+#define NOMINMAX
+
 // TODO(giacomo): review usless includes
 #include <yocto/yocto_bvh.h>
 //#include <yocto/yocto_common.h>
 #include <boolsurf/boolsurf.h>
 #include <boolsurf/boolsurf_io.h>
+#include <cinolib/homotopy_basis.h>
 #include <yocto/yocto_geometry.h>
 #include <yocto/yocto_image.h>
 #include <yocto/yocto_mesh.h>
@@ -13,7 +16,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-// #include <cinolib/homotopy_basis.h>
 #include "render.h"
 
 namespace yocto {

@@ -31,7 +31,6 @@ set(cinolib_DIR ${PROJECT_SOURCE_DIR}/exts/cinolib)
 set(CINOLIB_USES_OPENGL_GLFW_IMGUI OFF)
 set(CINOLIB_USES_SHEWCHUK_PREDICATES OFF)
 
-
 add_subdirectory(exts)
 add_subdirectory(libs)
 add_subdirectory(apps)
