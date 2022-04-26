@@ -166,7 +166,7 @@ inline void serialize_vector(Serializer& srl, std::vector<Type>& vec) {
 }
 
 template <typename Type>
-inline void serialize(Serializer& srl, vector<Type>& data) {
+inline void serialize(Serializer& srl, std::vector<Type>& data) {
   serialize_vector(srl, data);
 }
 

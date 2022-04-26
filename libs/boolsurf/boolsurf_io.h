@@ -77,7 +77,6 @@ inline void from_json(const json& js, scene_camera& camera) {
   js.at("focus").get_to(camera.focus);
   js.at("aperture").get_to(camera.aperture);
 }
-}  // namespace yocto
 
 bool load_json(const string& filename, json& js);
 
@@ -324,4 +323,6 @@ inline scene_camera make_camera(const bool_mesh& mesh, int seed = 0) {
     camera.frame = lookat_frame(3 * dir, zero3f, up);
   }
   return camera;
+}
+
 }

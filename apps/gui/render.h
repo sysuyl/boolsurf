@@ -4,6 +4,8 @@
 
 #include <yocto_gui/yocto_shade.h>
 
+namespace yocto {
+
 struct bool_shape : scene_shape {
   vector<vec3f>    froms      = {};
   vector<vec3f>    tos        = {};
@@ -568,3 +570,5 @@ void update_path_shape(shade_shape* shape, const bool_mesh& mesh,
   return instances;
 }
 #endif
+
+}  // namespace yocto

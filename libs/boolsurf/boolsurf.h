@@ -2,8 +2,7 @@
 
 #include "boolsurf_utils.h"
 
-using namespace yocto;
-using namespace std;
+namespace yocto {
 
 const static int null_label = -999;
 
@@ -50,9 +49,7 @@ struct mesh_segment {
   int   face  = -1;
 };
 
-namespace yocto {
 struct shade_instance;
-}
 
 struct mesh_polygon {
   vector<int>                  points = {};
@@ -141,7 +138,6 @@ struct bool_state {
   bool        failed         = false;
 };
 
-namespace yocto {  // TODO(giacomo): Fix this.
 struct bool_operation {
   enum struct Type {
     op_union,
@@ -156,7 +152,6 @@ struct bool_operation {
   inline static const auto type_names = vector<string>{"op_union",
       "op_difference", "op_intersection", "op_symmetrical_difference"};
 };
-}  // namespace yocto
 
 void init_mesh(bool_mesh& mesh);
 void reset_mesh(bool_mesh& mesh);
@@ -348,4 +343,6 @@ static void flood_fill_debug(
     //    tag[1],
     //        tag[2], adj[0], adj[1], adj[2]);
   }
+}
+
 }

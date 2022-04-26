@@ -1,9 +1,13 @@
 #include "boolsurf.h"
 
+#include <yocto/yocto_parallel.h>
+
 #include <cassert>
 #include <deque>
 
 #include "ext/CDT/CDT/include/CDT.h"
+
+namespace yocto {
 
 constexpr auto adjacent_to_nothing = -2;
 
@@ -848,7 +852,7 @@ static vector<vector<int>> propagate_cell_labels(bool_state& state) {
     }
   }
 
-  auto queue   = deque<int>(new_start.begin(), new_start.end());
+  auto queue   = std::deque<int>(new_start.begin(), new_start.end());
   auto visited = vector<bool>(cells.size(), false);
   for (auto& s : new_start) visited[s] = true;
 
@@ -998,8 +1002,8 @@ triangulation_info triangulation_constraints(const bool_mesh& mesh, int face,
     // aggiungendo nodi, indici, e edge constraints.
     for (auto i = 0; i < num_segments(polyline); i++) {
       vec2f uvs[2];
-      tie(uvs[0], uvs[1]) = get_segment(polyline, i);
-      auto vertices       = get_segment_vertices(polyline, i);
+      std::tie(uvs[0], uvs[1]) = get_segment(polyline, i);
+      auto vertices            = get_segment_vertices(polyline, i);
       assert(vertices[0] < mesh.positions.size());
       assert(vertices[1] < mesh.positions.size());
 
@@ -1332,8 +1336,6 @@ vector<mesh_point> compute_parallel_loop(
   std::reverse(parallel_points.begin(), parallel_points.end());
   return parallel_points;
 }
-
-#include <yocto/yocto_parallel.h>
 
 template <typename F>
 inline void parallel_for_batch(int num_threads, size_t size, F&& f) {
@@ -1871,3 +1873,5 @@ bool& debug_restart() {
   static bool result = {};
   return result;
 }
+
+}  // namespace yocto

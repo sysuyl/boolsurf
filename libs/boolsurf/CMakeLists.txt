@@ -10,6 +10,9 @@ set_target_properties(boolsurf PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED 
 target_include_directories(boolsurf PUBLIC ${CMAKE_SOURCE_DIR}/libs)
 target_link_libraries(boolsurf PUBLIC yocto)
 
+find_package(cinolib REQUIRED)
+target_link_libraries(boolsurf PUBLIC cinolib)
+
 # warning flags
 if(APPLE)
   target_compile_options(yocto PUBLIC -Wall -Wconversion -Wno-sign-conversion -Wno-implicit-float-conversion)

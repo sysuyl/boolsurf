@@ -10,9 +10,48 @@
 #include <yocto/yocto_scene.h>
 #include <yocto/yocto_shape.h>  // hashing vec2i
 
+#include "ext/robin_hood.h"
+
 #include <cassert>
 #include <deque>
-using namespace yocto;
+
+namespace std {
+  template <>
+struct std::hash<std::vector<int>> {
+  size_t operator()(const std::vector<int>& V) const {
+    auto hash = V.size();
+    for (auto& i : V) {
+      hash ^= i + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    }
+    return hash;
+  }
+};
+
+template <class T>
+struct std::hash<std::vector<T>> {
+  size_t operator()(const std::vector<T>& V) const {
+    auto hash = V.size();
+    for (auto& i : V) {
+      hash ^= std::hash<T>{}(i);
+    }
+    return hash;
+  }
+};
+
+template <>
+struct std::hash<std::unordered_set<int>> {
+  size_t operator()(const std::unordered_set<int>& V) const {
+    auto hash = V.size();
+    for (auto& i : V) {
+      hash ^= std::hash<int>{}(i);
+    }
+    return hash;
+  }
+};
+
+}
+
+namespace yocto {
 
 #define _PRINT_CALL(function, file, line) \
   printf("%s() at %s, line %d\n", function, file, line)
@@ -26,7 +65,6 @@ using namespace yocto;
 inline int mod3(int i) { return (i > 2) ? i - 3 : i; }
 
 #if 1
-#include "ext/robin_hood.h"
 template <typename Key, typename Value>
 using hash_map = robin_hood::unordered_flat_map<Key, Value>;
 
@@ -218,7 +256,11 @@ inline vec3f get_color(int i) {
   return colors[i % colors.size()];
 }
 
+}
+
 namespace std {
+
+using namespace yocto;
 
 inline string to_string(const vec3i& v) {
   return "{" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", " +
@@ -289,7 +331,10 @@ string to_string(const hash_set<T>& vec) {
   result.resize(count);
   return result;
 }
+
 }  // namespace std
+
+namespace yocto {
 
 template <typename T>
 void print(const string& name, const T& v) {
@@ -338,9 +383,7 @@ void print(
   printf("\n");
 }
 
-namespace yocto {
 struct ogl_texture;
-}
 
 void draw_triangulation(
     ogl_texture* texture, int face, vec2i size = {2048, 2048});
@@ -386,39 +429,6 @@ inline T sum(const vector<T>& vec) {
   return result;
 }
 
-template <>
-struct std::hash<vector<int>> {
-  size_t operator()(const vector<int>& V) const {
-    auto hash = V.size();
-    for (auto& i : V) {
-      hash ^= i + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-    }
-    return hash;
-  }
-};
-
-template <class T>
-struct std::hash<vector<T>> {
-  size_t operator()(const vector<T>& V) const {
-    auto hash = V.size();
-    for (auto& i : V) {
-      hash ^= std::hash<T>{}(i);
-    }
-    return hash;
-  }
-};
-
-template <>
-struct std::hash<std::unordered_set<int>> {
-  size_t operator()(const std::unordered_set<int>& V) const {
-    auto hash = V.size();
-    for (auto& i : V) {
-      hash ^= std::hash<int>{}(i);
-    }
-    return hash;
-  }
-};
-
 hash_map<int, vector<vec3i>>& debug_triangles();
 hash_map<int, vector<vec2i>>& debug_edges();
 hash_map<int, vector<vec2f>>& debug_nodes();
@@ -428,3 +438,5 @@ vector<int>&  debug_result();
 vector<bool>& debug_visited();
 vector<int>&  debug_stack();
 bool&         debug_restart();
+
+}

@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+// #include <cinolib/homotopy_basis.h>
 #include "render.h"
 
 using namespace yocto;
@@ -126,7 +127,7 @@ struct app_state {
 void set_polygon_shape(app_state* app, int shape_id, int polygon_id) {
   auto& mesh      = app->mesh;
   auto  positions = polygon_positions(
-      app->state.bool_shapes[shape_id].polygons[polygon_id], mesh);
+       app->state.bool_shapes[shape_id].polygons[polygon_id], mesh);
   auto normals = polygon_normals(
       app->state.bool_shapes[shape_id].polygons[polygon_id], mesh);
 
@@ -384,7 +385,7 @@ void init_glscene(app_state* app, shade_scene* glscene, const bool_mesh& mesh) {
   auto edges_shape    = add_shape(glscene);
   auto vertices_shape = add_shape(glscene);
   app->mesh_instance  = add_instance(
-      glscene, identity3x4f, mesh_shape, app->mesh_material);
+       glscene, identity3x4f, mesh_shape, app->mesh_material);
   app->edges_instance = add_instance(
       glscene, identity3x4f, edges_shape, app->edges_material, true);
   app->vertices_instance = add_instance(

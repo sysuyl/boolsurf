@@ -159,7 +159,7 @@ int main(int num_args, const char* args[]) {
     auto script_path = normalize_path("scripts/svg_parser.py"s);
     auto output      = normalize_path("data/tests/tmp.json"s);
     auto cmd         = "python3 "s + script_path + " "s + test_filename + " "s +
-               output + " "s + to_string(svg_subdivs);
+               output + " "s + std::to_string(svg_subdivs);
     auto ret_value = system(cmd.c_str());
     if (ret_value != 0) print_fatal("Svg conversion failed " + test_filename);
 

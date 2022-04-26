@@ -8,6 +8,8 @@
 
 #include "boolsurf_io.h"
 
+namespace yocto {
+
 bool load_json(const string& filename, json& js) {
   // error helpers
   auto error = ""s;
@@ -479,7 +481,7 @@ void export_model(
     auto  cell_color = get_cell_color(state, c, false);
 
     auto material    = obj_material();
-    material.name    = to_string(c);
+    material.name    = std::to_string(c);
     material.diffuse = cell_color;
     model.materials.push_back(material);
 
@@ -514,7 +516,7 @@ string tree_to_string(const bool_state& state, bool color_shapes) {
           label += "0 ";
           continue;
         }
-        label += to_string(state.labels[i][k]) + " ";
+        label += std::to_string(state.labels[i][k]) + " ";
       }
     }
     sprintf(str, "%d [label=\"%d\n%s\" style=filled fillcolor=\"%f %f %f\"]\n",
@@ -657,4 +659,6 @@ void init_from_svg(bool_state& state, const bool_mesh& mesh,
       }
     }
   }
+}
+
 }

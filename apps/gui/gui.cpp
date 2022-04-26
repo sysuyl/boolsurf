@@ -1,17 +1,16 @@
-#include "app.h"
-
-using namespace yocto;
-
 #include <deque>
 
 #include "../../libs/yocto_gui/ext/imgui/imgui.h"
+#include "app.h"
+
+namespace yocto {
 
 void debug_draw(app_state* app, int face, const string& header = "") {
   static int count = 0;
 
   auto base = app->test_filename;
   if (base == "") base = "data/tests/no-name.json";
-  auto ext0 = ".triangulation" + to_string(count) + ".png";
+  auto ext0 = ".triangulation" + std::to_string(count) + ".png";
   if (header.size()) {
     ext0 = "-" + header + ext0;
   }
@@ -68,7 +67,7 @@ void load_svg(app_state* app) {
   auto script_path = normalize_path("scripts/svg_parser.py"s);
   auto test_json   = normalize_path("data/tests/tmp.json"s);
   auto cmd = "python3 "s + script_path + " "s + app->svg_filename + " "s +
-             test_json + " "s + to_string(app->svg_subdivs);
+             test_json + " "s + std::to_string(app->svg_subdivs);
 
   printf("%s\n", cmd.c_str());
   auto ret_value = system(cmd.c_str());
@@ -516,7 +515,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
       }
     }
 
-    // auto ff = [&](int i) { return to_string(i); };
+    // auto ff = [&](int i) { return std::to_string(i); };
     // draw_combobox(widgets, "polygon", app->selected_polygon,
     //     (int)app->state.polygons.size(), ff);
 
@@ -553,10 +552,11 @@ void draw_widgets(app_state* app, const gui_input& input) {
   }
 
   // if (begin_header(widgets, "Compose shapes")) {
-  //   auto ff = [&](int i) { return to_string(i); };
+  //   auto ff = [&](int i) { return std::to_string(i); };
 
   //   auto s = ""s;
-  //   for (auto& shape_id : app->current_shape) s += to_string(shape_id) + "
+  //   for (auto& shape_id : app->current_shape) s += std::to_string(shape_id) +
+  //   "
   //   "; draw_label(widgets, "Current:", s);
 
   //   draw_combobox(widgets, "Shape", app->selected_polygon,
@@ -594,19 +594,19 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
     auto [v0, v1, v2] = app->mesh.triangles[face];
     draw_label(widgets, "verts",
-        "(" + to_string(v0) + ", " + to_string(v1) + ", " + to_string(v2) +
-            ")");
+        "(" + std::to_string(v0) + ", " + std::to_string(v1) + ", " +
+            std::to_string(v2) + ")");
 
     auto [a0, a1, a2] = app->mesh.adjacencies[face];
     draw_label(widgets, "adjs",
-        "(" + to_string(a0) + ", " + to_string(a1) + ", " + to_string(a2) +
-            ")");
+        "(" + std::to_string(a0) + ", " + std::to_string(a1) + ", " +
+            std::to_string(a2) + ")");
 
     if (!app->mesh.borders.tags.empty()) {
       //      auto [t0, t1, t2] = app->mesh.borders.tags[face];
       //      draw_label(widgets, "tags",
-      //          "(" + to_string(t0) + ", " + to_string(t1) + ", " +
-      //          to_string(t2) +
+      //          "(" + std::to_string(t0) + ", " + std::to_string(t1) + ", " +
+      //          std::to_string(t2) +
       //              ")");
     }
     end_header(widgets);
@@ -615,16 +615,17 @@ void draw_widgets(app_state* app, const gui_input& input) {
   if (app->selected_cell >= 0 && begin_header(widgets, "Cell")) {
     auto& cell    = app->state.cells[app->selected_cell];
     auto  cell_id = app->selected_cell;
-    draw_label(widgets, "cell", to_string(app->selected_cell));
-    draw_label(widgets, "faces", to_string(cell.faces.size()));
+    draw_label(widgets, "cell", std::to_string(app->selected_cell));
+    draw_label(widgets, "faces", std::to_string(cell.faces.size()));
 
     auto s = ""s;
-    for (auto& [cell_id, _] : cell.adjacency) s += to_string(cell_id) + " ";
+    for (auto& [cell_id, _] : cell.adjacency)
+      s += std::to_string(cell_id) + " ";
     draw_label(widgets, "adj", s);
 
     s = ""s;
     for (auto p = 1; p < app->state.labels[cell_id].size(); p++)
-      s += to_string(app->state.labels[cell_id][p]) + " ";
+      s += std::to_string(app->state.labels[cell_id][p]) + " ";
     draw_label(widgets, "label", s);
 
     if (draw_coloredit(widgets, "color", app->test.cell_colors[cell_id])) {
@@ -639,10 +640,10 @@ void draw_widgets(app_state* app, const gui_input& input) {
     auto& shape      = app->state.bool_shapes[shape_id];
     auto  sorting_id = find_idx(app->state.shapes_sorting, shape_id);
 
-    draw_label(widgets, "shape", to_string(shape_id));
+    draw_label(widgets, "shape", std::to_string(shape_id));
 
     auto s = ""s;
-    for (auto cell : shape.cells) s += to_string(cell) + " ";
+    for (auto cell : shape.cells) s += std::to_string(cell) + " ";
     draw_label(widgets, "cells", s);
 
     if (draw_button(widgets, "Bring forward")) {
@@ -669,7 +670,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
   auto open_booleans = app->selected_shape >= 0;
   if (open_booleans && begin_header(widgets, "Booleans")) {
-    auto ff = [&](int i) { return to_string(i); };
+    auto ff = [&](int i) { return std::to_string(i); };
     draw_combobox(widgets, "a", app->operation.shape_a,
         (int)app->state.bool_shapes.size(), ff);
     draw_combobox(widgets, "b", app->operation.shape_b,
@@ -801,7 +802,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
   }
 
   // continue_line(widgets);
-  auto ff = [&](int i) { return to_string(i); };
+  auto ff = [&](int i) { return std::to_string(i); };
   draw_combobox(widgets, "Cells", app->selected_shape,
       (int)app->state.bool_shapes.size(), ff);
 
@@ -1403,7 +1404,7 @@ int main(int argc, const char* argv[]) {
     auto script_path = normalize_path("scripts/svg_parser.py"s);
     auto output      = normalize_path("data/tests/tmp.json"s);
     auto cmd = "python3 "s + script_path + " "s + input + " "s + output + " "s +
-               to_string(app->svg_subdivs);
+               std::to_string(app->svg_subdivs);
 
     auto ret_value = system(cmd.c_str());
     if (ret_value != 0) print_fatal("Svg conversion failed " + input);
@@ -1462,3 +1463,7 @@ int main(int argc, const char* argv[]) {
   // done
   return 0;
 }
+
+}  // namespace yocto
+
+int main(int argc, const char* argv[]) { return yocto::main(argc, argv); }
