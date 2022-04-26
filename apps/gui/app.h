@@ -16,7 +16,7 @@
 // #include <cinolib/homotopy_basis.h>
 #include "render.h"
 
-using namespace yocto;
+namespace yocto {
 
 // Application state
 struct app_state {
@@ -604,3 +604,5 @@ void init_from_test(app_state* app) {
     add_shape_shape(app, s);
   }
 }
+
+}  // namespace yocto

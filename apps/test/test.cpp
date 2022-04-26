@@ -7,7 +7,7 @@
 #include <yocto/yocto_trace.h>
 
 #include "serialize/serialize.h"
-using namespace yocto;
+namespace yocto {
 
 struct test_stats {
   string model     = ""s;
@@ -197,7 +197,7 @@ int main(int num_args, const char* args[]) {
     printf("positions: %d\n\n", (int)mesh.positions.size());
   }
 
-  auto bvh = make_triangles_bvh(mesh.triangles, mesh.positions, {});
+  auto bvh           = make_triangles_bvh(mesh.triangles, mesh.positions, {});
   auto original_mesh = mesh;
 
   // Init bool_state
@@ -344,3 +344,6 @@ int main(int num_args, const char* args[]) {
     fclose(stats_file);
   }
 }
+}  // namespace yocto
+
+int main(int argc, const char* argv[]) { return yocto::main(argc, argv); }
