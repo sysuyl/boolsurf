@@ -157,10 +157,10 @@ void init_mesh(bool_mesh& mesh);
 void reset_mesh(bool_mesh& mesh);
 
 void update_polygon(bool_state& state, const bool_mesh& mesh, int polygon_id);
-
-void              slice_mesh(bool_mesh& mesh, bool_state& state);
-vector<mesh_cell> make_cell_graph(bool_mesh& mesh);
-void              compute_cell_labels(bool_state& state);
+vector<vector<uint>> compute_homology_basis(string filename, int root);
+void                 slice_mesh(bool_mesh& mesh, bool_state& state);
+vector<mesh_cell>    make_cell_graph(bool_mesh& mesh);
+void                 compute_cell_labels(bool_state& state);
 
 bool              compute_cells(bool_mesh& mesh, bool_state& state);
 vector<mesh_cell> make_mesh_cells(vector<int>& cell_tags,
@@ -345,4 +345,4 @@ static void flood_fill_debug(
   }
 }
 
-}
+}  // namespace yocto

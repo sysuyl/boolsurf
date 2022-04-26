@@ -263,11 +263,6 @@ void load_shape(app_state* app, const string& filename) {
   app->model_filename = filename;
 
   auto error = ""s;
-  //  vector<vec2f> texcoords;
-  //  vector<vec3f> colors;
-  //  vector<vec3f> normals;
-  //  if (!load_mesh(filename, app->mesh.triangles, app->mesh.positions,
-  //  normals, texcoords, colors, error)) {
   if (!load_shape(filename, app->mesh, error)) {
     printf("%s\n", error.c_str());
     print_fatal("Error loading model " + filename);

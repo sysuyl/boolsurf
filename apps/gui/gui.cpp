@@ -109,7 +109,6 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
 
         if (!polygon.points.size()) {
           shape.polygons.erase(shape.polygons.begin() + p);
-          printf("Removed void polygon\n");
           continue;
         }
 
@@ -118,7 +117,6 @@ void draw_svg_gui(gui_widgets* widgets, app_state* app) {
 
           if (!edge.size()) {
             polygon.edges.erase(polygon.edges.begin() + e);
-            printf("Removed void edge\n");
           }
         }
       }
@@ -1209,19 +1207,25 @@ void key_input(app_state* app, const gui_input& input) {
 
       case (int)gui_key('B'): {
         bezier_last_segment(app);
-
       } break;
 
       case (int)gui_key('I'): {
         do_things(app);
       } break;
 
-      case (int)gui_key('E'): {
-        do_things(app);
-      } break;
+      case (int)gui_key('H'): {
+        auto root  = app->mesh.triangles[app->last_clicked_point.face][0];
+        auto basis = compute_homology_basis(app->model_filename, root);
 
-      case (int)gui_key('M'): {
-        do_things(app);
+        for (auto& base : basis) {
+          for (auto e = 0; e < base.size() - 1; e++) {
+            auto start = app->mesh.positions[e];
+            auto end   = app->mesh.positions[e + 1];
+            draw_segment(
+                app->glscene, app->mesh, app->isecs_material, start, end);
+          }
+        }
+
       } break;
 
       case (int)gui_key('S'): {

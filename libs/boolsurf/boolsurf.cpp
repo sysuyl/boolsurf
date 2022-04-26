@@ -1,12 +1,12 @@
 #include "boolsurf.h"
 
+#include <cinolib/homotopy_basis.h>
 #include <yocto/yocto_parallel.h>
 
 #include <cassert>
 #include <deque>
 
 #include "ext/CDT/CDT/include/CDT.h"
-
 namespace yocto {
 
 constexpr auto adjacent_to_nothing = -2;
@@ -157,6 +157,26 @@ void reset_mesh(bool_mesh& mesh) {
           get_triangle_center(mesh.triangles, mesh.positions, face));
     }
   }
+}
+
+vector<vector<uint>> compute_homology_basis(string filename, int root) {
+  // TODO(marzia): for the moment only objs
+  auto cinomesh = cinolib::Trimesh<>(filename.c_str());
+  printf("Loaded cinolib mesh...\n");
+  printf("Root: %d\n", root);
+  printf("Genus: %d\n", cinomesh.genus());
+
+  auto homotopy_basis_data           = cinolib::HomotopyBasisData{};
+  homotopy_basis_data.detach_loops   = true;
+  homotopy_basis_data.root           = root;
+  homotopy_basis_data.split_strategy = cinolib::EDGE_SPLIT_STRATEGY;
+  homotopy_basis(cinomesh, homotopy_basis_data);
+
+  auto& basis = homotopy_basis_data.loops;
+
+  printf("Computed homotopy basis! %d\n", basis.size());
+
+  return basis;
 }
 
 geodesic_path compute_geodesic_path(
