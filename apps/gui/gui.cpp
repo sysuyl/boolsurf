@@ -1215,17 +1215,25 @@ void key_input(app_state* app, const gui_input& input) {
 
       case (int)gui_key('H'): {
         auto root  = app->mesh.triangles[app->last_clicked_point.face][0];
-        auto basis = compute_homology_basis(app->model_filename, root);
+        auto basis = compute_homology_basis(app->mesh, root);
+        printf("Homotopy basis dimention! %d\n", basis.size());
+
+        init_mesh(app->mesh);
+        init_edges_and_vertices_shapes_and_points(app);
+        app->mesh_original = app->mesh;
+
+        auto homology_shape = vector<mesh_polygon>();
+        homology_shape.reserve(basis.size());
 
         for (auto& base : basis) {
-          for (auto e = 0; e < base.size() - 1; e++) {
-            auto start = app->mesh.positions[e];
-            auto end   = app->mesh.positions[e + 1];
+          for (auto e = 0; e < base.size(); e++) {
+            auto start = app->mesh.positions[base[e]];
+            auto end   = app->mesh.positions[base[(e + 1) % base.size()]];
             draw_segment(
-                app->glscene, app->mesh, app->isecs_material, start, end);
+                app->glscene, app->mesh, app->materials.red, start, end);
           }
+          printf("\n\n");
         }
-
       } break;
 
       case (int)gui_key('S'): {
@@ -1443,7 +1451,6 @@ int main(int argc, const char* argv[]) {
 
   if (app->test_filename != "") {
     init_from_test(app);
-
     update_polygons(app);
   }
 

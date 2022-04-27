@@ -159,12 +159,44 @@ void reset_mesh(bool_mesh& mesh) {
   }
 }
 
-vector<vector<uint>> compute_homology_basis(string filename, int root) {
-  // TODO(marzia): for the moment only objs
-  auto cinomesh = cinolib::Trimesh<>(filename.c_str());
-  printf("Loaded cinolib mesh...\n");
-  printf("Root: %d\n", root);
-  printf("Genus: %d\n", cinomesh.genus());
+cinolib::Trimesh<> get_cinomesh(const bool_mesh& mesh) {
+  auto verts = vector<cinolib::vec3d>();
+  verts.reserve(mesh.positions.size());
+  for (auto& pos : mesh.positions)
+    verts.push_back(cinolib::vec3d{pos.x, pos.y, pos.z});
+
+  auto triangles = vector<vector<cinolib::uint>>();
+  triangles.reserve(mesh.triangles.size());
+  for (auto& tr : mesh.triangles) {
+    auto triangle = vector<cinolib::uint>{(uint)tr.x, (uint)tr.y, (uint)tr.z};
+    triangles.push_back(triangle);
+  }
+
+  auto cinomesh = cinolib::Trimesh<>(verts, triangles);
+  return cinomesh;
+}
+
+void update_boolmesh(const cinolib::Trimesh<>& cinomesh, bool_mesh& mesh) {
+  auto positions = vector<vec3f>();
+  positions.reserve(cinomesh.num_verts());
+  for (auto v = 0; v < cinomesh.num_verts(); v++) {
+    auto pos = cinomesh.vert(v);
+    positions.push_back({float(pos[0]), float(pos[1]), float(pos[2])});
+  }
+
+  auto triangles = vector<vec3i>();
+  triangles.reserve(cinomesh.num_polys());
+  for (auto p = 0; p < cinomesh.num_polys(); p++) {
+    auto tri = cinomesh.poly_verts_id(p);
+    triangles.push_back({(int)tri[0], (int)tri[1], (int)tri[2]});
+  }
+
+  mesh.positions = positions;
+  mesh.triangles = triangles;
+}
+
+vector<vector<uint>> compute_homology_basis(bool_mesh& mesh, int root) {
+  auto cinomesh = get_cinomesh(mesh);
 
   auto homotopy_basis_data           = cinolib::HomotopyBasisData{};
   homotopy_basis_data.detach_loops   = true;
@@ -172,10 +204,8 @@ vector<vector<uint>> compute_homology_basis(string filename, int root) {
   homotopy_basis_data.split_strategy = cinolib::EDGE_SPLIT_STRATEGY;
   homotopy_basis(cinomesh, homotopy_basis_data);
 
+  update_boolmesh(cinomesh, mesh);
   auto& basis = homotopy_basis_data.loops;
-
-  printf("Computed homotopy basis! %d\n", basis.size());
-
   return basis;
 }
 
@@ -396,8 +426,8 @@ static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
         continue;
       }
 
-      // La polilinea della prima faccia del poligono viene processata alla fine
-      // (perché si trova tra il primo e l'ultimo edge)
+      // La polilinea della prima faccia del poligono viene processata alla
+      // fine (perché si trova tra il primo e l'ultimo edge)
       int  first_face   = polygon.edges[0][0].face;
       int  first_vertex = -1;
       auto indices      = vec2i{-1, -1};  // edge_id, segment_id
@@ -423,8 +453,8 @@ static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
           ids.x       = ids.y > s ? e : (e + 1) % polygon.edges.size();
 
           // Se la faccia del segmento che stiamo processando è diversa
-          // dall'ultima salvata allora creiamo una nuova polilinea, altrimenti
-          // accodiamo le nuove informazioni.
+          // dall'ultima salvata allora creiamo una nuova polilinea,
+          // altrimenti accodiamo le nuove informazioni.
           if (segment.face != last_face) {
             auto  polyline_id = (int)entry.size();
             auto& polyline    = entry.emplace_back();
@@ -529,8 +559,8 @@ static mesh_hashgrid compute_open_shapes_hashgrid(bool_mesh& mesh,
       if (polygon.edges.empty()) continue;
       if (polygon.is_closed) continue;
 
-      // La polilinea della prima faccia del poligono viene processata alla fine
-      // (perché si trova tra il primo e l'ultimo edge)
+      // La polilinea della prima faccia del poligono viene processata alla
+      // fine (perché si trova tra il primo e l'ultimo edge)
 
       int last_face   = -1;
       int last_vertex = -1;
@@ -545,8 +575,8 @@ static mesh_hashgrid compute_open_shapes_hashgrid(bool_mesh& mesh,
           auto& entry = hashgrid[segment.face];
 
           // Se la faccia del segmento che stiamo processando è diversa
-          // dall'ultima salvata allora creiamo una nuova polilinea, altrimenti
-          // accodiamo le nuove informazioni.
+          // dall'ultima salvata allora creiamo una nuova polilinea,
+          // altrimenti accodiamo le nuove informazioni.
           if (segment.face != last_face) {
             auto  polyline_id = (int)entry.size();
             auto& polyline    = entry.emplace_back();
@@ -956,7 +986,8 @@ static void add_polygon_intersection_points(bool_state& state,
           state.isecs_generators[vertex] = {poly.shape_id, poly.shape_id};
 
           state.points.push_back(point);
-          // printf("self-intersection: polygon %d, vertex %d\n", poly.polygon,
+          // printf("self-intersection: polygon %d, vertex %d\n",
+          // poly.polygon,
           //     vertex);
 
           insert(poly.points, s0 + 1, uv);

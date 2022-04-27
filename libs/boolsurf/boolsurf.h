@@ -157,7 +157,7 @@ void init_mesh(bool_mesh& mesh);
 void reset_mesh(bool_mesh& mesh);
 
 void update_polygon(bool_state& state, const bool_mesh& mesh, int polygon_id);
-vector<vector<uint>> compute_homology_basis(string filename, int root);
+vector<vector<uint>> compute_homology_basis(bool_mesh& mesh, int root);
 void                 slice_mesh(bool_mesh& mesh, bool_state& state);
 vector<mesh_cell>    make_cell_graph(bool_mesh& mesh);
 void                 compute_cell_labels(bool_state& state);
