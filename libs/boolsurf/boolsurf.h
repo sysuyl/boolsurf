@@ -39,8 +39,10 @@ struct bool_mesh : scene_shape {
   geodesic_solver              graph              = {};
 
   // Shape, Polygon -> Vector({Right face, Left face})
-  hash_map<vec2i, vector<vec2i>> polygon_borders = {};
-  vector<int>                    face_tags       = {};
+  hash_map<vec2i, vector<vec2i>>    polygon_borders        = {};
+  vector<vector<uint>>              homotopy_basis         = {};
+  hash_map<vec2i, pair<int, float>> homotopy_basis_borders = {};
+  vector<int>                       face_tags              = {};
 };
 
 struct mesh_segment {
@@ -157,10 +159,13 @@ void init_mesh(bool_mesh& mesh);
 void reset_mesh(bool_mesh& mesh);
 
 void update_polygon(bool_state& state, const bool_mesh& mesh, int polygon_id);
-vector<vector<uint>> compute_homology_basis(bool_mesh& mesh, int root);
-void                 slice_mesh(bool_mesh& mesh, bool_state& state);
-vector<mesh_cell>    make_cell_graph(bool_mesh& mesh);
-void                 compute_cell_labels(bool_state& state);
+vector<vector<uint>> compute_homotopy_basis(bool_mesh& mesh, int root);
+void                 compute_homotopy_basis_borders(bool_mesh& mesh);
+vector<int>          sort_homotopy_basis_around_vertex(
+             const bool_mesh& mesh, const vector<vector<uint>>& basis, int root);
+void              slice_mesh(bool_mesh& mesh, bool_state& state);
+vector<mesh_cell> make_cell_graph(bool_mesh& mesh);
+void              compute_cell_labels(bool_state& state);
 
 bool              compute_cells(bool_mesh& mesh, bool_state& state);
 vector<mesh_cell> make_mesh_cells(vector<int>& cell_tags,

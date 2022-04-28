@@ -1214,16 +1214,49 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key('H'): {
-        auto root  = app->mesh.triangles[app->last_clicked_point.face][0];
-        auto basis = compute_homology_basis(app->mesh, root);
-        printf("Homotopy basis dimention! %d\n", basis.size());
+        auto root = app->mesh.triangles[app->last_clicked_point.face][0];
+        app->mesh.homotopy_basis = compute_homotopy_basis(app->mesh, root);
+        printf("Basis dimention! %d\n", app->mesh.homotopy_basis.size());
 
         init_mesh(app->mesh);
         init_edges_and_vertices_shapes_and_points(app);
         app->mesh_original = app->mesh;
+        update_polygons(app);
 
-        auto homology_shape = vector<mesh_polygon>();
-        homology_shape.reserve(basis.size());
+        auto& basis = app->mesh.homotopy_basis;
+
+        compute_homotopy_basis_borders(app->mesh);
+        auto ordered_basis = sort_homotopy_basis_around_vertex(
+            app->mesh, app->mesh.homotopy_basis, root);
+
+        for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
+          auto& shape = app->state.bool_shapes[s];
+          for (auto p = 0; p < shape.polygons.size(); p++) {
+            auto& polygon      = shape.polygons[p];
+            auto  polygon_code = vector<pair<int, float>>();
+
+            for (auto& edge : polygon.edges) {
+              for (auto& seg : edge) {
+                auto [k, _] = get_edge_lerp_from_uv(seg.end);
+                auto edge   = get_mesh_edge_from_index(
+                      app->mesh.triangles[seg.face], k);
+                auto rev_edge = vec2i{edge.y, edge.x};
+
+                if (contains(app->mesh.homotopy_basis_borders, edge)) {
+                  auto& info = app->mesh.homotopy_basis_borders[edge];
+                  polygon_code.push_back(info);
+                }
+                if (contains(app->mesh.homotopy_basis_borders, rev_edge)) {
+                  auto& info = app->mesh.homotopy_basis_borders[rev_edge];
+                  polygon_code.push_back(info);
+                }
+              }
+            }
+
+            for (auto& [b, dist] : polygon_code) printf("%d (%f)\n", b, dist);
+            printf("\n");
+          }
+        }
 
         for (auto& base : basis) {
           for (auto e = 0; e < base.size(); e++) {
@@ -1232,7 +1265,6 @@ void key_input(app_state* app, const gui_input& input) {
             draw_segment(
                 app->glscene, app->mesh, app->materials.red, start, end);
           }
-          printf("\n\n");
         }
       } break;
 

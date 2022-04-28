@@ -195,7 +195,7 @@ void update_boolmesh(const cinolib::Trimesh<>& cinomesh, bool_mesh& mesh) {
   mesh.triangles = triangles;
 }
 
-vector<vector<uint>> compute_homology_basis(bool_mesh& mesh, int root) {
+vector<vector<uint>> compute_homotopy_basis(bool_mesh& mesh, int root) {
   auto cinomesh = get_cinomesh(mesh);
 
   auto homotopy_basis_data           = cinolib::HomotopyBasisData{};
@@ -207,6 +207,61 @@ vector<vector<uint>> compute_homology_basis(bool_mesh& mesh, int root) {
   update_boolmesh(cinomesh, mesh);
   auto& basis = homotopy_basis_data.loops;
   return basis;
+}
+
+void compute_homotopy_basis_borders(bool_mesh& mesh) {
+  auto& homology_basis_borders = mesh.homotopy_basis_borders;
+  auto& homology_basis         = mesh.homotopy_basis;
+
+  for (auto b = 0; b < homology_basis.size(); b++) {
+    auto& base     = homology_basis[b];
+    auto  distance = 0.0f;
+
+    for (auto e = 0; e < base.size(); e++) {
+      auto start = base[e];
+      auto end   = base[(e + 1) % base.size()];
+
+      distance += length(mesh.positions[start] - mesh.positions[end]);
+
+      // Here duplicating edges
+      auto edge = vec2i{(int)start, (int)end};
+      // auto rev_edge = vec2i{(int)end, (int)start};
+
+      homology_basis_borders[edge] = pair<int, float>(b + 1, distance);
+      // homology_basis_borders[rev_edge] = -homology_basis_borders[edge];
+    }
+    printf("%d - total distance: %f\n", b, distance);
+  }
+}
+
+vector<int> sort_homotopy_basis_around_vertex(
+    const bool_mesh& mesh, const vector<vector<uint>>& basis, int root) {
+  auto adjacent_tris = vertex_to_triangles(
+      mesh.triangles, mesh.positions, mesh.adjacencies);
+
+  auto ordered_basis = vector<int>();
+  for (auto& tri : adjacent_tris[root]) {
+    for (auto k = 0; k < 3; k++) {
+      auto edge = get_mesh_edge_from_index(mesh.triangles[tri], k);
+      if (contains(mesh.homotopy_basis_borders, edge)) {
+        auto& info      = mesh.homotopy_basis_borders.at(edge);
+        auto  base_sign = (edge.x == root) ? 1 : -1;
+        ordered_basis.push_back(base_sign * info.first);
+      }
+    }
+  }
+
+  for (auto b : ordered_basis) printf("%d ", b);
+  printf("\n");
+
+  // Vedere se servono altre rotazioni qui
+  if (sign(ordered_basis.back()) == sign(ordered_basis.front())) {
+    rotate(ordered_basis.begin(), ordered_basis.end() - 1, ordered_basis.end());
+  }
+
+  for (auto b : ordered_basis) printf("%d ", b);
+  printf("\n");
+  return ordered_basis;
 }
 
 geodesic_path compute_geodesic_path(
