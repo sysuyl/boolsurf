@@ -265,12 +265,11 @@ vector<int> compute_polygonal_schema(const vector<int>& basis) {
   auto inverse_mapping = hash_map<int, int>();
   for (auto i = 0; i < basis.size(); i++) {
     inverse_mapping[basis[i]] = i;
-    printf("%d -> %d\n", basis[i], inverse_mapping[basis[i]]);
   }
-  printf("\n");
 
-  auto& start   = basis.front();
-  auto  current = basis[inverse_mapping[-start] + 1];
+  auto& start       = basis.front();
+  auto  current_idx = inverse_mapping[-start] + 1;
+  auto  current     = basis[current_idx % basis.size()];
 
   auto polygonal_schema = vector<int>();
   polygonal_schema.reserve(basis.size());
@@ -279,14 +278,11 @@ vector<int> compute_polygonal_schema(const vector<int>& basis) {
   // auto visited   = vector<bool>(basis.size(), false);
   // visited[start] = true;
 
-  printf("Start: %d\n", start);
   while (current != start) {
-    printf("Current: %d\n", current);
     polygonal_schema.push_back(current);
 
     auto next_idx = inverse_mapping[-current] + 1;
-    next_idx      = next_idx % basis.size();
-    current       = basis[next_idx];
+    current       = basis[next_idx % basis.size()];
   }
   return polygonal_schema;
 }
