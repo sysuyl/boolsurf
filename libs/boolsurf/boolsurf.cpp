@@ -195,7 +195,7 @@ void update_boolmesh(const cinolib::Trimesh<>& cinomesh, bool_mesh& mesh) {
   mesh.triangles = triangles;
 }
 
-vector<vector<uint>> compute_homotopy_basis(bool_mesh& mesh, int root) {
+vector<vector<int>> compute_homotopy_basis(bool_mesh& mesh, int root) {
   auto cinomesh = get_cinomesh(mesh);
 
   auto homotopy_basis_data           = cinolib::HomotopyBasisData{};
@@ -205,7 +205,14 @@ vector<vector<uint>> compute_homotopy_basis(bool_mesh& mesh, int root) {
   homotopy_basis(cinomesh, homotopy_basis_data);
 
   update_boolmesh(cinomesh, mesh);
-  auto& basis = homotopy_basis_data.loops;
+  auto basis = vector<vector<int>>();
+  basis.reserve(homotopy_basis_data.loops.size());
+
+  for (auto& base : homotopy_basis_data.loops) {
+    auto new_base = vector<int>(base.begin(), base.end());
+    basis.push_back(new_base);
+  }
+
   return basis;
 }
 
@@ -224,18 +231,18 @@ void compute_homotopy_basis_borders(bool_mesh& mesh) {
       distance += length(mesh.positions[start] - mesh.positions[end]);
 
       // Here duplicating edges
-      auto edge = vec2i{(int)start, (int)end};
+      auto edge = vec2i{start, end};
       // auto rev_edge = vec2i{(int)end, (int)start};
 
       homology_basis_borders[edge] = pair<int, float>(b + 1, distance);
       // homology_basis_borders[rev_edge] = -homology_basis_borders[edge];
     }
-    printf("%d - total distance: %f\n", b, distance);
+    printf("%d - total distance: %f\n", b + 1, distance);
   }
 }
 
 vector<int> sort_homotopy_basis_around_vertex(
-    const bool_mesh& mesh, const vector<vector<uint>>& basis, int root) {
+    const bool_mesh& mesh, const vector<vector<int>>& basis, int root) {
   auto adjacent_tris = vertex_to_triangles(
       mesh.triangles, mesh.positions, mesh.adjacencies);
 
@@ -251,17 +258,37 @@ vector<int> sort_homotopy_basis_around_vertex(
     }
   }
 
-  for (auto b : ordered_basis) printf("%d ", b);
-  printf("\n");
-
-  // Vedere se servono altre rotazioni qui
-  if (sign(ordered_basis.back()) == sign(ordered_basis.front())) {
-    rotate(ordered_basis.begin(), ordered_basis.end() - 1, ordered_basis.end());
-  }
-
-  for (auto b : ordered_basis) printf("%d ", b);
-  printf("\n");
   return ordered_basis;
+}
+
+vector<int> compute_polygonal_schema(const vector<int>& basis) {
+  auto inverse_mapping = hash_map<int, int>();
+  for (auto i = 0; i < basis.size(); i++) {
+    inverse_mapping[basis[i]] = i;
+    printf("%d -> %d\n", basis[i], inverse_mapping[basis[i]]);
+  }
+  printf("\n");
+
+  auto& start   = basis.front();
+  auto  current = basis[inverse_mapping[-start] + 1];
+
+  auto polygonal_schema = vector<int>();
+  polygonal_schema.reserve(basis.size());
+  polygonal_schema.push_back(start);
+
+  // auto visited   = vector<bool>(basis.size(), false);
+  // visited[start] = true;
+
+  printf("Start: %d\n", start);
+  while (current != start) {
+    printf("Current: %d\n", current);
+    polygonal_schema.push_back(current);
+
+    auto next_idx = inverse_mapping[-current] + 1;
+    next_idx      = next_idx % basis.size();
+    current       = basis[next_idx];
+  }
+  return polygonal_schema;
 }
 
 geodesic_path compute_geodesic_path(

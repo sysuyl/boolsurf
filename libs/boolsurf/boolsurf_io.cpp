@@ -6,6 +6,8 @@
 #include <yocto/yocto_modelio.h>
 #include <yocto/yocto_sceneio.h>
 
+#include <filesystem>
+
 #include "boolsurf_io.h"
 
 namespace yocto {
@@ -120,6 +122,48 @@ bool load_test(bool_test& test, const string& filename) {
   }
   return true;
 }
+
+bool save_homotopy_basis(const bool_mesh& mesh, const string& filename) {
+  auto error = ""s;
+  auto js    = json{};
+
+  auto name      = std::filesystem::u8path(path_filename(filename));
+  auto modelname = name.replace_extension().u8string().c_str();
+  printf("Model: %s\n", modelname);
+
+  modelname = "torus";
+
+  auto meshname     = "data/homotopy/"s + modelname + ".ply"s;
+  auto basefilename = "data/homotopy/"s + modelname + "_basis.json";
+  save_shape(meshname, mesh, error);
+
+  js["model"] = js["root"] = (int)mesh.homotopy_basis.front().front();
+  js["basis"]              = mesh.homotopy_basis;
+
+  auto lengths = vector<float>();
+  lengths.reserve(mesh.homotopy_basis.size());
+
+  for (auto& base : mesh.homotopy_basis) {
+    auto base_length = 0.0f;
+    for (auto i = 0; i < base.size(); i++) {
+      auto& start = mesh.positions[base[i]];
+      auto& end   = mesh.positions[base[(i + 1) % base.size()]];
+
+      base_length += length(end - start);
+    }
+    lengths.push_back(base_length);
+  }
+
+  js["length"] = lengths;
+
+  if (!save_text(basefilename, js.dump(2), error)) {
+    printf("[%s]: %s\n", __FUNCTION__, error.c_str());
+    return false;
+  }
+  return true;
+}
+
+bool load_homotopy_basis(bool_mesh& mesh, const string& filename);
 
 bool_state state_from_test(const bool_mesh& mesh, const bool_test& test,
     float drawing_size, bool use_projection) {
@@ -298,7 +342,7 @@ scene_shape create_polygon_shape(
       auto cylinder = make_uvcylinder({32, 1, 1},
           {thickness, length(positions[idx] - positions[idx + 1]) / 2});
       auto frame    = frame_fromz((positions[idx] + positions[idx + 1]) / 2,
-          normalize(positions[idx + 1] - positions[idx]));
+             normalize(positions[idx + 1] - positions[idx]));
 
       for (auto& p : cylinder.positions) p = transform_point(frame, p);
       for (auto& n : cylinder.normals) n = transform_direction(frame, n);
@@ -661,4 +705,4 @@ void init_from_svg(bool_state& state, const bool_mesh& mesh,
   }
 }
 
-}
+}  // namespace yocto

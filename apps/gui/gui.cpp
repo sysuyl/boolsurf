@@ -1214,11 +1214,14 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key('H'): {
+        // Computes and saves homotopy basis
         auto root = app->mesh.triangles[app->last_clicked_point.face][0];
         app->mesh.homotopy_basis = compute_homotopy_basis(app->mesh, root);
         printf("Basis dimention! %d\n", app->mesh.homotopy_basis.size());
 
         init_mesh(app->mesh);
+        save_homotopy_basis(app->mesh, app->model_filename);
+
         init_edges_and_vertices_shapes_and_points(app);
         app->mesh_original = app->mesh;
         update_polygons(app);
@@ -1229,6 +1232,15 @@ void key_input(app_state* app, const gui_input& input) {
         auto ordered_basis = sort_homotopy_basis_around_vertex(
             app->mesh, app->mesh.homotopy_basis, root);
 
+        printf("Loops around root (ccw): ");
+        for (auto b : ordered_basis) printf("%d ", b);
+        printf("\n");
+
+        auto polygonal_schema = compute_polygonal_schema(ordered_basis);
+        printf("Polygonal schema (cw): ");
+        for (auto b : polygonal_schema) printf("%d ", b);
+        printf("\n");
+
         for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
           auto& shape = app->state.bool_shapes[s];
           for (auto p = 0; p < shape.polygons.size(); p++) {
@@ -1238,8 +1250,9 @@ void key_input(app_state* app, const gui_input& input) {
             for (auto& edge : polygon.edges) {
               for (auto& seg : edge) {
                 auto [k, _] = get_edge_lerp_from_uv(seg.end);
-                auto edge   = get_mesh_edge_from_index(
-                      app->mesh.triangles[seg.face], k);
+                if (k == -1) continue;
+                auto edge = get_mesh_edge_from_index(
+                    app->mesh.triangles[seg.face], k);
                 auto rev_edge = vec2i{edge.y, edge.x};
 
                 if (contains(app->mesh.homotopy_basis_borders, edge)) {

@@ -98,6 +98,9 @@ struct bool_test {
 bool save_test(const bool_test& test, const string& filename);
 bool load_test(bool_test& test, const string& filename);
 
+bool save_homotopy_basis(const bool_mesh& mesh, const string& filename);
+bool load_homotopy_basis(bool_mesh& mesh, const string& filename);
+
 bool_state state_from_test(const bool_mesh& mesh, const bool_test& test,
     float drawing_size, bool use_projection);
 
@@ -325,4 +328,4 @@ inline scene_camera make_camera(const bool_mesh& mesh, int seed = 0) {
   return camera;
 }
 
-}
+}  // namespace yocto

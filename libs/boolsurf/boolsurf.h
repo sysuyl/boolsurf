@@ -40,7 +40,7 @@ struct bool_mesh : scene_shape {
 
   // Shape, Polygon -> Vector({Right face, Left face})
   hash_map<vec2i, vector<vec2i>>    polygon_borders        = {};
-  vector<vector<uint>>              homotopy_basis         = {};
+  vector<vector<int>>               homotopy_basis         = {};
   hash_map<vec2i, pair<int, float>> homotopy_basis_borders = {};
   vector<int>                       face_tags              = {};
 };
@@ -159,10 +159,12 @@ void init_mesh(bool_mesh& mesh);
 void reset_mesh(bool_mesh& mesh);
 
 void update_polygon(bool_state& state, const bool_mesh& mesh, int polygon_id);
-vector<vector<uint>> compute_homotopy_basis(bool_mesh& mesh, int root);
-void                 compute_homotopy_basis_borders(bool_mesh& mesh);
-vector<int>          sort_homotopy_basis_around_vertex(
-             const bool_mesh& mesh, const vector<vector<uint>>& basis, int root);
+vector<vector<int>> compute_homotopy_basis(bool_mesh& mesh, int root);
+void                compute_homotopy_basis_borders(bool_mesh& mesh);
+vector<int>         sort_homotopy_basis_around_vertex(
+            const bool_mesh& mesh, const vector<vector<int>>& basis, int root);
+vector<int> compute_polygonal_schema(const vector<int>& basis);
+
 void              slice_mesh(bool_mesh& mesh, bool_state& state);
 vector<mesh_cell> make_cell_graph(bool_mesh& mesh);
 void              compute_cell_labels(bool_state& state);
