@@ -163,7 +163,39 @@ bool save_homotopy_basis(const bool_mesh& mesh, const string& filename) {
   return true;
 }
 
-bool load_homotopy_basis(bool_mesh& mesh, const string& filename);
+bool load_homotopy_basis(bool_mesh& mesh, const string& filename) {
+  auto js = json{};
+  if (!load_json(filename, js)) {
+    return false;
+  }
+
+  try {
+    if (js.find("model") != js.end()) {
+      auto error = ""s;
+      if (!load_shape(js["model"], mesh, error)) {
+        printf("%s\n", error.c_str());
+        print_fatal("Error loading model " + filename);
+      }
+    }
+
+    // if (js.find("root") != js.end()) {
+    //   test.screenspace = js["screenspace"].get<bool>();
+    // }
+
+    if (js.find("basis") != js.end()) {
+      mesh.homotopy_basis = js["basis"].get<vector<vector<int>>>();
+    }
+
+    // if (js.find("length") != js.end()) {
+    //   test.screenspace = js["screenspace"].get<bool>();
+    // }
+
+  } catch (std::exception& e) {
+    printf("[%s]: %s\n", __FUNCTION__, e.what());
+    return false;
+  }
+  return true;
+}
 
 bool_state state_from_test(const bool_mesh& mesh, const bool_test& test,
     float drawing_size, bool use_projection) {

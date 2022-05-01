@@ -1215,9 +1215,12 @@ void key_input(app_state* app, const gui_input& input) {
 
       case (int)gui_key('H'): {
         // Computes and saves homotopy basis
-        auto root = app->mesh.triangles[app->last_clicked_point.face][0];
-        app->mesh.homotopy_basis = compute_homotopy_basis(app->mesh, root);
-        printf("Basis dimention! %d\n", app->mesh.homotopy_basis.size());
+        // auto root = app->mesh.triangles[app->last_clicked_point.face][0];
+        // app->mesh.homotopy_basis = compute_homotopy_basis(app->mesh, root);
+        // printf("Basis dimention! %d\n", app->mesh.homotopy_basis.size());
+
+        load_homotopy_basis(app->mesh, "data/homotopy/torus_basis.json");
+        auto root = app->mesh.homotopy_basis.front().front();
 
         init_mesh(app->mesh);
         save_homotopy_basis(app->mesh, app->model_filename);

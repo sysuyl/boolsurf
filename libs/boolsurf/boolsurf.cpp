@@ -275,15 +275,12 @@ vector<int> compute_polygonal_schema(const vector<int>& basis) {
   polygonal_schema.reserve(basis.size());
   polygonal_schema.push_back(start);
 
-  // auto visited   = vector<bool>(basis.size(), false);
-  // visited[start] = true;
-
   while (current != start) {
     polygonal_schema.push_back(current);
-
     auto next_idx = inverse_mapping[-current] + 1;
     current       = basis[next_idx % basis.size()];
   }
+
   return polygonal_schema;
 }
 
