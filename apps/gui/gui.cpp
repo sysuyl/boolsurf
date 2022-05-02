@@ -1215,12 +1215,14 @@ void key_input(app_state* app, const gui_input& input) {
 
       case (int)gui_key('H'): {
         // Computes and saves homotopy basis
-        auto root = app->mesh.triangles[app->last_clicked_point.face][0];
-        app->mesh.homotopy_basis = compute_homotopy_basis(app->mesh, root);
-        printf("Basis dimention! %d\n", app->mesh.homotopy_basis.basis.size());
+        // auto root = app->mesh.triangles[app->last_clicked_point.face][0];
+        // app->mesh.homotopy_basis = compute_homotopy_basis(app->mesh, root);
+        // printf("Basis dimention! %d\n",
+        // app->mesh.homotopy_basis.basis.size());
 
-        // load_homotopy_basis(app->mesh, "data/homotopy/torus_basis.json");
-        // auto root = app->mesh.homotopy_basis.root;
+        load_homotopy_basis(
+            app->mesh, "data/homotopy/eight200k-remeshed_basis.json");
+        auto root = app->mesh.homotopy_basis.root;
 
         init_mesh(app->mesh);
         save_homotopy_basis(app->mesh, app->model_filename);
@@ -1252,70 +1254,54 @@ void key_input(app_state* app, const gui_input& input) {
 
             for (auto& edge : polygon.edges) {
               for (auto& seg : edge) {
-                // auto s_pos = eval_position(app->mesh, {seg.face, seg.start});
-                // auto e_pos = eval_position(app->mesh, {seg.face, seg.end});
-
-                auto seg_direction = seg.end - seg.start;
-
                 auto [k, _] = get_edge_lerp_from_uv(seg.end);
                 if (k == -1) continue;
+
                 auto edge = get_mesh_edge_from_index(
                     app->mesh.triangles[seg.face], k);
-                auto edge_uv = get_triangle_uv_from_index(k);
-
                 auto rev_edge = vec2i{edge.y, edge.x};
 
                 // TODO (marzia) forse aggiungere/togliere lerp dalla distanza
                 // TODO (marzia) qui ho il sentore che si possa dedurre in segno
                 // senza fare molto
                 if (contains(app->mesh.homotopy_basis_borders, edge)) {
-                  // auto edge_direction = edge_uv.second - edge_uv.first;
-                  // // printf("Start segment: (%f %f)\n", seg.start.x,
-                  // // seg.start.y); printf("End segment: (%f %f)\n",
-                  // seg.end.x,
-                  // // seg.end.y);
-
-                  // // printf("Start Edge: (%f %f)\n", edge_uv.first.x,
-                  // //     edge_uv.first.y);
-                  // // printf("End Edge: (%f %f)\n", edge_uv.second.x,
-                  // //     edge_uv.second.y);
-
-                  // auto rev_edge_direction = edge_uv.first - edge_uv.second;
-                  // auto orientation1 = cross(seg_direction,
-                  // rev_edge_direction);
-                  // // printf("RevEdge-Seg orientation: %f\n", orientation1);
-
-                  // auto orientation2 = cross(seg_direction, edge_direction);
-                  // // printf("Edge-Seg orientation: %f\n", orientation2);
-
                   auto& info = app->mesh.homotopy_basis_borders[edge];
                   polygon_code.push_back(info);
                 }
                 if (contains(app->mesh.homotopy_basis_borders, rev_edge)) {
-                  // auto rev_edge_direction = edge_uv.first - edge_uv.second;
-                  // auto orientation = cross(seg_direction,
-                  // rev_edge_direction); printf("RevEdge-Seg orientation:
-                  // %f\n", orientation);
-
                   auto& info = app->mesh.homotopy_basis_borders[rev_edge];
                   info.first *= -1;
+
                   polygon_code.push_back(info);
                 }
               }
             }
 
+            // Rounding intersections
+            for (auto& [base_id, distance] : polygon_code) {
+              distance /= app->mesh.homotopy_basis.lengths[(abs(base_id) - 1)];
+              distance = (distance > 0.5) ? 1.0 : 0.0;
+            }
+
             for (auto c = 0; c < polygon_code.size(); c++) {
-              auto [base_id1, distance1] = polygon_code[c];
-              auto [base_id2, distance2] =
+              auto [base_id1, dist1] = polygon_code[c];
+              auto [base_id2, dist2] =
                   polygon_code[(c + 1) % polygon_code.size()];
 
-              auto dist1 = distance1 /
-                           app->mesh.homotopy_basis.lengths[(base_id1 - 1)];
-              printf("Distance: %f/%f (%f)\n", distance1,
-                  app->mesh.homotopy_basis.lengths[(base_id1 - 1)], dist1);
+              // auto abs_base1 = abs(base_id1);
+              // auto dist1     = distance1 /
+              //              app->mesh.homotopy_basis.lengths[(abs_base1 - 1)];
+              // // printf("Distance1: %f/%f (%f)\n", distance1,
+              // //     app->mesh.homotopy_basis.lengths[(abs_base1 - 1)],
+              // dist1);
 
-              auto dist2 = distance2 /
-                           app->mesh.homotopy_basis.lengths[(base_id2 - 1)];
+              // auto abs_base2 = abs(base_id2);
+              // auto dist2     = distance2 /
+              //              app->mesh.homotopy_basis.lengths[(abs_base2 - 1)];
+              // // printf("Distance2: %f/%f (%f)\n", distance2,
+              // //     app->mesh.homotopy_basis.lengths[(abs_base2 - 1)],
+              // dist2);
+
               base_id2 = -base_id2;
 
               printf("From: %d (%f) to %d (%f)\n", base_id1, dist1, base_id2,
@@ -1324,12 +1310,17 @@ void key_input(app_state* app, const gui_input& input) {
           }
         }
 
-        for (auto& base : basis) {
+        for (auto b = 0; b < basis.size(); b++) {
+          auto& base = basis[b];
+
+          auto material = add_material(
+              app->glscene, {0, 0, 0}, {1, 1, 1}, 1, 0, 0.4);
+          material->color = get_color(b + 1);
+
           for (auto e = 0; e < base.size(); e++) {
             auto start = app->mesh.positions[base[e]];
             auto end   = app->mesh.positions[base[(e + 1) % base.size()]];
-            draw_segment(
-                app->glscene, app->mesh, app->materials.red, start, end);
+            draw_segment(app->glscene, app->mesh, material, start, end);
           }
         }
       } break;
