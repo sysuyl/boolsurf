@@ -1249,9 +1249,11 @@ void key_input(app_state* app, const gui_input& input) {
         for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
           auto& shape = app->state.bool_shapes[s];
           for (auto p = 0; p < shape.polygons.size(); p++) {
-            auto& polygon      = shape.polygons[p];
-            auto  polygon_code = vector<pair<int, float>>();
+            auto& polygon = shape.polygons[p];
+            if (polygon.length == 0) continue;
+            auto basis_intersections = vector<pair<int, float>>();
 
+            // Computing intersections between polygon and homotopy_basis
             for (auto& edge : polygon.edges) {
               for (auto& seg : edge) {
                 auto [k, _] = get_edge_lerp_from_uv(seg.end);
@@ -1261,77 +1263,67 @@ void key_input(app_state* app, const gui_input& input) {
                     app->mesh.triangles[seg.face], k);
                 auto rev_edge = vec2i{edge.y, edge.x};
 
-                // TODO (marzia) forse aggiungere/togliere lerp dalla distanza
-                // TODO (marzia) qui ho il sentore che si possa dedurre in segno
-                // senza fare molto
                 if (contains(app->mesh.homotopy_basis_borders, edge)) {
                   auto& info = app->mesh.homotopy_basis_borders[edge];
-                  polygon_code.push_back(info);
+                  basis_intersections.push_back(info);
                 }
                 if (contains(app->mesh.homotopy_basis_borders, rev_edge)) {
                   auto& info = app->mesh.homotopy_basis_borders[rev_edge];
                   info.first *= -1;
 
-                  polygon_code.push_back(info);
+                  basis_intersections.push_back(info);
                 }
               }
             }
 
-            // Rounding intersections
-            for (auto& [base_id, distance] : polygon_code) {
+            // Sliding intersection points to polygonal schema vertices
+            for (auto& [base_id, distance] : basis_intersections) {
               distance /= app->mesh.homotopy_basis.lengths[(abs(base_id) - 1)];
               distance = (distance > 0.5) ? 1.0 : 0.0;
             }
 
+            // Polygon code by from polygon representation of polygonal schema
             auto inv_polygonal_schema = hash_map<int, int>{};
             for (auto id = 0; id < polygonal_schema.size(); id++) {
               inv_polygonal_schema[polygonal_schema[id]] = id;
             }
 
             auto final_code = vector<int>();
-            for (auto c = 0; c < polygon_code.size(); c++) {
-              auto [base_id1, dist1] = polygon_code[c];
-              auto [base_id2, dist2] =
-                  polygon_code[(c + 1) % polygon_code.size()];
-              base_id2 = -base_id2;
+            for (auto c = 0; c < basis_intersections.size(); c++) {
+              auto next_intersection = (c + 1) % basis_intersections.size();
+              auto [id1, dist1]      = basis_intersections[c];
+              auto [id2, dist2]      = basis_intersections[next_intersection];
+              id2                    = -id2;
 
-              // Transforming end into previous edge description
-              auto side1     = inv_polygonal_schema[base_id1];
-              auto side2     = inv_polygonal_schema[base_id2];
-              auto prev_idx  = (side2 - 1) < 0 ? polygonal_schema.size() - 1
-                                               : side2 - 1;
-              auto prev_edge = polygonal_schema[prev_idx];
-              auto prev_edge_distance = (sign(base_id1) != sign(base_id2))
-                                            ? dist2
-                                            : fmod(dist2 + 1.0f, 2.0f);
-
-              if ((base_id1 == side1) && (dist1 == prev_edge_distance)) {
-                printf("EXCLUDED: From: %d (%f) to %d (%f)\n", base_id1, dist1,
+              // Merging points togetjer into previous edge description
+              auto schema_side1 = inv_polygonal_schema[id1];
+              auto schema_side2 = inv_polygonal_schema[id2];
+              auto prev_idx     = (schema_side2 - 1) < 0
+                                      ? polygonal_schema.size() - 1
+                                      : schema_side2 - 1;
+              auto prev_edge    = polygonal_schema[prev_idx];
+              auto prev_edge_distance =
+                  (sign(id1) != sign(id2)) ? dist2 : abs(dist2 - 1.0f);
+              if ((id1 == prev_edge) && (dist1 == prev_edge_distance)) {
+                printf("EXCLUDED: From: %d (%f) to %d (%f)\n", id1, dist1,
                     prev_edge, prev_edge_distance);
               } else {
-                auto id_dist = abs((int)prev_idx - (int)side1);
-                side1        = (side1 == 1.0) ? side1 + 1 : side1;
-                for (auto id = side1; id < side1 + id_dist; id++) {
+                printf("From: %d (%d - %f) to %d (%d -%f)\n", id1, schema_side1,
+                    dist1, prev_edge, prev_idx, prev_edge_distance);
+
+                auto id_dist = abs((int)prev_idx - (int)schema_side1);
+
+                schema_side1 = ((dist1 == 0.0f) && (id1 < 0)) ? schema_side1 + 1
+                                                              : schema_side1;
+                schema_side1 = ((dist1 == 1.0f) && (id1 > 0)) ? schema_side1 - 1
+                                                              : schema_side1;
+
+                for (auto id = schema_side1; id < schema_side1 + id_dist;
+                     id++) {
                   id = id % polygonal_schema.size();
                   final_code.push_back(polygonal_schema[id]);
                 }
               }
-
-              // if ((abs(side1 - side2) == 1)){
-              //   if (sign(base_id1) !)
-              // } &&
-              //     (sign(base_id1) == sign(base_id2)) && (dist1
-              //     == dist2))
-              // //   continue;
-              // if (abs(side1 - side2) < 2) {
-              // }
-
-              // side1 = (dist1 == 1.0) ? side1 + 1 : side1;
-              // side2 = (dist == 0.0) side2 - 1 : side2;
-
-              // printf("From: %d (%f) to %d (%f)\n", base_id1, dist1,
-              // base_id2,
-              //     dist2);
             }
 
             printf("Final code: ");
