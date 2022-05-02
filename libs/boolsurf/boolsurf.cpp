@@ -257,17 +257,34 @@ vector<int> sort_homotopy_basis_around_vertex(
   auto adjacent_tris = vertex_to_triangles(
       mesh.triangles, mesh.positions, mesh.adjacencies);
 
+  auto rotate = [](const vec3i& v, int k) {
+    if (mod3(k) == 0)
+      return v;
+    else if (mod3(k) == 1)
+      return vec3i{v.y, v.z, v.x};
+    else
+      return vec3i{v.z, v.x, v.y};
+  };
+
   auto ordered_basis = vector<int>();
   for (auto& tri : adjacent_tris[basis.root]) {
+    auto triangle  = mesh.triangles[tri];
+    auto root_idx  = find_in_vec(triangle, basis.root);
+    auto rtriangle = rotate(triangle, root_idx);
+
     for (auto k = 0; k < 3; k++) {
-      auto edge = get_mesh_edge_from_index(mesh.triangles[tri], k);
+      auto edge = get_mesh_edge_from_index(rtriangle, k);
+      printf("\t%d %d\n", edge.x, edge.y);
       if (contains(mesh.homotopy_basis_borders, edge)) {
-        auto& info      = mesh.homotopy_basis_borders.at(edge);
-        auto  base_sign = (edge.x == basis.root) ? 1 : -1;
+        auto& info = mesh.homotopy_basis_borders.at(edge);
+
+        // Outgoing from root (negative) - Ingoing in root (positive)
+        auto base_sign = (edge.x == basis.root) ? 1 : -1;
         ordered_basis.push_back(base_sign * info.first);
-        printf("Triangle: %d - %d\n", tri, base_sign * info.first);
+        printf("Triangle: %d - %d - %d\n", tri, k, base_sign * info.first);
       }
     }
+    printf("\n");
   }
 
   return ordered_basis;
