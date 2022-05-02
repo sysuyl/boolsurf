@@ -127,18 +127,14 @@ bool save_homotopy_basis(const bool_mesh& mesh, const string& filename) {
   auto error = ""s;
   auto js    = json{};
 
-  auto name      = std::filesystem::u8path(path_filename(filename));
-  auto modelname = name.replace_extension().u8string().c_str();
-  printf("Model: %s\n", modelname);
-
-  modelname = "torus";
-
+  auto modelname    = path_basename(filename.c_str());
   auto meshname     = "data/homotopy/"s + modelname + ".ply"s;
   auto basefilename = "data/homotopy/"s + modelname + "_basis.json";
   save_shape(meshname, mesh, error);
 
-  js["model"] = js["root"] = (int)mesh.homotopy_basis.front().front();
-  js["basis"]              = mesh.homotopy_basis;
+  js["model"] = meshname;
+  js["root"]  = (int)mesh.homotopy_basis.front().front();
+  js["basis"] = mesh.homotopy_basis;
 
   auto lengths = vector<float>();
   lengths.reserve(mesh.homotopy_basis.size());
