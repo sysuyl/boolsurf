@@ -274,7 +274,6 @@ vector<int> sort_homotopy_basis_around_vertex(
 
     for (auto k = 0; k < 3; k++) {
       auto edge = get_mesh_edge_from_index(rtriangle, k);
-      printf("\t%d %d\n", edge.x, edge.y);
       if (contains(mesh.homotopy_basis_borders, edge)) {
         auto& info = mesh.homotopy_basis_borders.at(edge);
 
@@ -284,7 +283,6 @@ vector<int> sort_homotopy_basis_around_vertex(
         printf("Triangle: %d - %d - %d\n", tri, k, base_sign * info.first);
       }
     }
-    printf("\n");
   }
 
   return ordered_basis;

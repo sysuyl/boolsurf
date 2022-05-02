@@ -1283,30 +1283,60 @@ void key_input(app_state* app, const gui_input& input) {
               distance = (distance > 0.5) ? 1.0 : 0.0;
             }
 
+            auto inv_polygonal_schema = hash_map<int, int>{};
+            for (auto id = 0; id < polygonal_schema.size(); id++) {
+              inv_polygonal_schema[polygonal_schema[id]] = id;
+            }
+
+            auto final_code = vector<int>();
             for (auto c = 0; c < polygon_code.size(); c++) {
               auto [base_id1, dist1] = polygon_code[c];
               auto [base_id2, dist2] =
                   polygon_code[(c + 1) % polygon_code.size()];
-
-              // auto abs_base1 = abs(base_id1);
-              // auto dist1     = distance1 /
-              //              app->mesh.homotopy_basis.lengths[(abs_base1 - 1)];
-              // // printf("Distance1: %f/%f (%f)\n", distance1,
-              // //     app->mesh.homotopy_basis.lengths[(abs_base1 - 1)],
-              // dist1);
-
-              // auto abs_base2 = abs(base_id2);
-              // auto dist2     = distance2 /
-              //              app->mesh.homotopy_basis.lengths[(abs_base2 - 1)];
-              // // printf("Distance2: %f/%f (%f)\n", distance2,
-              // //     app->mesh.homotopy_basis.lengths[(abs_base2 - 1)],
-              // dist2);
-
               base_id2 = -base_id2;
 
-              printf("From: %d (%f) to %d (%f)\n", base_id1, dist1, base_id2,
-                  dist2);
+              // Transforming end into previous edge description
+              auto side1     = inv_polygonal_schema[base_id1];
+              auto side2     = inv_polygonal_schema[base_id2];
+              auto prev_idx  = (side2 - 1) < 0 ? polygonal_schema.size() - 1
+                                               : side2 - 1;
+              auto prev_edge = polygonal_schema[prev_idx];
+              auto prev_edge_distance = (sign(base_id1) != sign(base_id2))
+                                            ? dist2
+                                            : fmod(dist2 + 1.0f, 2.0f);
+
+              if ((base_id1 == side1) && (dist1 == prev_edge_distance)) {
+                printf("EXCLUDED: From: %d (%f) to %d (%f)\n", base_id1, dist1,
+                    prev_edge, prev_edge_distance);
+              } else {
+                auto id_dist = abs((int)prev_idx - (int)side1);
+                side1        = (side1 == 1.0) ? side1 + 1 : side1;
+                for (auto id = side1; id < side1 + id_dist; id++) {
+                  id = id % polygonal_schema.size();
+                  final_code.push_back(polygonal_schema[id]);
+                }
+              }
+
+              // if ((abs(side1 - side2) == 1)){
+              //   if (sign(base_id1) !)
+              // } &&
+              //     (sign(base_id1) == sign(base_id2)) && (dist1
+              //     == dist2))
+              // //   continue;
+              // if (abs(side1 - side2) < 2) {
+              // }
+
+              // side1 = (dist1 == 1.0) ? side1 + 1 : side1;
+              // side2 = (dist == 0.0) side2 - 1 : side2;
+
+              // printf("From: %d (%f) to %d (%f)\n", base_id1, dist1,
+              // base_id2,
+              //     dist2);
             }
+
+            printf("Final code: ");
+            for (auto& code : final_code) printf("%d ", code);
+            printf("\n");
           }
         }
 
