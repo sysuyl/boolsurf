@@ -10,13 +10,13 @@
 #include <yocto/yocto_scene.h>
 #include <yocto/yocto_shape.h>  // hashing vec2i
 
-#include "ext/robin_hood.h"
-
 #include <cassert>
 #include <deque>
 
+#include "ext/robin_hood.h"
+
 namespace std {
-  template <>
+template <>
 struct std::hash<std::vector<int>> {
   size_t operator()(const std::vector<int>& V) const {
     auto hash = V.size();
@@ -49,7 +49,7 @@ struct std::hash<std::unordered_set<int>> {
   }
 };
 
-}
+}  // namespace std
 
 namespace yocto {
 
@@ -61,7 +61,7 @@ namespace yocto {
 #define _PROFILE(function) auto _profile = print_timed(string(function));
 //#define PROFILE() _PROFILE(__FUNCTION__)
 #define PROFILE() ;
- 
+
 inline int mod3(int i) { return (i > 2) ? i - 3 : i; }
 
 #if 1
@@ -198,6 +198,16 @@ inline vec2i get_triangle_edge_from_index(int k) {
   return {-1, -1};
 }
 
+inline pair<vec2f, vec2f> get_triangle_uv_from_index(int k) {
+  auto nodes = std::array<vec2f, 3>{vec2f{0, 0}, vec2f{1, 0}, vec2f{0, 1}};
+  if (k == 0) return {nodes[0], nodes[1]};
+  if (k == 1) return {nodes[1], nodes[2]};
+  if (k == 2) return {nodes[2], nodes[0]};
+
+  assert(0);
+  return {vec2f{-1.0, -1.0}, vec2f{-1.0, -1.0}};
+}
+
 inline vec2i get_edge_from_uv(const vec2f& uv) {
   if (uv.y == 0) return {0, 1};
   if (fabs(uv.x + uv.y - 1.0f) < 0.00001)
@@ -256,7 +266,7 @@ inline vec3f get_color(int i) {
   return colors[i % colors.size()];
 }
 
-}
+}  // namespace yocto
 
 namespace std {
 
@@ -439,4 +449,4 @@ vector<bool>& debug_visited();
 vector<int>&  debug_stack();
 bool&         debug_restart();
 
-}
+}  // namespace yocto

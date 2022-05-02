@@ -26,6 +26,12 @@ struct facet {
   int                  id      = -1;
 };
 
+struct bool_homotopy_basis {
+  int                 root    = -1;
+  vector<vector<int>> basis   = {};
+  vector<float>       lengths = {};
+};
+
 struct bool_mesh : scene_shape {
   vector<vec3i>        adjacencies = {};
   dual_geodesic_solver dual_solver = {};
@@ -40,7 +46,7 @@ struct bool_mesh : scene_shape {
 
   // Shape, Polygon -> Vector({Right face, Left face})
   hash_map<vec2i, vector<vec2i>>    polygon_borders        = {};
-  vector<vector<int>>               homotopy_basis         = {};
+  bool_homotopy_basis               homotopy_basis         = {};
   hash_map<vec2i, pair<int, float>> homotopy_basis_borders = {};
   vector<int>                       face_tags              = {};
 };
@@ -159,10 +165,10 @@ void init_mesh(bool_mesh& mesh);
 void reset_mesh(bool_mesh& mesh);
 
 void update_polygon(bool_state& state, const bool_mesh& mesh, int polygon_id);
-vector<vector<int>> compute_homotopy_basis(bool_mesh& mesh, int root);
+bool_homotopy_basis compute_homotopy_basis(bool_mesh& mesh, int root);
 void                compute_homotopy_basis_borders(bool_mesh& mesh);
 vector<int>         sort_homotopy_basis_around_vertex(
-            const bool_mesh& mesh, const vector<vector<int>>& basis, int root);
+            const bool_mesh& mesh, const bool_homotopy_basis& basis);
 vector<int> compute_polygonal_schema(const vector<int>& basis);
 
 void              slice_mesh(bool_mesh& mesh, bool_state& state);

@@ -195,7 +195,7 @@ void update_boolmesh(const cinolib::Trimesh<>& cinomesh, bool_mesh& mesh) {
   mesh.triangles = triangles;
 }
 
-vector<vector<int>> compute_homotopy_basis(bool_mesh& mesh, int root) {
+bool_homotopy_basis compute_homotopy_basis(bool_mesh& mesh, int root) {
   auto cinomesh = get_cinomesh(mesh);
 
   auto homotopy_basis_data           = cinolib::HomotopyBasisData{};
@@ -205,55 +205,67 @@ vector<vector<int>> compute_homotopy_basis(bool_mesh& mesh, int root) {
   homotopy_basis(cinomesh, homotopy_basis_data);
 
   update_boolmesh(cinomesh, mesh);
-  auto basis = vector<vector<int>>();
-  basis.reserve(homotopy_basis_data.loops.size());
+
+  auto homo_basis = bool_homotopy_basis{};
+  homo_basis.root = root;
+  homo_basis.basis.reserve(homotopy_basis_data.loops.size());
+  homo_basis.lengths.reserve(homotopy_basis_data.loops.size());
 
   for (auto& base : homotopy_basis_data.loops) {
     auto new_base = vector<int>(base.begin(), base.end());
-    basis.push_back(new_base);
+
+    auto distance = 0.0f;
+    for (auto e = 0; e < new_base.size(); e++) {
+      auto start = new_base[e];
+      auto end   = new_base[(e + 1) % new_base.size()];
+      distance += length(mesh.positions[start] - mesh.positions[end]);
+    }
+
+    printf("Distance: %f\n", distance);
+    printf("Size: %d\n", new_base.size());
+    homo_basis.basis.push_back(new_base);
+    homo_basis.lengths.push_back(distance);
   }
 
-  return basis;
+  return homo_basis;
 }
 
 void compute_homotopy_basis_borders(bool_mesh& mesh) {
   auto& homology_basis_borders = mesh.homotopy_basis_borders;
   auto& homology_basis         = mesh.homotopy_basis;
 
-  for (auto b = 0; b < homology_basis.size(); b++) {
-    auto& base     = homology_basis[b];
-    auto  distance = 0.0f;
+  for (auto b = 0; b < homology_basis.basis.size(); b++) {
+    auto& base = homology_basis.basis[b];
 
+    auto distance = 0.0;
     for (auto e = 0; e < base.size(); e++) {
       auto start = base[e];
       auto end   = base[(e + 1) % base.size()];
 
-      distance += length(mesh.positions[start] - mesh.positions[end]);
-
-      // Here duplicating edges
+      distance += length(mesh.positions[end] - mesh.positions[start]);
       auto edge = vec2i{start, end};
       // auto rev_edge = vec2i{(int)end, (int)start};
 
       homology_basis_borders[edge] = pair<int, float>(b + 1, distance);
       // homology_basis_borders[rev_edge] = -homology_basis_borders[edge];
     }
-    printf("%d - total distance: %f\n", b + 1, distance);
   }
 }
 
 vector<int> sort_homotopy_basis_around_vertex(
-    const bool_mesh& mesh, const vector<vector<int>>& basis, int root) {
+    const bool_mesh& mesh, const bool_homotopy_basis& basis) {
   auto adjacent_tris = vertex_to_triangles(
       mesh.triangles, mesh.positions, mesh.adjacencies);
 
   auto ordered_basis = vector<int>();
-  for (auto& tri : adjacent_tris[root]) {
+  for (auto& tri : adjacent_tris[basis.root]) {
     for (auto k = 0; k < 3; k++) {
       auto edge = get_mesh_edge_from_index(mesh.triangles[tri], k);
       if (contains(mesh.homotopy_basis_borders, edge)) {
         auto& info      = mesh.homotopy_basis_borders.at(edge);
-        auto  base_sign = (edge.x == root) ? 1 : -1;
+        auto  base_sign = (edge.x == basis.root) ? 1 : -1;
         ordered_basis.push_back(base_sign * info.first);
+        printf("Triangle: %d - %d\n", tri, base_sign * info.first);
       }
     }
   }

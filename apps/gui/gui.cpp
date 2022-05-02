@@ -1215,12 +1215,12 @@ void key_input(app_state* app, const gui_input& input) {
 
       case (int)gui_key('H'): {
         // Computes and saves homotopy basis
-        // auto root = app->mesh.triangles[app->last_clicked_point.face][0];
-        // app->mesh.homotopy_basis = compute_homotopy_basis(app->mesh, root);
-        // printf("Basis dimention! %d\n", app->mesh.homotopy_basis.size());
+        auto root = app->mesh.triangles[app->last_clicked_point.face][0];
+        app->mesh.homotopy_basis = compute_homotopy_basis(app->mesh, root);
+        printf("Basis dimention! %d\n", app->mesh.homotopy_basis.basis.size());
 
-        load_homotopy_basis(app->mesh, "data/homotopy/torus_basis.json");
-        auto root = app->mesh.homotopy_basis.front().front();
+        // load_homotopy_basis(app->mesh, "data/homotopy/torus_basis.json");
+        // auto root = app->mesh.homotopy_basis.root;
 
         init_mesh(app->mesh);
         save_homotopy_basis(app->mesh, app->model_filename);
@@ -1229,11 +1229,11 @@ void key_input(app_state* app, const gui_input& input) {
         app->mesh_original = app->mesh;
         update_polygons(app);
 
-        auto& basis = app->mesh.homotopy_basis;
+        auto& basis = app->mesh.homotopy_basis.basis;
 
         compute_homotopy_basis_borders(app->mesh);
         auto ordered_basis = sort_homotopy_basis_around_vertex(
-            app->mesh, app->mesh.homotopy_basis, root);
+            app->mesh, app->mesh.homotopy_basis);
 
         printf("Loops around root (ccw): ");
         for (auto b : ordered_basis) printf("%d ", b);
@@ -1252,25 +1252,75 @@ void key_input(app_state* app, const gui_input& input) {
 
             for (auto& edge : polygon.edges) {
               for (auto& seg : edge) {
+                // auto s_pos = eval_position(app->mesh, {seg.face, seg.start});
+                // auto e_pos = eval_position(app->mesh, {seg.face, seg.end});
+
+                auto seg_direction = seg.end - seg.start;
+
                 auto [k, _] = get_edge_lerp_from_uv(seg.end);
                 if (k == -1) continue;
                 auto edge = get_mesh_edge_from_index(
                     app->mesh.triangles[seg.face], k);
+                auto edge_uv = get_triangle_uv_from_index(k);
+
                 auto rev_edge = vec2i{edge.y, edge.x};
 
+                // TODO (marzia) forse aggiungere/togliere lerp dalla distanza
+                // TODO (marzia) qui ho il sentore che si possa dedurre in segno
+                // senza fare molto
                 if (contains(app->mesh.homotopy_basis_borders, edge)) {
+                  // auto edge_direction = edge_uv.second - edge_uv.first;
+                  // // printf("Start segment: (%f %f)\n", seg.start.x,
+                  // // seg.start.y); printf("End segment: (%f %f)\n",
+                  // seg.end.x,
+                  // // seg.end.y);
+
+                  // // printf("Start Edge: (%f %f)\n", edge_uv.first.x,
+                  // //     edge_uv.first.y);
+                  // // printf("End Edge: (%f %f)\n", edge_uv.second.x,
+                  // //     edge_uv.second.y);
+
+                  // auto rev_edge_direction = edge_uv.first - edge_uv.second;
+                  // auto orientation1 = cross(seg_direction,
+                  // rev_edge_direction);
+                  // // printf("RevEdge-Seg orientation: %f\n", orientation1);
+
+                  // auto orientation2 = cross(seg_direction, edge_direction);
+                  // // printf("Edge-Seg orientation: %f\n", orientation2);
+
                   auto& info = app->mesh.homotopy_basis_borders[edge];
                   polygon_code.push_back(info);
                 }
                 if (contains(app->mesh.homotopy_basis_borders, rev_edge)) {
+                  // auto rev_edge_direction = edge_uv.first - edge_uv.second;
+                  // auto orientation = cross(seg_direction,
+                  // rev_edge_direction); printf("RevEdge-Seg orientation:
+                  // %f\n", orientation);
+
                   auto& info = app->mesh.homotopy_basis_borders[rev_edge];
+                  info.first *= -1;
                   polygon_code.push_back(info);
                 }
               }
             }
 
-            for (auto& [b, dist] : polygon_code) printf("%d (%f)\n", b, dist);
-            printf("\n");
+            for (auto c = 0; c < polygon_code.size(); c++) {
+              auto [base_id1, distance1] = polygon_code[c];
+              auto [base_id2, distance2] =
+                  polygon_code[(c + 1) % polygon_code.size()];
+
+              auto dist1 = distance1 /
+                           app->mesh.homotopy_basis.lengths[(base_id1 - 1)];
+              printf("Distance: %f/%f (%f)\n", distance1,
+                  app->mesh.homotopy_basis.lengths[(base_id1 - 1)], dist1);
+
+              auto dist2 = distance2 /
+                           app->mesh.homotopy_basis.lengths[(base_id2 - 1)];
+              base_id2 = -base_id2;
+
+              printf("From: %d (%f) to %d (%f)\n", base_id1, dist1, base_id2,
+                  dist2);
+            }
           }
         }
 

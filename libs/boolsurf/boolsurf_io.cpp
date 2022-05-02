@@ -132,25 +132,10 @@ bool save_homotopy_basis(const bool_mesh& mesh, const string& filename) {
   auto basefilename = "data/homotopy/"s + modelname + "_basis.json";
   save_shape(meshname, mesh, error);
 
-  js["model"] = meshname;
-  js["root"]  = (int)mesh.homotopy_basis.front().front();
-  js["basis"] = mesh.homotopy_basis;
-
-  auto lengths = vector<float>();
-  lengths.reserve(mesh.homotopy_basis.size());
-
-  for (auto& base : mesh.homotopy_basis) {
-    auto base_length = 0.0f;
-    for (auto i = 0; i < base.size(); i++) {
-      auto& start = mesh.positions[base[i]];
-      auto& end   = mesh.positions[base[(i + 1) % base.size()]];
-
-      base_length += length(end - start);
-    }
-    lengths.push_back(base_length);
-  }
-
-  js["length"] = lengths;
+  js["model"]   = meshname;
+  js["root"]    = mesh.homotopy_basis.root;
+  js["basis"]   = mesh.homotopy_basis.basis;
+  js["lengths"] = mesh.homotopy_basis.lengths;
 
   if (!save_text(basefilename, js.dump(2), error)) {
     printf("[%s]: %s\n", __FUNCTION__, error.c_str());
@@ -174,17 +159,17 @@ bool load_homotopy_basis(bool_mesh& mesh, const string& filename) {
       }
     }
 
-    // if (js.find("root") != js.end()) {
-    //   test.screenspace = js["screenspace"].get<bool>();
-    // }
-
-    if (js.find("basis") != js.end()) {
-      mesh.homotopy_basis = js["basis"].get<vector<vector<int>>>();
+    if (js.find("root") != js.end()) {
+      mesh.homotopy_basis.root = js["root"].get<int>();
     }
 
-    // if (js.find("length") != js.end()) {
-    //   test.screenspace = js["screenspace"].get<bool>();
-    // }
+    if (js.find("basis") != js.end()) {
+      mesh.homotopy_basis.basis = js["basis"].get<vector<vector<int>>>();
+    }
+
+    if (js.find("lengths") != js.end()) {
+      mesh.homotopy_basis.lengths = js["lengths"].get<vector<float>>();
+    }
 
   } catch (std::exception& e) {
     printf("[%s]: %s\n", __FUNCTION__, e.what());
