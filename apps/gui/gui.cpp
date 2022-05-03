@@ -1249,107 +1249,31 @@ void key_input(app_state* app, const gui_input& input) {
         for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
           auto& shape = app->state.bool_shapes[s];
           if (shape.polygons.size() == 0) continue;
-          auto shape_code = hash_map<int, int>();
+          auto shape_word = hash_map<int, int>();
 
           for (auto p = 0; p < shape.polygons.size(); p++) {
-            auto polygon_code = vector<int>();
-
             auto& polygon = shape.polygons[p];
-            if (polygon.length == 0) continue;
-            auto basis_intersections = vector<pair<int, float>>();
-
-            // Computing intersections between polygon and homotopy_basis
-            for (auto& edge : polygon.edges) {
-              for (auto& seg : edge) {
-                auto [k, _] = get_edge_lerp_from_uv(seg.end);
-                if (k == -1) continue;
-
-                auto edge = get_mesh_edge_from_index(
-                    app->mesh.triangles[seg.face], k);
-                auto rev_edge = vec2i{edge.y, edge.x};
-
-                if (contains(app->mesh.homotopy_basis_borders, edge)) {
-                  auto& info = app->mesh.homotopy_basis_borders[edge];
-                  basis_intersections.push_back(info);
-                }
-                if (contains(app->mesh.homotopy_basis_borders, rev_edge)) {
-                  auto& info = app->mesh.homotopy_basis_borders[rev_edge];
-                  info.first *= -1;
-
-                  basis_intersections.push_back(info);
-                }
-              }
-            }
+            auto  isecs   = compute_polygon_basis_intersections(
+                   polygon, app->mesh);
 
             // Sliding intersection points to polygonal schema vertices
-            for (auto& [base_id, distance] : basis_intersections) {
+            for (auto& [base_id, distance] : isecs) {
               distance /= app->mesh.homotopy_basis.lengths[(abs(base_id) - 1)];
               distance = (distance > 0.5) ? 1.0 : 0.0;
             }
 
-            // Polygon code by from polygon representation of polygonal schema
-            auto inv_polygonal_schema = hash_map<int, int>{};
-            for (auto id = 0; id < polygonal_schema.size(); id++) {
-              inv_polygonal_schema[polygonal_schema[id]] = id;
-            }
-
-            auto transform_point = [&](const pair<int, float>& point1) {
-              auto& [base1, distance1] = point1;
-              auto base_side           = inv_polygonal_schema[base1];
-
-              auto next_side     = (base_side + 1) % polygonal_schema.size();
-              auto next_base     = polygonal_schema[next_side];
-              auto next_distance = (sign(base1) != sign(next_base))
-                                       ? distance1
-                                       : abs(distance1 - 1.0f);
-
-              return pair<int, float>{next_base, next_distance};
-            };
-
-            for (auto c = 0; c < basis_intersections.size(); c++) {
-              auto point1       = basis_intersections[c];
-              auto trans_point1 = transform_point(point1);
-
-              auto next_intersection = (c + 1) % basis_intersections.size();
-              auto point2            = basis_intersections[next_intersection];
-              point2.first           = -point2.first;
-
-              printf("%d (%f) [%d (%f)] -> %d (%f)\n", point1.first,
-                  point1.second, trans_point1.first, trans_point1.second,
-                  point2.first, point2.second);
-
-              if (point1 == point2) continue;
-              if (trans_point1 == point2) continue;
-
-              auto& [base_id1, dist1] = trans_point1;
-              auto& [base_id2, dist2] = point2;
-
-              auto base_side1 = inv_polygonal_schema[base_id1];
-              auto base_side2 = inv_polygonal_schema[base_id2];
-
-              // Reading the correct portion of polygonal schema
-              auto id_dist = abs((int)base_side2 - (int)base_side1);
-              // printf("From: %d to: %d\n", base_side1, base_side2);
-              auto current_id = base_side1;
-              while (current_id != base_side2) {
-                auto current_side = polygonal_schema[current_id];
-                // printf("\t%d ", current_side);
-                polygon_code.push_back(current_side);
-                current_id = (current_id + 1) % polygonal_schema.size();
-              }
-              // printf("\n");
-            }
+            auto polygon_word = compute_polygon_word(isecs, polygonal_schema);
 
             printf("Polygon code: ");
-            for (auto& code : polygon_code) {
-              shape_code[abs(code)] += sign(code);
+            for (auto& code : polygon_word) {
+              shape_word[abs(code)] += sign(code);
               printf("%d ", code);
             }
             printf("\n");
           }
 
           printf("Shape code\n");
-          for (auto& [code, value] : shape_code) {
+          for (auto& [code, value] : shape_word) {
             if (value == 0) continue;
             printf("\t%d -> %d\n", code, value);
           }

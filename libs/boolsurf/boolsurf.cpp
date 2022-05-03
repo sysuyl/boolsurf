@@ -311,6 +311,91 @@ vector<int> compute_polygonal_schema(const vector<int>& basis) {
   return polygonal_schema;
 }
 
+vector<pair<int, float>> compute_polygon_basis_intersections(
+    const mesh_polygon& polygon, bool_mesh& mesh) {
+  auto basis_intersections = vector<pair<int, float>>();
+  if (polygon.length == 0) return basis_intersections;
+
+  // Computing intersections between polygon and homotopy_basis
+  for (auto& edge : polygon.edges) {
+    for (auto& seg : edge) {
+      auto [k, _] = get_edge_lerp_from_uv(seg.end);
+      if (k == -1) continue;
+
+      auto edge     = get_mesh_edge_from_index(mesh.triangles[seg.face], k);
+      auto rev_edge = vec2i{edge.y, edge.x};
+
+      if (contains(mesh.homotopy_basis_borders, edge)) {
+        auto& info = mesh.homotopy_basis_borders.at(edge);
+        basis_intersections.push_back(info);
+      }
+      if (contains(mesh.homotopy_basis_borders, rev_edge)) {
+        auto& info = mesh.homotopy_basis_borders.at(rev_edge);
+        info.first *= -1;
+
+        basis_intersections.push_back(info);
+      }
+    }
+  }
+  return basis_intersections;
+}
+
+vector<int> compute_polygon_word(const vector<pair<int, float>>& isecs,
+    const vector<int>& polygonal_schema) {
+  // Polygon code by from polygon representation of polygonal schema
+  auto polygon_word         = vector<int>();
+  auto inv_polygonal_schema = hash_map<int, int>{};
+  for (auto id = 0; id < polygonal_schema.size(); id++) {
+    inv_polygonal_schema[polygonal_schema[id]] = id;
+  }
+
+  auto transform_point = [&](const pair<int, float>& point1) {
+    auto& [base1, distance1] = point1;
+    auto base_side           = inv_polygonal_schema[base1];
+
+    auto next_side = (base_side + 1) % polygonal_schema.size();
+    auto next_base = polygonal_schema[next_side];
+    auto next_distance =
+        (sign(base1) != sign(next_base)) ? distance1 : abs(distance1 - 1.0f);
+
+    return pair<int, float>{next_base, next_distance};
+  };
+
+  for (auto c = 0; c < isecs.size(); c++) {
+    auto point1       = isecs[c];
+    auto trans_point1 = transform_point(point1);
+
+    auto next_intersection = (c + 1) % isecs.size();
+    auto point2            = isecs[next_intersection];
+    point2.first           = -point2.first;
+
+    printf("%d (%f) [%d (%f)] -> %d (%f)\n", point1.first, point1.second,
+        trans_point1.first, trans_point1.second, point2.first, point2.second);
+
+    if (point1 == point2) continue;
+    if (trans_point1 == point2) continue;
+
+    auto& [base_id1, dist1] = trans_point1;
+    auto& [base_id2, dist2] = point2;
+
+    auto base_side1 = inv_polygonal_schema[base_id1];
+    auto base_side2 = inv_polygonal_schema[base_id2];
+
+    // Reading the correct portion of polygonal schema
+    auto id_dist = abs((int)base_side2 - (int)base_side1);
+    // printf("From: %d to: %d\n", base_side1, base_side2);
+    auto current_id = base_side1;
+    while (current_id != base_side2) {
+      auto current_side = polygonal_schema[current_id];
+      // printf("\t%d ", current_side);
+      polygon_word.push_back(current_side);
+      current_id = (current_id + 1) % polygonal_schema.size();
+    }
+    // printf("\n");
+    return polygon_word;
+  }
+}
+
 geodesic_path compute_geodesic_path(
     const bool_mesh& mesh, const mesh_point& start, const mesh_point& end) {
   auto path = geodesic_path{};

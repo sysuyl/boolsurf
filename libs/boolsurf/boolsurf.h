@@ -169,7 +169,11 @@ bool_homotopy_basis compute_homotopy_basis(bool_mesh& mesh, int root);
 void                compute_homotopy_basis_borders(bool_mesh& mesh);
 vector<int>         sort_homotopy_basis_around_vertex(
             const bool_mesh& mesh, const bool_homotopy_basis& basis);
-vector<int> compute_polygonal_schema(const vector<int>& basis);
+vector<int>              compute_polygonal_schema(const vector<int>& basis);
+vector<pair<int, float>> compute_polygon_basis_intersections(
+    const mesh_polygon& polygon, bool_mesh& mesh);
+vector<int> compute_polygon_word(
+    const vector<pair<int, float>>& isecs, const vector<int>& polygonal_schema);
 
 void              slice_mesh(bool_mesh& mesh, bool_state& state);
 vector<mesh_cell> make_cell_graph(bool_mesh& mesh);
