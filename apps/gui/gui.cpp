@@ -1288,38 +1288,54 @@ void key_input(app_state* app, const gui_input& input) {
               inv_polygonal_schema[polygonal_schema[id]] = id;
             }
 
+            auto transform_point = [&](const pair<int, float>& point1) {
+              auto& [base1, distance1] = point1;
+              auto base_side           = inv_polygonal_schema[base1];
+
+              auto next_side     = (base_side + 1) % polygonal_schema.size();
+              auto next_base     = polygonal_schema[next_side];
+              auto next_distance = (sign(base1) != sign(next_base))
+                                       ? distance1
+                                       : abs(distance1 - 1.0f);
+
+              return pair<int, float>{next_base, next_distance};
+            };
+
             auto final_code = vector<int>();
             for (auto c = 0; c < basis_intersections.size(); c++) {
               auto next_intersection = (c + 1) % basis_intersections.size();
-              auto [id1, dist1]      = basis_intersections[c];
-              auto [id2, dist2]      = basis_intersections[next_intersection];
-              id2                    = -id2;
+              auto point1            = basis_intersections[c];
+              auto trans_point1      = transform_point(point1);
 
-              // Merging points togetjer into previous edge description
-              auto schema_side1 = inv_polygonal_schema[id1];
-              auto schema_side2 = inv_polygonal_schema[id2];
-              auto prev_idx     = (schema_side2 - 1) < 0
-                                      ? polygonal_schema.size() - 1
-                                      : schema_side2 - 1;
-              auto prev_edge    = polygonal_schema[prev_idx];
-              auto prev_edge_distance =
-                  (sign(id1) != sign(id2)) ? dist2 : abs(dist2 - 1.0f);
-              if ((id1 == prev_edge) && (dist1 == prev_edge_distance)) {
-                printf("EXCLUDED: From: %d (%f) to %d (%f)\n", id1, dist1,
-                    prev_edge, prev_edge_distance);
+              auto point2  = basis_intersections[next_intersection];
+              point2.first = -point2.first;
+
+              if (trans_point1 == point2) {
+                printf("EXCLUDED: From: %d (%f) to %d (%f)\n",
+                    trans_point1.first, trans_point1.second, point2.first,
+                    point2.second);
               } else {
-                printf("From: %d (%d - %f) to %d (%d -%f)\n", id1, schema_side1,
-                    dist1, prev_edge, prev_idx, prev_edge_distance);
+                printf("From: %d (%f) to %d (%f)\n", trans_point1.first,
+                    trans_point1.second, point2.first, point2.second);
 
-                auto id_dist = abs((int)prev_idx - (int)schema_side1);
+                auto& [base_id1, dist1] = trans_point1;
+                auto& [base_id2, dist2] = point2;
 
-                schema_side1 = ((dist1 == 0.0f) && (id1 < 0)) ? schema_side1 + 1
-                                                              : schema_side1;
-                schema_side1 = ((dist1 == 1.0f) && (id1 > 0)) ? schema_side1 - 1
-                                                              : schema_side1;
+                auto base_side1 = inv_polygonal_schema[base_id1];
+                auto base_side2 = inv_polygonal_schema[base_id2];
 
-                for (auto id = schema_side1; id < schema_side1 + id_dist;
-                     id++) {
+                // Reading the correct portion of polygonal schema
+                auto id_dist = abs((int)base_side2 - (int)base_side1);
+
+                // base_side1 = ((dist1 == 0.0f) && (base_id1 < 0))
+                //                  ? base_side1 + 1
+                //                  : base_side1;
+
+                // base_side1 = ((dist1 == 1.0f) && (base_id1 > 0))
+                //                  ? base_side1 - 1
+                //                  : base_side1;
+
+                for (auto id = base_side1; id < base_side1 + id_dist; id++) {
                   id = id % polygonal_schema.size();
                   final_code.push_back(polygonal_schema[id]);
                 }
