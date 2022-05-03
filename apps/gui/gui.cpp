@@ -1307,34 +1307,37 @@ void key_input(app_state* app, const gui_input& input) {
             };
 
             for (auto c = 0; c < basis_intersections.size(); c++) {
+              auto point1       = basis_intersections[c];
+              auto trans_point1 = transform_point(point1);
+
               auto next_intersection = (c + 1) % basis_intersections.size();
-              auto point1            = basis_intersections[c];
-              auto trans_point1      = transform_point(point1);
+              auto point2            = basis_intersections[next_intersection];
+              point2.first           = -point2.first;
 
-              auto point2  = basis_intersections[next_intersection];
-              point2.first = -point2.first;
+              printf("%d (%f) [%d (%f)] -> %d (%f)\n", point1.first,
+                  point1.second, trans_point1.first, trans_point1.second,
+                  point2.first, point2.second);
 
-              if (trans_point1 == point2) {
-                printf("EXCLUDED: From: %d (%f) to %d (%f)\n",
-                    trans_point1.first, trans_point1.second, point2.first,
-                    point2.second);
-              } else {
-                printf("From: %d (%f) to %d (%f)\n", trans_point1.first,
-                    trans_point1.second, point2.first, point2.second);
+              if (point1 == point2) continue;
+              if (trans_point1 == point2) continue;
 
-                auto& [base_id1, dist1] = trans_point1;
-                auto& [base_id2, dist2] = point2;
+              auto& [base_id1, dist1] = trans_point1;
+              auto& [base_id2, dist2] = point2;
 
-                auto base_side1 = inv_polygonal_schema[base_id1];
-                auto base_side2 = inv_polygonal_schema[base_id2];
+              auto base_side1 = inv_polygonal_schema[base_id1];
+              auto base_side2 = inv_polygonal_schema[base_id2];
 
-                // Reading the correct portion of polygonal schema
-                auto id_dist = abs((int)base_side2 - (int)base_side1);
-                for (auto id = base_side1; id < base_side1 + id_dist; id++) {
-                  id = id % polygonal_schema.size();
-                  polygon_code.push_back(polygonal_schema[id]);
-                }
+              // Reading the correct portion of polygonal schema
+              auto id_dist = abs((int)base_side2 - (int)base_side1);
+              // printf("From: %d to: %d\n", base_side1, base_side2);
+              auto current_id = base_side1;
+              while (current_id != base_side2) {
+                auto current_side = polygonal_schema[current_id];
+                // printf("\t%d ", current_side);
+                polygon_code.push_back(current_side);
+                current_id = (current_id + 1) % polygonal_schema.size();
               }
+              // printf("\n");
             }
 
             printf("Polygon code: ");
@@ -1345,10 +1348,10 @@ void key_input(app_state* app, const gui_input& input) {
             printf("\n");
           }
 
-          printf("Shape code: ");
+          printf("Shape code\n");
           for (auto& [code, value] : shape_code) {
             if (value == 0) continue;
-            printf("%d -> %d\n", code, value);
+            printf("\t%d -> %d\n", code, value);
           }
         }
 
