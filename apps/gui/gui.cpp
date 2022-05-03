@@ -1248,7 +1248,12 @@ void key_input(app_state* app, const gui_input& input) {
 
         for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
           auto& shape = app->state.bool_shapes[s];
+          if (shape.polygons.size() == 0) continue;
+          auto shape_code = hash_map<int, int>();
+
           for (auto p = 0; p < shape.polygons.size(); p++) {
+            auto polygon_code = vector<int>();
+
             auto& polygon = shape.polygons[p];
             if (polygon.length == 0) continue;
             auto basis_intersections = vector<pair<int, float>>();
@@ -1301,7 +1306,6 @@ void key_input(app_state* app, const gui_input& input) {
               return pair<int, float>{next_base, next_distance};
             };
 
-            auto final_code = vector<int>();
             for (auto c = 0; c < basis_intersections.size(); c++) {
               auto next_intersection = (c + 1) % basis_intersections.size();
               auto point1            = basis_intersections[c];
@@ -1326,25 +1330,25 @@ void key_input(app_state* app, const gui_input& input) {
 
                 // Reading the correct portion of polygonal schema
                 auto id_dist = abs((int)base_side2 - (int)base_side1);
-
-                // base_side1 = ((dist1 == 0.0f) && (base_id1 < 0))
-                //                  ? base_side1 + 1
-                //                  : base_side1;
-
-                // base_side1 = ((dist1 == 1.0f) && (base_id1 > 0))
-                //                  ? base_side1 - 1
-                //                  : base_side1;
-
                 for (auto id = base_side1; id < base_side1 + id_dist; id++) {
                   id = id % polygonal_schema.size();
-                  final_code.push_back(polygonal_schema[id]);
+                  polygon_code.push_back(polygonal_schema[id]);
                 }
               }
             }
 
-            printf("Final code: ");
-            for (auto& code : final_code) printf("%d ", code);
+            printf("Polygon code: ");
+            for (auto& code : polygon_code) {
+              shape_code[abs(code)] += sign(code);
+              printf("%d ", code);
+            }
             printf("\n");
+          }
+
+          printf("Shape code: ");
+          for (auto& [code, value] : shape_code) {
+            if (value == 0) continue;
+            printf("%d -> %d\n", code, value);
           }
         }
 
