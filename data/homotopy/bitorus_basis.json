@@ -973,6 +973,6 @@
     0.6640868782997131,
     0.9922001361846924
   ],
-  "model": "data/homotopy/eight200k-remeshed.ply",
+  "model": "data/homotopy/bitorus.ply",
   "root": 81628
 }
