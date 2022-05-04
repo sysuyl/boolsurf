@@ -767,6 +767,196 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
 
+  if (begin_header(widgets, "Clipping")) {
+    if (draw_button(widgets, "Clip")) {
+      printf("Intersections %d\n", int(app->state.isecs_generators.size()));
+      for (auto& [vertex, gens] : app->state.isecs_generators) {
+        printf("Vertex: %d (%d, %d)\n", vertex, gens.x, gens.y);
+      }
+
+      auto shape_cells = vector<int>();
+      for (auto c = 0; c < app->state.labels.size(); c++)
+        if (app->state.labels[c][app->selected_shape] == 1) {
+          shape_cells.push_back(c);
+          printf("Cell: %d\n", c);
+        }
+
+      auto clipped_shapes = hash_map<vec2i, vector<vector<int>>>();
+
+      for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
+        auto& shape = app->state.bool_shapes[s];
+        if (s == app->selected_shape) continue;
+
+        for (auto p = 0; p < app->state.bool_shapes[s].polygons.size(); p++) {
+          auto& polygon = shape.polygons[p];
+          if (polygon.length == 0) continue;
+          // if (polygon.is_closed) continue;
+
+          auto polygon_edges = hash_set<vec2i>();
+
+          for (auto& edge : polygon.edges) {
+            for (auto& segment : edge) {
+              auto current_face = segment.face;
+
+              auto face_tagged = contains(
+                  shape_cells, app->mesh.face_tags[current_face]);
+
+              auto subface_tagged = false;
+              for (auto& subface : app->mesh.triangulated_faces[current_face]) {
+                if (contains(shape_cells, app->mesh.face_tags[subface.id])) {
+                  subface_tagged = true;
+                  break;
+                }
+              }
+
+              if (subface_tagged || face_tagged) {
+                // printf("Face: %d\n", current_face);
+                auto& polylines = app->state.hashgrid[current_face];
+                for (auto& polyline : polylines) {
+                  if ((polyline.shape_id == s) && (polyline.polygon_id == p)) {
+                    for (auto v = 0; v < polyline.vertices.size() - 1; v++) {
+                      auto edge = vec2i{
+                          polyline.vertices[v], polyline.vertices[v + 1]};
+                      polygon_edges.insert(edge);
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          // Merge together paths
+          auto edges = polygon_edges;
+          // Step 2: Riordiniamo i bordi
+          // Per ogni vertice salviamo il proprio successivo
+          auto next_vert = hash_map<int, int>();
+          for (auto& edge : edges) next_vert[edge.x] = edge.y;
+
+          auto rearranged = vector<vector<int>>();
+
+          for (auto& [key, value] : next_vert) {
+            // Se il valore è -1 abbiamo già processato il punto
+            if (value == -1) continue;
+
+            // Aggiungiamo un nuovo bordo
+            auto border_points = vector<int>();
+            auto current       = key;
+
+            while (true) {
+              if (!contains(next_vert, current)) {
+                border_points.push_back(current);
+                rearranged.push_back(border_points);
+                break;
+              }
+
+              auto next = next_vert.at(current);
+              if (next == -1) {
+                border_points.push_back(current);
+
+                for (auto& curve : rearranged) {
+                  if (curve.front() == border_points.back()) {
+                    // Togliere l'ultimo punto di border_points
+                    border_points.pop_back();
+                    curve = border_points + curve;
+                  }
+                }
+                break;
+              }
+
+              border_points.push_back(current);
+              next_vert.at(current) = -1;
+
+              if (next == key) {
+                rearranged.push_back(border_points);
+                break;
+              } else
+                current = next;
+            }
+          }
+
+          // Di tutti questi punti salvare solo i control points (iniziali e
+          // intersezioni)
+          printf("FINAL CURVES\n");
+
+          for (auto& curve : rearranged) {
+            print("Curve", curve);
+
+            auto& clipped_polygon = clipped_shapes[vec2i{s, p}].emplace_back();
+            for (auto& point : curve) {
+              if (contains(app->state.control_points, point)) {
+                clipped_polygon.push_back(app->state.control_points[point]);
+                // printf("%d -> %d\n", point,
+                // app->state.control_points[point]); draw_sphere(app->glscene,
+                // app->mesh, app->points_material,
+                //    {app->mesh.positions[point]}, 0.005f);
+              }
+            }
+          }
+        }
+      }
+
+      // Creating a new bool_state
+      auto new_state   = bool_state{};
+      new_state.points = app->state.points;
+      new_state.cells  = app->state.cells;
+
+      for (auto s = 1; s < app->state.bool_shapes.size(); s++) {
+        auto& shape     = app->state.bool_shapes[s];
+        auto& new_shape = new_state.bool_shapes.emplace_back();
+
+        for (auto p = 0; p < shape.polygons.size(); p++) {
+          auto index = vec2i{s, p};
+          if (contains(clipped_shapes, index)) {
+            for (auto& clipped_polygon : clipped_shapes[index]) {
+              if (!clipped_polygon.size()) continue;
+              auto& new_polygon     = new_shape.polygons.emplace_back();
+              new_polygon.points    = clipped_polygon;
+              new_polygon.is_closed = false;
+            }
+          } else if (s == app->selected_shape) {
+            auto& new_polygon  = new_shape.polygons.emplace_back();
+            new_polygon.points = shape.polygons[p].points;
+          }
+        }
+
+        printf("Shape: %d\n", s);
+        for (auto& polygon : new_shape.polygons)
+          print("polygon", polygon.points);
+      }
+
+      for (auto c = 0; c < app->state.cells.size(); c++) {
+        if (!contains(shape_cells, c))
+          app->cell_shapes[c]->material->color = vec3f{0.9, 0.9, 0.9};
+      }
+
+      // TODO (fix polygons)
+      for (auto& shape : app->shape_shapes) {
+        for (auto& inst : shape.polygons) {
+          inst->hidden = true;
+        }
+      }
+
+      app->mesh = app->mesh_original;
+      app->state.bool_shapes.clear();
+      app->shape_shapes.clear();
+
+      app->state = new_state;
+      for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
+        add_shape_shape(app, s);
+      }
+
+      update_polygons(app);
+
+      for (auto s = 0; s < app->shape_shapes.size(); s++) {
+        for (auto& inst : app->shape_shapes[s].polygons) {
+          inst->material->color = get_color(s);
+          inst->hidden          = false;
+        }
+      }
+    }
+    end_header(widgets);
+  }
+
   if (draw_button(widgets, "Close curve")) {
     if (app->state.bool_shapes.empty()) return;
     auto& bool_shape = app->state.bool_shapes.back();
@@ -801,196 +991,34 @@ void draw_widgets(app_state* app, const gui_input& input) {
     do_things(app);
   }
 
+  if (draw_button(widgets, "Compute basis")) {
+    // Computes and saves homotopy basis
+    auto root = app->mesh.triangles[app->last_clicked_point.face][0];
+    if (root == -1) printf("Clip point on mesh and execute again\n");
+    app->mesh.homotopy_basis = compute_homotopy_basis(app->mesh, root);
+
+    auto modelname = path_basename(app->model_filename);
+    save_homotopy_basis(app->mesh, app->model_filename);
+
+    for (auto b = 0; b < app->mesh.homotopy_basis.basis.size(); b++) {
+      auto& base = app->mesh.homotopy_basis.basis[b];
+
+      auto material = add_material(
+          app->glscene, {0, 0, 0}, {1, 1, 1}, 1, 0, 0.4);
+      material->color = get_color(b + 1);
+
+      for (auto e = 0; e < base.size(); e++) {
+        auto start = app->mesh.positions[base[e]];
+        auto end   = app->mesh.positions[base[(e + 1) % base.size()]];
+        draw_segment(app->glscene, app->mesh, material, start, end);
+      }
+    }
+  }
+
   // continue_line(widgets);
   auto ff = [&](int i) { return std::to_string(i); };
   draw_combobox(widgets, "Cells", app->selected_shape,
       (int)app->state.bool_shapes.size(), ff);
-
-  if (draw_button(widgets, "Clip")) {
-    printf("Intersections %d\n", int(app->state.isecs_generators.size()));
-    for (auto& [vertex, gens] : app->state.isecs_generators) {
-      printf("Vertex: %d (%d, %d)\n", vertex, gens.x, gens.y);
-    }
-
-    auto shape_cells = vector<int>();
-    for (auto c = 0; c < app->state.labels.size(); c++)
-      if (app->state.labels[c][app->selected_shape] == 1) {
-        shape_cells.push_back(c);
-        printf("Cell: %d\n", c);
-      }
-
-    auto clipped_shapes = hash_map<vec2i, vector<vector<int>>>();
-
-    for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
-      auto& shape = app->state.bool_shapes[s];
-      if (s == app->selected_shape) continue;
-
-      for (auto p = 0; p < app->state.bool_shapes[s].polygons.size(); p++) {
-        auto& polygon = shape.polygons[p];
-        if (polygon.length == 0) continue;
-        // if (polygon.is_closed) continue;
-
-        auto polygon_edges = hash_set<vec2i>();
-
-        for (auto& edge : polygon.edges) {
-          for (auto& segment : edge) {
-            auto current_face = segment.face;
-
-            auto face_tagged = contains(
-                shape_cells, app->mesh.face_tags[current_face]);
-
-            auto subface_tagged = false;
-            for (auto& subface : app->mesh.triangulated_faces[current_face]) {
-              if (contains(shape_cells, app->mesh.face_tags[subface.id])) {
-                subface_tagged = true;
-                break;
-              }
-            }
-
-            if (subface_tagged || face_tagged) {
-              // printf("Face: %d\n", current_face);
-              auto& polylines = app->state.hashgrid[current_face];
-              for (auto& polyline : polylines) {
-                if ((polyline.shape_id == s) && (polyline.polygon_id == p)) {
-                  for (auto v = 0; v < polyline.vertices.size() - 1; v++) {
-                    auto edge = vec2i{
-                        polyline.vertices[v], polyline.vertices[v + 1]};
-                    polygon_edges.insert(edge);
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        // Merge together paths
-        auto edges = polygon_edges;
-        // Step 2: Riordiniamo i bordi
-        // Per ogni vertice salviamo il proprio successivo
-        auto next_vert = hash_map<int, int>();
-        for (auto& edge : edges) next_vert[edge.x] = edge.y;
-
-        auto rearranged = vector<vector<int>>();
-
-        for (auto& [key, value] : next_vert) {
-          // Se il valore è -1 abbiamo già processato il punto
-          if (value == -1) continue;
-
-          // Aggiungiamo un nuovo bordo
-          auto border_points = vector<int>();
-          auto current       = key;
-
-          while (true) {
-            if (!contains(next_vert, current)) {
-              border_points.push_back(current);
-              rearranged.push_back(border_points);
-              break;
-            }
-
-            auto next = next_vert.at(current);
-            if (next == -1) {
-              border_points.push_back(current);
-
-              for (auto& curve : rearranged) {
-                if (curve.front() == border_points.back()) {
-                  // Togliere l'ultimo punto di border_points
-                  border_points.pop_back();
-                  curve = border_points + curve;
-                }
-              }
-              break;
-            }
-
-            border_points.push_back(current);
-            next_vert.at(current) = -1;
-
-            if (next == key) {
-              rearranged.push_back(border_points);
-              break;
-            } else
-              current = next;
-          }
-        }
-
-        // Di tutti questi punti salvare solo i control points (iniziali e
-        // intersezioni)
-        printf("FINAL CURVES\n");
-
-        for (auto& curve : rearranged) {
-          print("Curve", curve);
-
-          auto& clipped_polygon = clipped_shapes[vec2i{s, p}].emplace_back();
-          for (auto& point : curve) {
-            if (contains(app->state.control_points, point)) {
-              clipped_polygon.push_back(app->state.control_points[point]);
-              // printf("%d -> %d\n", point,
-              // app->state.control_points[point]); draw_sphere(app->glscene,
-              // app->mesh, app->points_material,
-              //    {app->mesh.positions[point]}, 0.005f);
-            }
-          }
-        }
-      }
-    }
-
-    // Creating a new bool_state
-    auto new_state   = bool_state{};
-    new_state.points = app->state.points;
-    new_state.cells  = app->state.cells;
-
-    for (auto s = 1; s < app->state.bool_shapes.size(); s++) {
-      auto& shape     = app->state.bool_shapes[s];
-      auto& new_shape = new_state.bool_shapes.emplace_back();
-
-      for (auto p = 0; p < shape.polygons.size(); p++) {
-        auto index = vec2i{s, p};
-        if (contains(clipped_shapes, index)) {
-          for (auto& clipped_polygon : clipped_shapes[index]) {
-            if (!clipped_polygon.size()) continue;
-            auto& new_polygon     = new_shape.polygons.emplace_back();
-            new_polygon.points    = clipped_polygon;
-            new_polygon.is_closed = false;
-          }
-        } else if (s == app->selected_shape) {
-          auto& new_polygon  = new_shape.polygons.emplace_back();
-          new_polygon.points = shape.polygons[p].points;
-        }
-      }
-
-      printf("Shape: %d\n", s);
-      for (auto& polygon : new_shape.polygons) print("polygon", polygon.points);
-    }
-
-    for (auto c = 0; c < app->state.cells.size(); c++) {
-      if (!contains(shape_cells, c))
-        app->cell_shapes[c]->material->color = vec3f{0.9, 0.9, 0.9};
-    }
-
-    // TODO (fix polygons)
-    for (auto& shape : app->shape_shapes) {
-      for (auto& inst : shape.polygons) {
-        inst->hidden = true;
-      }
-    }
-
-    app->mesh = app->mesh_original;
-    app->state.bool_shapes.clear();
-    app->shape_shapes.clear();
-
-    app->state = new_state;
-    for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
-      add_shape_shape(app, s);
-    }
-
-    update_polygons(app);
-
-    for (auto s = 0; s < app->shape_shapes.size(); s++) {
-      for (auto& inst : app->shape_shapes[s].polygons) {
-        inst->material->color = get_color(s);
-        inst->hidden          = false;
-      }
-    }
-  }
 
   // if (draw_button(widgets, "bezier")) {
   //   bezier_last_segment(app);
@@ -1214,23 +1242,32 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key('H'): {
-        // Computes and saves homotopy basis
-        // auto root = app->mesh.triangles[app->last_clicked_point.face][0];
-        // app->mesh.homotopy_basis = compute_homotopy_basis(app->mesh, root);
         // printf("Basis dimention! %d\n",
         // app->mesh.homotopy_basis.basis.size());
+        auto modelname    = path_basename(app->model_filename);
+        auto basefilename = "data/homotopy/"s + modelname + "_basis.json"s;
+        auto root         = -1;
 
-        load_homotopy_basis(
-            app->mesh, "data/homotopy/eight200k-remeshed_basis.json");
-        auto root = app->mesh.homotopy_basis.root;
+        if (path_exists(basefilename)) {
+          printf("Loading: %s", basefilename);
+          load_homotopy_basis(app->mesh, basefilename);
+          root = app->mesh.homotopy_basis.root;
+        } else {
+          // Computes and saves homotopy basis
+          auto root = app->mesh.triangles[app->last_clicked_point.face][0];
+          if (root == -1) {
+            printf("Clip point on mesh and execute again\n");
+            break;
+          }
+
+          app->mesh.homotopy_basis = compute_homotopy_basis(app->mesh, root);
+          save_homotopy_basis(app->mesh, app->model_filename);
+        }
 
         init_mesh(app->mesh);
-        save_homotopy_basis(app->mesh, app->model_filename);
-
         init_edges_and_vertices_shapes_and_points(app);
         app->mesh_original = app->mesh;
         update_polygons(app);
-
         auto& basis = app->mesh.homotopy_basis.basis;
 
         compute_homotopy_basis_borders(app->mesh);
