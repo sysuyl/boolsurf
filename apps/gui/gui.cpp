@@ -1316,85 +1316,61 @@ void key_input(app_state* app, const gui_input& input) {
           }
         }
 
-        auto edge_in_triangle = [](const vec3i& v, const vec2i& edge) {
-          for (auto k = 0; k < 3; k++) {
-            auto& triangle_edge = get_mesh_edge_from_index(v, k);
-            if (triangle_edge == edge) return true;
-          }
-          return false;
-        };
-
         for (auto b = 0; b < basis.size(); b++) {
-          auto& base  = basis[b];
-          auto  strip = vector<int>();
+          auto& base = basis[b];
 
-          auto root_ring =
-              app->mesh.triangle_rings[app->mesh.homotopy_basis.root];
-          auto first_edge = vec2i{base[1], base[0]};
-          for (auto& face : root_ring) {
-            auto triangle_verts = app->mesh.triangles[face];
-            if (!edge_in_triangle(triangle_verts, first_edge)) continue;
-            strip.push_back(face);
-            break;
-          }
+          auto strip = compute_strip_from_basis(
+              base, app->mesh.triangle_rings, app->mesh.triangles, root);
 
-          for (auto e = 0; e < base.size(); e++) {
-            auto next_edge   = vec2i{base[e], base[(e + 1) % base.size()]};
-            auto vertex_ring = app->mesh.triangle_rings[base[e]];
+          auto& first = strip.front();
+          auto& last  = strip.back();
 
-            auto face_idx = find_idx(vertex_ring, strip.back()) + 1;
-            for (auto f = 0; f < vertex_ring.size(); f++) {
-              auto it         = (face_idx + f) % vertex_ring.size();
-              auto face       = vertex_ring[it];
-              auto face_verts = app->mesh.triangles[face];
+          auto& ftri = app->mesh.triangles[first];
+          auto& ltri = app->mesh.triangles[last];
 
-              if (edge_in_triangle(face_verts, next_edge)) break;
-              strip.push_back(face);
-            }
-          }
+          auto start_point = mesh_point{first, get_uv_from_vertex(ftri, root)};
+          auto end_point   = mesh_point{last, get_uv_from_vertex(ltri, root)};
 
-          if (strip.back() == strip.front()) strip.pop_back();
-          for (auto& tri : strip) printf("%d ", tri);
-          printf("\n");
-
-          auto& first_triangle = strip.front();
-          auto& last_triangle  = strip.back();
-
-          auto& stri = app->mesh.triangles[first_triangle];
-          auto& ltri = app->mesh.triangles[last_triangle];
-
-          printf("Root: %d\n", app->mesh.homotopy_basis.root);
-
-          auto start_point = mesh_point{first_triangle,
-              get_uv_from_vertex(stri, app->mesh.homotopy_basis.root)};
-          auto end_point   = mesh_point{last_triangle,
-              get_uv_from_vertex(ltri, app->mesh.homotopy_basis.root)};
-
-          printf("First point %d (%d %d %d) - (%f %f)\n", start_point.face,
-              stri.x, stri.y, stri.z, start_point.uv.x, start_point.uv.y);
-
-          printf("Last point %d (%d %d %d) - (%f %f)\n", end_point.face, ltri.x,
-              ltri.y, ltri.z, end_point.uv.x, end_point.uv.y);
-
-          printf("Strip: %d\n", strip.size());
           auto path = shortest_path(app->mesh.triangles, app->mesh.positions,
               app->mesh.adjacencies, start_point, end_point, strip);
           auto basis_shortest_segments = mesh_segments(app->mesh.triangles,
               path.strip, path.lerps, path.start, path.end);
 
-          auto basis_polygon   = mesh_polygon{};
-          basis_polygon.length = basis_shortest_segments.size();
-          basis_polygon.edges += basis_shortest_segments;
+          // auto basis_polygon   = mesh_polygon{};
+          // basis_polygon.length = basis_shortest_segments.size();
+          // basis_polygon.edges += basis_shortest_segments;
+          // get_polygon_shape(app, basis_polygon, b + 1);
 
-          // auto patch_color = get_color(b + 1);
-          // app->temp_patch  = add_patch_shape(app, strip, patch_color);
-          // app->temp_patch->depth_test = ogl_depth_test::always;
+          // Adjusting strip
+          auto  mid  = (int)path.strip.size() / 2;
+          auto& seg1 = basis_shortest_segments[mid];
+          auto& seg2 = basis_shortest_segments[mid - 1];
 
-          get_polygon_shape(app, basis_polygon, b + 1);
+          auto mp1 = mesh_point{seg1.face, seg1.start};
+          auto mp2 = mesh_point{seg2.face, seg2.end};
+
+          auto strip1 = path.strip;
+          auto mid_id = find_idx(path.strip, mp2.face);
+          rotate(strip1.begin(), strip1.begin() + mid_id, strip1.end());
+
+          printf(
+              "Base: %d - Strip: %d (%d %d) - Start: %d (%f %f) - End: %d (%f %f)\n",
+              b, strip1.size(), strip1.front(), strip.back(), mp1.face,
+              mp1.uv.x, mp1.uv.y, mp2.face, mp2.uv.x, mp2.uv.y);
+
+          auto new_path                    = shortest_path(app->mesh.triangles,
+                                 app->mesh.positions, app->mesh.adjacencies, mp1, mp2, strip1);
+          auto new_basis_shortest_segments = mesh_segments(app->mesh.triangles,
+              new_path.strip, new_path.lerps, new_path.start, new_path.end);
+
+          auto new_basis_polygon   = mesh_polygon{};
+          new_basis_polygon.length = new_basis_shortest_segments.size();
+          new_basis_polygon.edges += new_basis_shortest_segments;
+          get_polygon_shape(app, new_basis_polygon, b + 1);
         }
 
         // for (auto id = 0; id < basis.size(); id++) {
-        //   get_polygon_shape(app, basis[id], id + 2);
+        //   get_polygon_shape(app, basis[id], id + 1);
         // }
       } break;
 

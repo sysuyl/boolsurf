@@ -233,6 +233,14 @@ inline pair<int, float> get_edge_lerp_from_uv(const vec2f& uv) {
   return {-1, -1};
 }
 
+inline bool edge_in_triangle(const vec3i& triangle, const vec2i& edge) {
+  for (auto k = 0; k < 3; k++) {
+    auto& triangle_edge = get_mesh_edge_from_index(triangle, k);
+    if (triangle_edge == edge) return true;
+  }
+  return false;
+}
+
 // inline vec3f get_color(int i) {
 //   static auto colors = vector<vec3f>{
 //       {0.5, 0.5, 0.5},

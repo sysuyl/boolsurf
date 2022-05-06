@@ -394,6 +394,38 @@ vector<int> compute_polygon_word(const vector<pair<int, float>>& isecs,
   return polygon_word;
 }
 
+vector<int> compute_strip_from_basis(const vector<int>& base,
+    const vector<vector<int>>& triangle_rings, const vector<vec3i>& triangles,
+    int root) {
+  auto strip      = vector<int>();
+  auto root_ring  = triangle_rings[root];
+  auto first_edge = vec2i{base[1], base[0]};
+  for (auto& face : root_ring) {
+    auto triangle_verts = triangles[face];
+    if (!edge_in_triangle(triangle_verts, first_edge)) continue;
+    strip.push_back(face);
+    break;
+  }
+
+  for (auto e = 0; e < base.size(); e++) {
+    auto next_edge   = vec2i{base[e], base[(e + 1) % base.size()]};
+    auto vertex_ring = triangle_rings[base[e]];
+
+    auto face_idx = find_idx(vertex_ring, strip.back()) + 1;
+    for (auto f = 0; f < vertex_ring.size(); f++) {
+      auto it         = (face_idx + f) % vertex_ring.size();
+      auto face       = vertex_ring[it];
+      auto face_verts = triangles[face];
+
+      if (edge_in_triangle(face_verts, next_edge)) break;
+      strip.push_back(face);
+    }
+  }
+
+  if (strip.back() == strip.front()) strip.pop_back();
+  return strip;
+}
+
 geodesic_path compute_geodesic_path(
     const bool_mesh& mesh, const mesh_point& start, const mesh_point& end) {
   auto path = geodesic_path{};
