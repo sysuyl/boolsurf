@@ -470,6 +470,21 @@ shade_instance* add_patch_shape(
 // }
 
 shade_instance* get_polygon_shape(
+    app_state* app, const vector<int>& polygon, int index) {
+  auto polygon_shape    = add_shape(app->glscene);
+  auto polygon_material = add_material(app->glscene);
+
+  polygon_material->color = get_color(index);
+
+  auto polygon_instance = add_instance(
+      app->glscene, identity3x4f, polygon_shape, polygon_material);
+
+  set_polygon_shape(
+      polygon_instance, app->mesh, polygon, app->thick_lines, app->line_width);
+  return polygon_instance;
+}
+
+shade_instance* get_polygon_shape(
     app_state* app, const mesh_polygon& polygon, int index) {
   auto polygon_shape    = add_shape(app->glscene);
   auto polygon_material = add_material(app->glscene);

@@ -33,9 +33,10 @@ struct bool_homotopy_basis {
 };
 
 struct bool_mesh : scene_shape {
-  vector<vec3i>        adjacencies = {};
-  dual_geodesic_solver dual_solver = {};
-  bool_borders         borders     = {};
+  vector<vec3i>        adjacencies    = {};
+  vector<vector<int>>  triangle_rings = {};
+  dual_geodesic_solver dual_solver    = {};
+  bool_borders         borders        = {};
 
   shape_bvh                    bvh                = {};
   bbox3f                       bbox               = {};

@@ -1256,7 +1256,7 @@ void key_input(app_state* app, const gui_input& input) {
           // Computes and saves homotopy basis
           auto root = app->mesh.triangles[app->last_clicked_point.face][0];
           if (root == -1) {
-            printf("Clip point on mesh and execute again\n");
+            printf("CliCK point on mesh and execute again\n");
             break;
           }
 
@@ -1316,19 +1316,86 @@ void key_input(app_state* app, const gui_input& input) {
           }
         }
 
-        for (auto b = 0; b < basis.size(); b++) {
-          auto& base = basis[b];
+        auto edge_in_triangle = [](const vec3i& v, const vec2i& edge) {
+          for (auto k = 0; k < 3; k++) {
+            auto& triangle_edge = get_mesh_edge_from_index(v, k);
+            if (triangle_edge == edge) return true;
+          }
+          return false;
+        };
 
-          auto material = add_material(
-              app->glscene, {0, 0, 0}, {1, 1, 1}, 1, 0, 0.4);
-          material->color = get_color(b + 1);
+        for (auto b = 0; b < basis.size(); b++) {
+          auto& base  = basis[b];
+          auto  strip = vector<int>();
+
+          auto root_ring =
+              app->mesh.triangle_rings[app->mesh.homotopy_basis.root];
+          auto first_edge = vec2i{base[1], base[0]};
+          for (auto& face : root_ring) {
+            auto triangle_verts = app->mesh.triangles[face];
+            if (!edge_in_triangle(triangle_verts, first_edge)) continue;
+            strip.push_back(face);
+            break;
+          }
 
           for (auto e = 0; e < base.size(); e++) {
-            auto start = app->mesh.positions[base[e]];
-            auto end   = app->mesh.positions[base[(e + 1) % base.size()]];
-            draw_segment(app->glscene, app->mesh, material, start, end);
+            auto next_edge   = vec2i{base[e], base[(e + 1) % base.size()]};
+            auto vertex_ring = app->mesh.triangle_rings[base[e]];
+
+            auto face_idx = find_idx(vertex_ring, strip.back()) + 1;
+            for (auto f = 0; f < vertex_ring.size(); f++) {
+              auto it         = (face_idx + f) % vertex_ring.size();
+              auto face       = vertex_ring[it];
+              auto face_verts = app->mesh.triangles[face];
+
+              if (edge_in_triangle(face_verts, next_edge)) break;
+              strip.push_back(face);
+            }
           }
+
+          if (strip.back() == strip.front()) strip.pop_back();
+          for (auto& tri : strip) printf("%d ", tri);
+          printf("\n");
+
+          auto& first_triangle = strip.front();
+          auto& last_triangle  = strip.back();
+
+          auto& stri = app->mesh.triangles[first_triangle];
+          auto& ltri = app->mesh.triangles[last_triangle];
+
+          printf("Root: %d\n", app->mesh.homotopy_basis.root);
+
+          auto start_point = mesh_point{first_triangle,
+              get_uv_from_vertex(stri, app->mesh.homotopy_basis.root)};
+          auto end_point   = mesh_point{last_triangle,
+              get_uv_from_vertex(ltri, app->mesh.homotopy_basis.root)};
+
+          printf("First point %d (%d %d %d) - (%f %f)\n", start_point.face,
+              stri.x, stri.y, stri.z, start_point.uv.x, start_point.uv.y);
+
+          printf("Last point %d (%d %d %d) - (%f %f)\n", end_point.face, ltri.x,
+              ltri.y, ltri.z, end_point.uv.x, end_point.uv.y);
+
+          printf("Strip: %d\n", strip.size());
+          auto path = shortest_path(app->mesh.triangles, app->mesh.positions,
+              app->mesh.adjacencies, start_point, end_point, strip);
+          auto basis_shortest_segments = mesh_segments(app->mesh.triangles,
+              path.strip, path.lerps, path.start, path.end);
+
+          auto basis_polygon   = mesh_polygon{};
+          basis_polygon.length = basis_shortest_segments.size();
+          basis_polygon.edges += basis_shortest_segments;
+
+          // auto patch_color = get_color(b + 1);
+          // app->temp_patch  = add_patch_shape(app, strip, patch_color);
+          // app->temp_patch->depth_test = ogl_depth_test::always;
+
+          get_polygon_shape(app, basis_polygon, b + 1);
         }
+
+        // for (auto id = 0; id < basis.size(); id++) {
+        //   get_polygon_shape(app, basis[id], id + 2);
+        // }
       } break;
 
       case (int)gui_key('S'): {

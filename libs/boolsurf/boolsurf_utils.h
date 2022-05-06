@@ -218,6 +218,13 @@ inline vec2i get_edge_from_uv(const vec2f& uv) {
   return {-1, -1};
 };
 
+inline vec2f get_uv_from_vertex(const vec3i& triangle, const int& vertex) {
+  auto nodes = std::array<vec2f, 3>{vec2f{0, 0}, vec2f{1, 0}, vec2f{0, 1}};
+  auto k     = find_in_vec(triangle, vertex);
+  assert(k != -1);
+  return nodes[k];
+};
+
 inline pair<int, float> get_edge_lerp_from_uv(const vec2f& uv) {
   if (uv.y == 0) return {0, uv.x};
   if (uv.x == 0) return {2, 1.0f - uv.y};

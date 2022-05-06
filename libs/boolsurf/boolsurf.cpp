@@ -95,8 +95,10 @@ void init_mesh(bool_mesh& mesh) {
     mesh.quads.clear();
   }
 
-  mesh.normals       = compute_normals(mesh);
-  mesh.adjacencies   = face_adjacencies_fast(mesh.triangles);
+  mesh.normals        = compute_normals(mesh);
+  mesh.adjacencies    = face_adjacencies_fast(mesh.triangles);
+  mesh.triangle_rings = vertex_to_triangles(
+      mesh.triangles, mesh.positions, mesh.adjacencies);
   mesh.num_triangles = (int)mesh.triangles.size();
   mesh.num_positions = (int)mesh.positions.size();
 
@@ -108,8 +110,7 @@ void init_mesh(bool_mesh& mesh) {
   mesh.bbox     = bbox;
   mesh.bbox.min = (mesh.bbox.min - center(bbox)) / max(size(bbox));
   mesh.bbox.max = (mesh.bbox.max - center(bbox)) / max(size(bbox));
-
-  mesh.bvh = make_triangles_bvh(mesh.triangles, mesh.positions, {});
+  mesh.bvh      = make_triangles_bvh(mesh.triangles, mesh.positions, {});
 
   mesh.dual_solver = make_dual_geodesic_solver(
       mesh.triangles, mesh.positions, mesh.adjacencies);
@@ -254,9 +255,6 @@ void compute_homotopy_basis_borders(bool_mesh& mesh) {
 
 vector<int> sort_homotopy_basis_around_vertex(
     const bool_mesh& mesh, const bool_homotopy_basis& basis) {
-  auto adjacent_tris = vertex_to_triangles(
-      mesh.triangles, mesh.positions, mesh.adjacencies);
-
   auto rotate = [](const vec3i& v, int k) {
     if (mod3(k) == 0)
       return v;
@@ -267,7 +265,7 @@ vector<int> sort_homotopy_basis_around_vertex(
   };
 
   auto ordered_basis = vector<int>();
-  for (auto& tri : adjacent_tris[basis.root]) {
+  for (auto& tri : mesh.triangle_rings[basis.root]) {
     auto triangle  = mesh.triangles[tri];
     auto root_idx  = find_in_vec(triangle, basis.root);
     auto rtriangle = rotate(triangle, root_idx);
@@ -392,8 +390,8 @@ vector<int> compute_polygon_word(const vector<pair<int, float>>& isecs,
       current_id = (current_id + 1) % polygonal_schema.size();
     }
     // printf("\n");
-    return polygon_word;
   }
+  return polygon_word;
 }
 
 geodesic_path compute_geodesic_path(

@@ -173,6 +173,17 @@ inline void set_polygon_shape(shade_instance* instance, const bool_mesh& mesh,
   set_shape(instance, shape);
 }
 
+inline void set_polygon_shape(shade_instance* instance, const bool_mesh& mesh,
+    const vector<int>& polygon, bool thick, float line_width) {
+  auto positions = vector<vec3f>();
+  positions.reserve(polygon.size());
+  for (auto& vertex : polygon) positions.push_back(mesh.positions[vertex]);
+  positions.push_back(mesh.positions[polygon.front()]);
+
+  auto shape = make_polygon_shape(mesh, positions, thick, line_width);
+  set_shape(instance, shape);
+}
+
 // inline void set_polygon_shape(shade_scene* scene, const bool_mesh& mesh,
 //     mesh_polygon& polygon, int index) {
 //   if (!polygon.polyline_shape) {
