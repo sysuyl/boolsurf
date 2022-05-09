@@ -399,16 +399,29 @@ vector<int> compute_strip_from_basis(const vector<int>& base,
     int root) {
   auto strip      = vector<int>();
   auto root_ring  = triangle_rings[root];
-  auto first_edge = vec2i{base[1], base[0]};
-  for (auto& face : root_ring) {
-    auto triangle_verts = triangles[face];
-    if (!edge_in_triangle(triangle_verts, first_edge)) continue;
-    strip.push_back(face);
+  auto last_edge  = vec2i{base.back(), base.front()};
+  auto first_edge = vec2i{base[0], base[1]};
+
+  auto first_idx = -1;
+  for (auto f = 0; f < root_ring.size(); f++) {
+    auto triangle_verts = triangles[root_ring[f]];
+    if (!edge_in_triangle(triangle_verts, last_edge)) continue;
+    first_idx = f;
     break;
   }
 
+  first_idx = (first_idx + 1) % root_ring.size();
+  for (auto f = 0; f < root_ring.size(); f++) {
+    auto it         = (first_idx + f) % root_ring.size();
+    auto face       = root_ring[it];
+    auto face_verts = triangles[face];
+
+    if (edge_in_triangle(face_verts, first_edge)) break;
+    strip.push_back(face);
+  }
+
   for (auto e = 0; e < base.size(); e++) {
-    auto next_edge   = vec2i{base[e], base[(e + 1) % base.size()]};
+    auto next_edge = vec2i{base[e % base.size()], base[(e + 1) % base.size()]};
     auto vertex_ring = triangle_rings[base[e]];
 
     auto face_idx = find_idx(vertex_ring, strip.back()) + 1;

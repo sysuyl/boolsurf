@@ -1249,14 +1249,14 @@ void key_input(app_state* app, const gui_input& input) {
         auto root         = -1;
 
         if (path_exists(basefilename)) {
-          printf("Loading: %s", basefilename);
+          printf("Loading: %s\n", basefilename);
           load_homotopy_basis(app->mesh, basefilename);
           root = app->mesh.homotopy_basis.root;
         } else {
           // Computes and saves homotopy basis
           auto root = app->mesh.triangles[app->last_clicked_point.face][0];
           if (root == -1) {
-            printf("CliCK point on mesh and execute again\n");
+            printf("Click point on mesh and execute again\n");
             break;
           }
 
@@ -1309,7 +1309,7 @@ void key_input(app_state* app, const gui_input& input) {
             printf("\n");
           }
 
-          printf("Shape code\n");
+          printf("Shape code: \n");
           for (auto& [code, value] : shape_word) {
             if (value == 0) continue;
             printf("\t%d -> %d\n", code, value);
@@ -1317,6 +1317,7 @@ void key_input(app_state* app, const gui_input& input) {
         }
 
         for (auto b = 0; b < basis.size(); b++) {
+          // if (b != 0) continue;
           auto& base = basis[b];
 
           auto strip = compute_strip_from_basis(
@@ -1332,34 +1333,68 @@ void key_input(app_state* app, const gui_input& input) {
           auto end_point   = mesh_point{last, get_uv_from_vertex(ltri, root)};
 
           auto path = shortest_path(app->mesh.triangles, app->mesh.positions,
-              app->mesh.adjacencies, start_point, end_point, strip);
+              app->mesh.adjacencies, end_point, start_point, strip);
           auto basis_shortest_segments = mesh_segments(app->mesh.triangles,
               path.strip, path.lerps, path.start, path.end);
+
+          // printf(
+          //     "Base: %d - Strip: %d (%d %d) - Start: %d (%f %f) - End: %d (%f
+          //     %f)\n", b, strip.size(), strip.front(), strip.back(),
+          //     start_point.face, start_point.uv.x, start_point.uv.y,
+          //     end_point.face, end_point.uv.x, end_point.uv.y);
 
           // auto basis_polygon   = mesh_polygon{};
           // basis_polygon.length = basis_shortest_segments.size();
           // basis_polygon.edges += basis_shortest_segments;
           // get_polygon_shape(app, basis_polygon, b + 1);
 
+          // auto patch_color = get_color(b + 1);
+          // app->temp_patch  = add_patch_shape(app, strip, patch_color);
+          // app->temp_patch->depth_test = ogl_depth_test::always;
+
           // Adjusting strip
-          auto  mid  = (int)path.strip.size() / 2;
-          auto& seg1 = basis_shortest_segments[mid];
-          auto& seg2 = basis_shortest_segments[mid - 1];
+          auto mid      = (int)path.strip.size() / 2;
+          auto mid_face = path.strip[mid];
 
-          auto mp1 = mesh_point{seg1.face, seg1.start};
-          auto mp2 = mesh_point{seg2.face, seg2.end};
+          auto k = find_adjacent_triangle(app->mesh.triangles[path.strip[mid]],
+              app->mesh.triangles[path.strip[mid + 1]]);
 
-          auto strip1 = path.strip;
-          auto mid_id = find_idx(path.strip, mp2.face);
-          rotate(strip1.begin(), strip1.begin() + mid_id, strip1.end());
+          auto [aa, bb] = get_triangle_uv_from_index(k);
+          auto mid_uv   = lerp(aa, bb, path.lerps[mid]);
+
+          auto kk = find_adjacent_triangle(
+              app->mesh.triangles[path.strip[mid + 1]],
+              app->mesh.triangles[path.strip[mid]]);
+          auto [cc, dd] = get_triangle_uv_from_index(kk);
+          auto mid_uv1  = lerp(cc, dd, 1 - path.lerps[mid]);
+
+          auto mp1 = mesh_point{mid_face, mid_uv};
+          auto mp2 = mesh_point{path.strip[mid + 1], mid_uv1};
+
+          // draw_mesh_point(
+          //     app->glscene, app->mesh, app->materials.blue, mp1, 0.0015f);
+          // draw_mesh_point(
+          //     app->glscene, app->mesh, app->materials.blue, mp2, 0.0015f);
+
+          auto strip1    = path.strip;
+          auto start_idx = find_idx(strip1, mp1.face);
+          rotate(strip1.begin(), strip1.begin() + start_idx + 1, strip1.end());
+
+          // auto end_idx   = find_idx(path.strip, mp2.face);
+
+          // for (auto ii = 0; ii < path.strip.size(); ii++) {
+          //   auto idx   = (ii + end_idx) % path.strip.size();
+          //   strip1[ii] = path.strip[idx];
+          // }
 
           printf(
               "Base: %d - Strip: %d (%d %d) - Start: %d (%f %f) - End: %d (%f %f)\n",
-              b, strip1.size(), strip1.front(), strip.back(), mp1.face,
+              b, strip1.size(), strip1.front(), strip1.back(), mp1.face,
               mp1.uv.x, mp1.uv.y, mp2.face, mp2.uv.x, mp2.uv.y);
 
-          auto new_path                    = shortest_path(app->mesh.triangles,
-                                 app->mesh.positions, app->mesh.adjacencies, mp1, mp2, strip1);
+          auto new_path = shortest_path(app->mesh.triangles,
+              app->mesh.positions, app->mesh.adjacencies, mp2, mp1, strip1);
+          printf("Path size: %d\n", new_path.strip.size());
           auto new_basis_shortest_segments = mesh_segments(app->mesh.triangles,
               new_path.strip, new_path.lerps, new_path.start, new_path.end);
 
