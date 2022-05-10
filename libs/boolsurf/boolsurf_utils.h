@@ -219,7 +219,7 @@ inline vec2i get_edge_from_uv(const vec2f& uv) {
 };
 
 inline vec2f get_uv_from_vertex(const vec3i& triangle, const int& vertex) {
-  auto nodes = std::array<vec2f, 3>{vec2f{0, 0}, vec2f{1, 0}, vec2f{0, 1}};
+  auto nodes = vector<vec2f>{{0, 0}, {1, 0}, {0, 1}};
   auto k     = find_in_vec(triangle, vertex);
   assert(k != -1);
   return nodes[k];

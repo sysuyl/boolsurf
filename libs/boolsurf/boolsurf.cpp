@@ -436,6 +436,10 @@ vector<int> compute_strip_from_basis(const vector<int>& base,
   }
 
   if (strip.back() == strip.front()) strip.pop_back();
+
+  while (!contains(root_ring, strip.back()))
+    rotate(strip.begin(), strip.begin() + 1, strip.end());
+
   return strip;
 }
 
