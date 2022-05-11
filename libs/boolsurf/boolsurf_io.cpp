@@ -369,7 +369,7 @@ scene_shape create_polygon_shape(
 
 scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
     const scene_camera& camera, bool color_shapes, bool color_hashgrid,
-    bool save_edges, bool save_polygons, float line_width,
+    bool save_edges, bool save_polygons, bool save_generators, float line_width,
     const vector<vec3f>& cell_colors) {
   auto scene = scene_model{};
   scene.cameras.push_back(camera);
@@ -468,7 +468,19 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
     }
   }
 
-  if (!state.bool_shapes.size()) {
+  printf("Shapes: %d\n", state.bool_shapes.size());
+  auto no_polygons = true;
+  for (auto& shape : state.bool_shapes) {
+    for (auto& polygon : shape.polygons) {
+      if (polygon.length != 0) {
+        no_polygons = true;
+        break;
+      }
+    }
+  }
+
+  if (no_polygons) {
+    printf("Saving mesh\n");
     auto& instance    = scene.instances.emplace_back();
     instance.material = (int)scene.materials.size();
 
@@ -518,6 +530,39 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
         auto shape = create_polygon_shape(positions, line_width);
         scene.shapes.push_back(shape);
       }
+    }
+  }
+
+  if (save_generators) {
+    for (int s = 0; s < mesh.homotopy_basis.smooth_basis.size(); s++) {
+      auto& smooth_base = mesh.homotopy_basis.smooth_basis[s];
+
+      auto positions = vector<vec3f>();
+      positions.reserve(smooth_base.length + 1);
+
+      for (auto& edge : smooth_base.edges) {
+        for (auto& segment : edge) {
+          positions.push_back(
+              eval_position(mesh, {segment.face, segment.start}));
+        }
+      }
+
+      if (smooth_base.edges.size() && smooth_base.edges.back().size()) {
+        auto& segment = smooth_base.edges.back().back();
+        positions.push_back(eval_position(mesh, {segment.face, segment.end}));
+      }
+
+      if (positions.empty()) continue;
+
+      auto& instance    = scene.instances.emplace_back();
+      instance.material = (int)scene.materials.size();
+      auto& material    = scene.materials.emplace_back();
+      material.color    = get_color(s);
+      material.type     = scene_material_type::matte;
+      instance.shape    = (int)scene.shapes.size();
+
+      auto shape = create_polygon_shape(positions, line_width);
+      scene.shapes.push_back(shape);
     }
   }
 

@@ -34,10 +34,11 @@ struct test_stats {
 
 void save_image(const string& output_image_filename, const bool_mesh& mesh,
     const bool_state& state, const scene_camera& camera, bool color_shapes,
-    bool save_edges, bool save_polygons, float line_width, int spp) {
+    bool save_edges, bool save_polygons, bool save_generators, float line_width,
+    int spp) {
   if (output_image_filename == "no-output") return;
   auto scene = make_scene(mesh, state, camera, color_shapes, false, save_edges,
-      save_polygons, line_width);
+      save_polygons, save_generators, line_width);
 
   auto params    = trace_params{};
   auto error     = string{};
@@ -108,16 +109,18 @@ int main(int num_args, const char* args[]) {
   auto output_json_filename  = ""s;
   auto output_obj_filename   = ""s;
 
-  auto spp            = 4;
-  auto model_filename = ""s;
-  auto svg_filename   = ""s;
-  auto svg_subdivs    = 2;
-  auto drawing_size   = 0.01f;
-  auto color_shapes   = false;
-  auto save_edges     = false;
-  auto save_polygons  = false;
-  auto line_width     = 0.003f;
-  auto num_tests      = 1;
+  auto spp             = 4;
+  auto model_filename  = ""s;
+  auto svg_filename    = ""s;
+  auto svg_subdivs     = 2;
+  auto drawing_size    = 0.01f;
+  auto color_shapes    = false;
+  auto save_edges      = false;
+  auto save_polygons   = false;
+  auto save_generators = false;
+
+  auto line_width = 0.003f;
+  auto num_tests  = 1;
 
   auto stats_filename = ""s;
   auto append_stats   = false;
@@ -145,6 +148,8 @@ int main(int num_args, const char* args[]) {
   add_option(cli, "color-shapes", color_shapes, "Color shapes.");
   add_option(cli, "save-edges", save_edges, "Save mesh edges in scene.");
   add_option(cli, "save-polygons", save_polygons, "Save polygons in scene.");
+  add_option(
+      cli, "save-generators", save_generators, "Save polygons in scene.");
 
   add_option(cli, "stats", stats_filename, "output stats");
   add_option(cli, "append-stats", append_stats, "append statistics");
@@ -294,7 +299,7 @@ int main(int num_args, const char* args[]) {
   auto scene = scene_model{};
   if (output_scene_filename.size() || output_image_filename.size()) {
     scene = make_scene(mesh, state, test.camera, color_shapes, false,
-        save_edges, save_polygons, line_width);
+        save_edges, save_polygons, save_generators, line_width);
   }
 
   if (output_scene_filename.size()) {
@@ -311,7 +316,7 @@ int main(int num_args, const char* args[]) {
   // Saving render and cell adjacency graph
   if (output_image_filename.size()) {
     save_image(output_image_filename, mesh, state, test.camera, color_shapes,
-        save_edges, save_polygons, line_width, spp);
+        save_edges, save_polygons, save_generators, line_width, spp);
   }
 
   // auto graph_dir      = path_dirname(output_image_filename);

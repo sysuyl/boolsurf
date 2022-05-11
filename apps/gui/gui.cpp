@@ -429,7 +429,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
     // Saving output scene
     auto scene = make_scene(app->mesh, app->state, app->camera,
         app->color_shapes, app->color_hashgrid, app->save_edges,
-        app->save_polygons, app->line_width, {});
+        app->save_polygons, app->save_generators, app->line_width, {});
 
     // auto scene = make_debug_scene(app->mesh, app->state, app->camera);
     save_scene(path_join(scene_filename, "scene.json"), scene, error);
@@ -463,6 +463,12 @@ void draw_widgets(app_state* app, const gui_input& input) {
       }
 
       // if (app->show_polygons) update_polygons(app);
+    }
+
+    if (draw_checkbox(widgets, "generators", app->show_generators)) {
+      for (auto& inst : app->generators_shapes) {
+        inst->hidden = !app->show_generators;
+      }
     }
 
     // if (draw_checkbox(widgets, "arrows", app->show_arrows)) {
@@ -1338,43 +1344,64 @@ void key_input(app_state* app, const gui_input& input) {
               path.strip, path.lerps, path.start, path.end);
 
           // Adjusting strip
-          auto smooth_path = path;
-          for (auto t = 0; t < 3; t++) {
-            auto mid      = (int)smooth_path.strip.size() / 2;
-            auto mid_face = smooth_path.strip[mid];
+          if (!app->smooth_generators) {
+            auto smooth_base_polygon = mesh_polygon{};
+            smooth_base_polygon.edges += basis_shortest_segments;
+            smooth_base_polygon.length = basis_shortest_segments.size();
 
-            auto k = find_adjacent_triangle(
-                app->mesh.triangles[smooth_path.strip[mid]],
-                app->mesh.triangles[smooth_path.strip[mid + 1]]);
+            app->mesh.homotopy_basis.smooth_basis.push_back(
+                smooth_base_polygon);
+            auto base_shape = get_polygon_shape(
+                app, smooth_base_polygon, b + 1);
+            app->generators_shapes.push_back(base_shape);
 
-            auto [aa, bb] = get_triangle_uv_from_index(k);
-            auto mid_uv   = lerp(aa, bb, smooth_path.lerps[mid]);
+          } else {
+            auto smooth_path = path;
 
-            auto kk = find_adjacent_triangle(
-                app->mesh.triangles[smooth_path.strip[mid + 1]],
-                app->mesh.triangles[smooth_path.strip[mid]]);
-            auto [cc, dd] = get_triangle_uv_from_index(kk);
-            auto mid_uv1  = lerp(cc, dd, 1 - smooth_path.lerps[mid]);
+            for (auto t = 0; t < 3; t++) {
+              auto mid      = (int)smooth_path.strip.size() / 2;
+              auto mid_face = smooth_path.strip[mid];
 
-            auto mp1 = mesh_point{mid_face, mid_uv};
-            auto mp2 = mesh_point{smooth_path.strip[mid + 1], mid_uv1};
+              auto k = find_adjacent_triangle(
+                  app->mesh.triangles[smooth_path.strip[mid]],
+                  app->mesh.triangles[smooth_path.strip[mid + 1]]);
 
-            auto& strip1    = smooth_path.strip;
-            auto  start_idx = find_idx(strip1, mp1.face);
-            rotate(
-                strip1.begin(), strip1.begin() + start_idx + 1, strip1.end());
+              auto [aa, bb] = get_triangle_uv_from_index(k);
+              auto mid_uv   = lerp(aa, bb, smooth_path.lerps[mid]);
 
-            smooth_path = shortest_path(app->mesh.triangles,
-                app->mesh.positions, app->mesh.adjacencies, mp2, mp1, strip1);
+              auto kk = find_adjacent_triangle(
+                  app->mesh.triangles[smooth_path.strip[mid + 1]],
+                  app->mesh.triangles[smooth_path.strip[mid]]);
+              auto [cc, dd] = get_triangle_uv_from_index(kk);
+              auto mid_uv1  = lerp(cc, dd, 1 - smooth_path.lerps[mid]);
+
+              auto mp1 = mesh_point{mid_face, mid_uv};
+              auto mp2 = mesh_point{smooth_path.strip[mid + 1], mid_uv1};
+
+              auto& strip1    = smooth_path.strip;
+              auto  start_idx = find_idx(strip1, mp1.face);
+              rotate(
+                  strip1.begin(), strip1.begin() + start_idx + 1, strip1.end());
+
+              smooth_path = shortest_path(app->mesh.triangles,
+                  app->mesh.positions, app->mesh.adjacencies, mp2, mp1, strip1);
+            }
+
+            auto basis_shortest_segments = mesh_segments(app->mesh.triangles,
+                smooth_path.strip, smooth_path.lerps, smooth_path.start,
+                smooth_path.end);
+
+            auto smooth_base_polygon = mesh_polygon{};
+            smooth_base_polygon.edges += basis_shortest_segments;
+            smooth_base_polygon.length = basis_shortest_segments.size();
+
+            app->mesh.homotopy_basis.smooth_basis.push_back(
+                smooth_base_polygon);
+
+            auto base_shape = get_polygon_shape(
+                app, smooth_base_polygon, b + 1);
+            app->generators_shapes.push_back(base_shape);
           }
-          auto new_basis_shortest_segments = mesh_segments(app->mesh.triangles,
-              smooth_path.strip, smooth_path.lerps, smooth_path.start,
-              smooth_path.end);
-
-          auto new_basis_polygon   = mesh_polygon{};
-          new_basis_polygon.length = new_basis_shortest_segments.size();
-          new_basis_polygon.edges += new_basis_shortest_segments;
-          get_polygon_shape(app, new_basis_polygon, b + 1);
         }
 
         // for (auto id = 0; id < basis.size(); id++) {
@@ -1545,7 +1572,10 @@ int main(int argc, const char* argv[]) {
   add_option(cli, "save-edges", app->save_edges, "Save mesh edges in scene.");
   add_option(
       cli, "save-polygons", app->save_polygons, "Save polygons in scene.");
-
+  add_option(cli, "save-generators", app->save_generators,
+      "Save generators in scene.");
+  add_option(
+      cli, "smooth-generators", app->smooth_generators, "Smooths generators.");
   add_option(cli, "color-hashgrid", app->color_hashgrid, "Color hashgrid.");
   add_option(cli, "output-test", app->output_test_filename, "Output test.");
 

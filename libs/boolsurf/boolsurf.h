@@ -26,10 +26,29 @@ struct facet {
   int                  id      = -1;
 };
 
+struct mesh_segment {
+  vec2f start = {};
+  vec2f end   = {};
+  int   face  = -1;
+};
+
+struct shade_instance;
+
+struct mesh_polygon {
+  vector<int>                  points = {};
+  vector<vector<mesh_segment>> edges  = {};
+  int                          length = 0;
+
+  bool is_contained_in_single_face = false;
+  bool is_closed                   = true;
+};
+
 struct bool_homotopy_basis {
   int                 root    = -1;
   vector<vector<int>> basis   = {};
   vector<float>       lengths = {};
+
+  vector<mesh_polygon> smooth_basis = {};
 };
 
 struct bool_mesh : scene_shape {
@@ -50,23 +69,6 @@ struct bool_mesh : scene_shape {
   bool_homotopy_basis               homotopy_basis         = {};
   hash_map<vec2i, pair<int, float>> homotopy_basis_borders = {};
   vector<int>                       face_tags              = {};
-};
-
-struct mesh_segment {
-  vec2f start = {};
-  vec2f end   = {};
-  int   face  = -1;
-};
-
-struct shade_instance;
-
-struct mesh_polygon {
-  vector<int>                  points = {};
-  vector<vector<mesh_segment>> edges  = {};
-  int                          length = 0;
-
-  bool is_contained_in_single_face = false;
-  bool is_closed                   = true;
 };
 
 struct shape {

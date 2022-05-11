@@ -38,12 +38,15 @@ struct app_state {
   bool  thick_lines = false;
   float line_width  = 0.003f;
 
-  bool color_shapes  = false;
-  bool save_edges    = false;
-  bool save_polygons = false;
+  bool color_shapes      = false;
+  bool save_edges        = false;
+  bool save_polygons     = false;
+  bool save_generators   = false;
+  bool smooth_generators = false;
 
-  bool color_hashgrid = false;
-  bool show_polygons  = true;
+  bool color_hashgrid  = false;
+  bool show_polygons   = true;
+  bool show_generators = true;
   // bool         show_arrows    = false;
   bool         use_projection = false;
   scene_camera camera         = {};
@@ -58,9 +61,9 @@ struct app_state {
   bool_state state = {};
 
   // TODO (marzia): è ridicolo, cambialo!
-  vector<bool_shape_shape> shape_shapes = {};
-
-  vector<shade_instance*> cell_shapes = {};
+  vector<bool_shape_shape> shape_shapes      = {};
+  vector<shade_instance*>  generators_shapes = {};
+  vector<shade_instance*>  cell_shapes       = {};
   // vector<shade_instance*> polygon_shapes = {};
   // vector<shade_instance*> arrow_shapes        = {};
   shade_instance*         hashgrid_shape      = nullptr;
