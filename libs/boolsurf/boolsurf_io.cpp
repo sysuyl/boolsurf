@@ -557,7 +557,7 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
       auto& instance    = scene.instances.emplace_back();
       instance.material = (int)scene.materials.size();
       auto& material    = scene.materials.emplace_back();
-      material.color    = get_color(s + 1);
+      material.color    = {1.0, 0.5, 0.0};
       material.type     = scene_material_type::matte;
       instance.shape    = (int)scene.shapes.size();
 

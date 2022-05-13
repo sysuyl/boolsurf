@@ -333,7 +333,7 @@ void load_shape(app_state* app, const string& filename) {
 
     for (auto b = 0; b < app->mesh.homotopy_basis.smooth_basis.size(); b++) {
       auto& smooth_base = app->mesh.homotopy_basis.smooth_basis[b];
-      auto  base_shape  = get_polygon_shape(app, smooth_base, b + 1);
+      auto  base_shape  = get_polygon_shape(app, smooth_base, 13);
       app->generators_shapes.push_back(base_shape);
     }
   }
