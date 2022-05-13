@@ -1267,11 +1267,12 @@ void key_input(app_state* app, const gui_input& input) {
         for (auto b : polygonal_schema) printf("%d ", b);
         printf("\n");
 
-        auto shapes_words = vector<hash_map<int, int>>();
+        auto shapes_words = vector<vector<int>>();
         for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
           auto& shape = app->state.bool_shapes[s];
           if (shape.polygons.size() == 0) continue;
-          auto shape_word = hash_map<int, int>();
+          auto shape_word = vector<int>(
+              app->mesh.homotopy_basis.basis.size() + 1, 0);
 
           for (auto p = 0; p < shape.polygons.size(); p++) {
             auto& polygon = shape.polygons[p];
@@ -1295,9 +1296,9 @@ void key_input(app_state* app, const gui_input& input) {
           }
 
           printf("Shape code: \n");
-          for (auto& [code, value] : shape_word) {
-            if (value == 0) continue;
-            printf("\t%d -> %d\n", code, value);
+          for (auto c = 1; c < shape_word.size(); c++) {
+            if (shape_word[c] == 0) continue;
+            printf("\t%d -> %d\n", c, shape_word[c]);
           }
           shapes_words.push_back(shape_word);
         }
@@ -1308,12 +1309,12 @@ void key_input(app_state* app, const gui_input& input) {
 
         for (auto b = 0; b < shapes_words.size(); b++) {
           auto& shape_word = shapes_words[b];
-          for (auto& [code, value] : shape_word) {
-            if (value == 0) continue;
+          for (auto c = 1; c < shape_word.size(); c++) {
+            if (shape_word[c] == 0) continue;
 
-            auto& gen_polygon = app->mesh.homotopy_basis.smooth_basis[code - 1];
+            auto& gen_polygon = app->mesh.homotopy_basis.smooth_basis[c - 1];
             auto  generator_curve = vectorize_generator_loop(
-                 app->state, gen_polygon, value);
+                 app->state, gen_polygon, shape_word[c]);
 
             recompute_polygon_segments(app->mesh, app->state, generator_curve);
             app->state.bool_shapes[b].polygons.push_back(generator_curve);
