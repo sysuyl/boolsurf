@@ -296,7 +296,7 @@ vector<mesh_polygon> smooth_homotopy_basis(
         mesh.triangles, path.strip, path.lerps, path.start, path.end);
 
     auto& smooth_base_polygon = smooth_basis.emplace_back();
-    smooth_base_polygon.edges += basis_shortest_segments;
+    smooth_base_polygon.edges.push_back(basis_shortest_segments);
     smooth_base_polygon.length = basis_shortest_segments.size();
   }
   return smooth_basis;
@@ -470,8 +470,9 @@ mesh_polygon vectorize_generator_loop(
   auto generator_curve      = mesh_polygon{};
   generator_curve.is_closed = true;
 
-  auto num_curves = 10;
+  auto num_curves = 5;
   auto interval   = (int)(generator_loop.length / (num_curves * 3));
+
   for (auto e = 0; e < generator_loop.edges.size(); e++) {
     for (auto s = 0; s < generator_loop.edges[e].size(); s += interval) {
       auto& segment       = generator_loop.edges[e][s];

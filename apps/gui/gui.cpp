@@ -222,16 +222,14 @@ void commit_updates(app_state* app) {
   }
 }
 
-void do_things(app_state* app) {
-  // Cleaning input shapes (?)
-  for (auto s = 1; s < app->state.bool_shapes.size(); s++) {
-    auto& shape = app->state.bool_shapes[s];
+void clean_input_shapes(bool_state& state) {
+  for (auto s = 1; s < state.bool_shapes.size(); s++) {
+    auto& shape = state.bool_shapes[s];
     for (int p = shape.polygons.size() - 1; p >= 0; p--) {
       auto& polygon = shape.polygons[p];
 
       if (!polygon.points.size()) {
         shape.polygons.erase(shape.polygons.begin() + p);
-        printf("Removed void polygon\n");
         continue;
       }
 
@@ -240,18 +238,80 @@ void do_things(app_state* app) {
 
         if (!edge.size()) {
           polygon.edges.erase(polygon.edges.begin() + e);
-          printf("Removed void edge\n");
         }
       }
     }
-
-    // if (!shape.polygons.size()) {
-    //   remove(
-    //       app->state.bool_shapes.begin(), app->state.bool_shapes.end(),
-    //       shape);
-    //   printf("Removed void shape\n");
-    // }
   }
+}
+
+vector<vector<vector<int>>> compute_shapes_words(app_state* app) {
+  // printf("Basis dimention! %d\n",
+  // app->mesh.homotopy_basis.basis.size());
+  auto& basis     = app->mesh.homotopy_basis.basis;
+  auto  num_basis = basis.size();
+  auto& root      = app->mesh.homotopy_basis.root;
+
+  compute_homotopy_basis_borders(app->mesh);
+  auto ordered_basis = sort_homotopy_basis_around_vertex(
+      app->mesh, app->mesh.homotopy_basis);
+
+  printf("Loops around root (ccw): ");
+  for (auto b : ordered_basis) printf("%d ", b);
+  printf("\n");
+
+  auto polygonal_schema = compute_polygonal_schema(ordered_basis);
+  printf("Polygonal schema (cw): ");
+  for (auto b : polygonal_schema) printf("%d ", b);
+  printf("\n");
+
+  auto shapes_words = vector<vector<vector<int>>>();
+  for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
+    auto& shape = app->state.bool_shapes[s];
+    if (shape.polygons.size() == 0) continue;
+    auto& shape_word = shapes_words.emplace_back();
+
+    for (auto p = 0; p < shape.polygons.size(); p++) {
+      auto& polygon = shape.polygons[p];
+      auto  isecs   = compute_polygon_basis_intersections(polygon, app->mesh);
+
+      // Sliding intersection points to polygonal schema vertices
+      for (auto& [base_id, distance] : isecs) {
+        distance /= app->mesh.homotopy_basis.lengths[(abs(base_id) - 1)];
+        distance = (distance > 0.5) ? 1.0 : 0.0;
+      }
+
+      auto polygon_word = compute_polygon_word(isecs, polygonal_schema);
+      shape_word.push_back(polygon_word);
+
+      // printf("Polygon code: ");
+      // for (auto& code : polygon_word) {
+      //   printf("%d ", code);
+      // }
+      // printf("\n");
+    }
+  }
+
+  for (auto s = 0; s < shapes_words.size(); s++) {
+    auto reduced = vector<int>(num_basis + 1, 0);
+    for (auto p = 0; p < shapes_words[s].size(); p++) {
+      for (auto c = 0; c < shapes_words[s][p].size(); c++) {
+        auto& code = shapes_words[s][p][c];
+        reduced[abs(code)] += sign(code);
+      }
+    }
+    printf("Reduced code: \n");
+    for (auto c = 1; c < reduced.size(); c++) {
+      if (reduced[c] == 0) continue;
+      printf("\t%d -> %d\n", c, reduced[c]);
+    }
+  }
+
+  return shapes_words;
+}
+
+void do_things(app_state* app) {
+  // Cleaning input shapes (?)
+  clean_input_shapes(app->state);
 
   debug_triangles().clear();
   debug_nodes().clear();
@@ -260,41 +320,42 @@ void do_things(app_state* app) {
   compute_cells(app->mesh, app->state);
 
   if (app->state.invalid_shapes.size()) {
-    for (auto s : app->state.invalid_shapes) {
-      printf("Invalid shape: %d\n", s);
-      auto& shape              = app->state.bool_shapes[s];
-      auto  num_shape_polygons = shape.polygons.size();
-
-      auto parallel_polygons = vector<mesh_polygon>{};
-      for (auto p = 0; p < num_shape_polygons; p++) {
-        auto is_valid = check_polygon_validity(app->mesh, s, p);
-        if (!is_valid) {
-          printf("Invalid polygon: %d\n", p);
-          auto parallel_points = compute_parallel_loop(
-              app->mesh_original, shape.polygons[p]);
-
-          auto& parallel_polygon = parallel_polygons.emplace_back();
-          for (auto& point : parallel_points) {
-            parallel_polygon.points.push_back((int)app->state.points.size());
-            app->state.points.push_back(point);
-          }
-        }
-      }
-
-      shape.polygons += parallel_polygons;
-    }
-
-    app->state.invalid_shapes.clear();
-    app->mesh = app->mesh_original;
-    app->shape_shapes.clear();
-    for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
-      auto& shape = app->state.bool_shapes[s];
-      for (auto p = 0; p < shape.polygons.size(); p++)
-        recompute_polygon_segments(app->mesh, app->state, shape.polygons[p]);
-
-      add_shape_shape(app, s);
-    }
     return;
+    // for (auto s : app->state.invalid_shapes) {
+    //   printf("Invalid shape: %d\n", s);
+    //   auto& shape              = app->state.bool_shapes[s];
+    //   auto  num_shape_polygons = shape.polygons.size();
+
+    //   auto parallel_polygons = vector<mesh_polygon>{};
+    //   for (auto p = 0; p < num_shape_polygons; p++) {
+    //     auto is_valid = check_polygon_validity(app->mesh, s, p);
+    //     if (!is_valid) {
+    //       printf("Invalid polygon: %d\n", p);
+    //       auto parallel_points = compute_parallel_loop(
+    //           app->mesh_original, shape.polygons[p]);
+
+    //       auto& parallel_polygon = parallel_polygons.emplace_back();
+    //       for (auto& point : parallel_points) {
+    //         parallel_polygon.points.push_back((int)app->state.points.size());
+    //         app->state.points.push_back(point);
+    //       }
+    //     }
+    //   }
+
+    //   shape.polygons += parallel_polygons;
+    // }
+
+    // app->state.invalid_shapes.clear();
+    // app->mesh = app->mesh_original;
+    // app->shape_shapes.clear();
+    // for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
+    //   auto& shape = app->state.bool_shapes[s];
+    //   for (auto p = 0; p < shape.polygons.size(); p++)
+    //     recompute_polygon_segments(app->mesh, app->state, shape.polygons[p]);
+
+    //   add_shape_shape(app, s);
+    // }
+    // return;
   }
 
   // #ifdef MY_DEBUG
@@ -796,6 +857,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
       auto modelname = path_basename(app->model_filename);
       save_homotopy_basis(app->mesh, app->model_filename);
     }
+    end_header(widgets);
   }
 
   if (begin_header(widgets, "Clipping")) {
@@ -1018,8 +1080,80 @@ void draw_widgets(app_state* app, const gui_input& input) {
     commit_updates(app);
   }
 
-  if (draw_button(widgets, "Execute")) {
-    do_things(app);
+  if (begin_header(widgets, "Boolsurf solve")) {
+    if (draw_button(widgets, "Execute")) {
+      do_things(app);
+    }
+
+    auto invalid_shapes = vector<int>(
+        app->state.invalid_shapes.begin(), app->state.invalid_shapes.end());
+    if (invalid_shapes.size()) {
+      auto callback1 = [&](int i) { return std::to_string(invalid_shapes[i]); };
+      draw_combobox(widgets, "Invalid shapes", app->selected_shape,
+          (int)invalid_shapes.size(), callback1);
+
+      auto strategies = vector<string>{
+          "Duplicate loop", "Add missing generators"};
+      auto callback2 = [&](int i) { return strategies[i]; };
+      draw_combobox(widgets, "Strategy", app->selected_strategy,
+          (int)strategies.size(), callback2);
+
+      if (draw_button(widgets, "Solve")) {
+        auto  s            = invalid_shapes[app->selected_shape];
+        auto& shape        = app->state.bool_shapes[s];
+        auto  shapes_words = compute_shapes_words(app);
+        auto& shape_words  = shapes_words[s];
+
+        auto num_shape_polygons = shape.polygons.size();
+        auto num_basis          = app->mesh.homotopy_basis.basis.size();
+
+        for (auto p = 0; p < shape_words.size(); p++) {
+          auto& polygon_word = shape_words[p];
+          auto  coefs        = vector<int>(num_basis + 1, 0);
+          for (auto& code : polygon_word) coefs[abs(code)] += sign(code);
+
+          if (count(coefs.begin(), coefs.end(), 0) == num_basis + 1) continue;
+
+          if (app->selected_strategy == 0) {
+            // Duplicate loop
+            auto parallel_points = compute_parallel_loop(
+                app->mesh_original, shape.polygons[p]);
+
+            auto& parallel_polygon = shape.polygons.emplace_back();
+            for (auto& point : parallel_points) {
+              parallel_polygon.points.push_back((int)app->state.points.size());
+              app->state.points.push_back(point);
+            }
+
+          } else if (app->selected_strategy == 1) {
+            // Add missing generators
+            for (auto c = 1; c < coefs.size(); c++) {
+              if (coefs[c] == 0) continue;
+
+              auto& gen_polygon = app->mesh.homotopy_basis.smooth_basis[c - 1];
+              auto  generator_curve = vectorize_generator_loop(
+                   app->state, gen_polygon, coefs[c]);
+              shape.polygons += generator_curve;
+            }
+          }
+        }
+
+        app->state.invalid_shapes.clear();
+        app->mesh = app->mesh_original;
+        app->shape_shapes.clear();
+
+        for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
+          auto& shape = app->state.bool_shapes[s];
+          for (auto p = 0; p < shape.polygons.size(); p++)
+            recompute_polygon_segments(
+                app->mesh, app->state, shape.polygons[p]);
+          add_shape_shape(app, s);
+        }
+
+        do_things(app);
+      }
+    }
+    end_header(widgets);
   }
 
   // continue_line(widgets);
@@ -1037,7 +1171,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
   //   auto& mesh = app->mesh;
 
   //   for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
-  //     for (auto p = 0; p < app->state.bool_shapes[s].polygons.size(); p++)
+  //     for (auto p = 0; p < app->state.bool_shapes[s].polygons.size();
+  //     p++)
   //     {
   //       auto& polygon        = app->state.bool_shapes[s].polygons[p];
   //       auto  control_points = vector<mesh_point>{};
@@ -1045,7 +1180,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
   //         auto point = app->state.points[polygon.points[i]];
   //         control_points += point;
   //       }
-  //       auto bezier = compute_bezier_path(mesh.dual_solver, mesh.triangles,
+  //       auto bezier = compute_bezier_path(mesh.dual_solver,
+  //       mesh.triangles,
   //           mesh.positions, mesh.adjacencies, control_points, 4);
   //       polygon.points.resize(bezier.size());
   //       for (int i = 0; i < bezier.size(); i++)
@@ -1249,78 +1385,34 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key('H'): {
-        // printf("Basis dimention! %d\n",
-        // app->mesh.homotopy_basis.basis.size());
-        auto& basis = app->mesh.homotopy_basis.basis;
-        auto& root  = app->mesh.homotopy_basis.root;
-
-        compute_homotopy_basis_borders(app->mesh);
-        auto ordered_basis = sort_homotopy_basis_around_vertex(
-            app->mesh, app->mesh.homotopy_basis);
-
-        printf("Loops around root (ccw): ");
-        for (auto b : ordered_basis) printf("%d ", b);
-        printf("\n");
-
-        auto polygonal_schema = compute_polygonal_schema(ordered_basis);
-        printf("Polygonal schema (cw): ");
-        for (auto b : polygonal_schema) printf("%d ", b);
-        printf("\n");
-
-        auto shapes_words = vector<vector<int>>();
-        for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
-          auto& shape = app->state.bool_shapes[s];
-          if (shape.polygons.size() == 0) continue;
-          auto shape_word = vector<int>(
-              app->mesh.homotopy_basis.basis.size() + 1, 0);
-
-          for (auto p = 0; p < shape.polygons.size(); p++) {
-            auto& polygon = shape.polygons[p];
-            auto  isecs   = compute_polygon_basis_intersections(
-                   polygon, app->mesh);
-
-            // Sliding intersection points to polygonal schema vertices
-            for (auto& [base_id, distance] : isecs) {
-              distance /= app->mesh.homotopy_basis.lengths[(abs(base_id) - 1)];
-              distance = (distance > 0.5) ? 1.0 : 0.0;
-            }
-
-            auto polygon_word = compute_polygon_word(isecs, polygonal_schema);
-
-            printf("Polygon code: ");
-            for (auto& code : polygon_word) {
-              shape_word[abs(code)] += sign(code);
-              printf("%d ", code);
-            }
-            printf("\n");
-          }
-
-          printf("Shape code: \n");
-          for (auto c = 1; c < shape_word.size(); c++) {
-            if (shape_word[c] == 0) continue;
-            printf("\t%d -> %d\n", c, shape_word[c]);
-          }
-          shapes_words.push_back(shape_word);
-        }
+        auto num_basis    = app->mesh.homotopy_basis.basis.size();
+        auto shapes_words = compute_shapes_words(app);
 
         for (auto& gen_shape : app->generators_shapes) {
           gen_shape->hidden = true;
         }
 
-        for (auto b = 0; b < shapes_words.size(); b++) {
-          auto& shape_word = shapes_words[b];
-          for (auto c = 1; c < shape_word.size(); c++) {
-            if (shape_word[c] == 0) continue;
+        for (auto s = 0; s < shapes_words.size(); s++) {
+          for (auto b = 0; b < shapes_words[s].size(); b++) {
+            auto& polygon_word = shapes_words[s][b];
 
-            auto& gen_polygon = app->mesh.homotopy_basis.smooth_basis[c - 1];
-            auto  generator_curve = vectorize_generator_loop(
-                 app->state, gen_polygon, shape_word[c]);
+            auto coefs = vector<int>(num_basis + 1, 0);
+            for (auto& code : polygon_word) coefs[abs(code)] += sign(code);
 
-            recompute_polygon_segments(app->mesh, app->state, generator_curve);
-            app->state.bool_shapes[b].polygons.push_back(generator_curve);
+            for (auto c = 1; c < coefs.size(); c++) {
+              if (coefs[c] == 0) continue;
 
-            auto shape = get_polygon_shape(app, generator_curve, b);
-            app->shape_shapes[b].polygons.push_back(shape);
+              auto& gen_polygon = app->mesh.homotopy_basis.smooth_basis[c - 1];
+              auto  generator_curve = vectorize_generator_loop(
+                   app->state, gen_polygon, coefs[c]);
+
+              recompute_polygon_segments(
+                  app->mesh, app->state, generator_curve);
+              app->state.bool_shapes[b].polygons.push_back(generator_curve);
+
+              auto shape = get_polygon_shape(app, generator_curve, b);
+              app->shape_shapes[b].polygons.push_back(shape);
+            }
           }
         }
 

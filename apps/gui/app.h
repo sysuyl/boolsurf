@@ -78,8 +78,10 @@ struct app_state {
   float              selected_point_radius = 0;
   int                selected_cell         = -1;
   int                selected_shape        = -1;
-  int                selected_polygon      = 0;
-  hash_set<int>      current_shape         = {};
+  int                selected_strategy     = -1;
+
+  int           selected_polygon = 0;
+  hash_set<int> current_shape    = {};
 
   // rendering state
   shade_scene*    glscene           = new shade_scene{};
