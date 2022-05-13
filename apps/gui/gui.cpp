@@ -773,6 +773,31 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
 
+  if (begin_header(widgets, "Homotopy")) {
+    auto root = app->mesh.triangles[app->last_clicked_point.face][0];
+    draw_label(widgets, "Root", std::to_string(root));
+
+    if (draw_button(widgets, "Compute basis")) {
+      // Computes and saves homotopy basis
+      if (root == -1) printf("Clip point on mesh and execute again\n");
+      app->mesh.homotopy_basis = compute_homotopy_basis(app->mesh, root);
+      init_mesh(app->mesh);
+      app->mesh_original = app->mesh;
+
+      app->mesh.homotopy_basis.smooth_basis = smooth_homotopy_basis(
+          app->mesh.homotopy_basis, app->mesh, app->smooth_generators);
+
+      for (auto b = 0; b < app->mesh.homotopy_basis.smooth_basis.size(); b++) {
+        auto& smooth_base = app->mesh.homotopy_basis.smooth_basis[b];
+        auto  base_shape  = get_polygon_shape(app, smooth_base, b + 1);
+        app->generators_shapes.push_back(base_shape);
+      }
+
+      auto modelname = path_basename(app->model_filename);
+      save_homotopy_basis(app->mesh, app->model_filename);
+    }
+  }
+
   if (begin_header(widgets, "Clipping")) {
     if (draw_button(widgets, "Clip")) {
       printf("Intersections %d\n", int(app->state.isecs_generators.size()));
@@ -995,30 +1020,6 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
   if (draw_button(widgets, "Execute")) {
     do_things(app);
-  }
-
-  if (draw_button(widgets, "Compute basis")) {
-    // Computes and saves homotopy basis
-    auto root = app->mesh.triangles[app->last_clicked_point.face][0];
-    if (root == -1) printf("Clip point on mesh and execute again\n");
-    app->mesh.homotopy_basis = compute_homotopy_basis(app->mesh, root);
-
-    auto modelname = path_basename(app->model_filename);
-    save_homotopy_basis(app->mesh, app->model_filename);
-
-    for (auto b = 0; b < app->mesh.homotopy_basis.basis.size(); b++) {
-      auto& base = app->mesh.homotopy_basis.basis[b];
-
-      auto material = add_material(
-          app->glscene, {0, 0, 0}, {1, 1, 1}, 1, 0, 0.4);
-      material->color = get_color(b + 1);
-
-      for (auto e = 0; e < base.size(); e++) {
-        auto start = app->mesh.positions[base[e]];
-        auto end   = app->mesh.positions[base[(e + 1) % base.size()]];
-        draw_segment(app->glscene, app->mesh, material, start, end);
-      }
-    }
   }
 
   // continue_line(widgets);
@@ -1250,31 +1251,8 @@ void key_input(app_state* app, const gui_input& input) {
       case (int)gui_key('H'): {
         // printf("Basis dimention! %d\n",
         // app->mesh.homotopy_basis.basis.size());
-        auto modelname    = path_basename(app->model_filename);
-        auto basefilename = "data/homotopy/"s + modelname + "_basis.json"s;
-        auto root         = -1;
-
-        if (path_exists(basefilename)) {
-          printf("Loading: %s\n", basefilename);
-          load_homotopy_basis(app->mesh, basefilename);
-          root = app->mesh.homotopy_basis.root;
-        } else {
-          // Computes and saves homotopy basis
-          auto root = app->mesh.triangles[app->last_clicked_point.face][0];
-          if (root == -1) {
-            printf("Click point on mesh and execute again\n");
-            break;
-          }
-
-          app->mesh.homotopy_basis = compute_homotopy_basis(app->mesh, root);
-          save_homotopy_basis(app->mesh, app->model_filename);
-        }
-
-        init_mesh(app->mesh);
-        init_edges_and_vertices_shapes_and_points(app);
-        app->mesh_original = app->mesh;
-        update_polygons(app);
         auto& basis = app->mesh.homotopy_basis.basis;
+        auto& root  = app->mesh.homotopy_basis.root;
 
         compute_homotopy_basis_borders(app->mesh);
         auto ordered_basis = sort_homotopy_basis_around_vertex(
@@ -1289,6 +1267,7 @@ void key_input(app_state* app, const gui_input& input) {
         for (auto b : polygonal_schema) printf("%d ", b);
         printf("\n");
 
+        auto shapes_words = vector<hash_map<int, int>>();
         for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
           auto& shape = app->state.bool_shapes[s];
           if (shape.polygons.size() == 0) continue;
@@ -1320,89 +1299,31 @@ void key_input(app_state* app, const gui_input& input) {
             if (value == 0) continue;
             printf("\t%d -> %d\n", code, value);
           }
+          shapes_words.push_back(shape_word);
         }
 
-        for (auto b = 0; b < basis.size(); b++) {
-          auto& base = basis[b];
+        for (auto& gen_shape : app->generators_shapes) {
+          gen_shape->hidden = true;
+        }
 
-          auto strip = compute_strip_from_basis(
-              base, app->mesh.triangle_rings, app->mesh.triangles, root);
+        for (auto b = 0; b < shapes_words.size(); b++) {
+          auto& shape_word = shapes_words[b];
+          for (auto& [code, value] : shape_word) {
+            if (value == 0) continue;
 
-          auto& first = strip.front();
-          auto& last  = strip.back();
+            auto& gen_polygon = app->mesh.homotopy_basis.smooth_basis[code - 1];
+            auto  generator_curve = vectorize_generator_loop(
+                 app->state, gen_polygon, value);
 
-          auto& ftri = app->mesh.triangles[first];
-          auto& ltri = app->mesh.triangles[last];
+            recompute_polygon_segments(app->mesh, app->state, generator_curve);
+            app->state.bool_shapes[b].polygons.push_back(generator_curve);
 
-          auto start_point = mesh_point{first, get_uv_from_vertex(ftri, root)};
-          auto end_point   = mesh_point{last, get_uv_from_vertex(ltri, root)};
-
-          auto path = shortest_path(app->mesh.triangles, app->mesh.positions,
-              app->mesh.adjacencies, start_point, end_point, strip);
-
-          auto basis_shortest_segments = mesh_segments(app->mesh.triangles,
-              path.strip, path.lerps, path.start, path.end);
-
-          // Adjusting strip
-          if (!app->smooth_generators) {
-            auto smooth_base_polygon = mesh_polygon{};
-            smooth_base_polygon.edges += basis_shortest_segments;
-            smooth_base_polygon.length = basis_shortest_segments.size();
-
-            app->mesh.homotopy_basis.smooth_basis.push_back(
-                smooth_base_polygon);
-            auto base_shape = get_polygon_shape(
-                app, smooth_base_polygon, b + 1);
-            app->generators_shapes.push_back(base_shape);
-
-          } else {
-            auto smooth_path = path;
-
-            for (auto t = 0; t < 3; t++) {
-              auto mid      = (int)smooth_path.strip.size() / 2;
-              auto mid_face = smooth_path.strip[mid];
-
-              auto k = find_adjacent_triangle(
-                  app->mesh.triangles[smooth_path.strip[mid]],
-                  app->mesh.triangles[smooth_path.strip[mid + 1]]);
-
-              auto [aa, bb] = get_triangle_uv_from_index(k);
-              auto mid_uv   = lerp(aa, bb, smooth_path.lerps[mid]);
-
-              auto kk = find_adjacent_triangle(
-                  app->mesh.triangles[smooth_path.strip[mid + 1]],
-                  app->mesh.triangles[smooth_path.strip[mid]]);
-              auto [cc, dd] = get_triangle_uv_from_index(kk);
-              auto mid_uv1  = lerp(cc, dd, 1 - smooth_path.lerps[mid]);
-
-              auto mp1 = mesh_point{mid_face, mid_uv};
-              auto mp2 = mesh_point{smooth_path.strip[mid + 1], mid_uv1};
-
-              auto& strip1    = smooth_path.strip;
-              auto  start_idx = find_idx(strip1, mp1.face);
-              rotate(
-                  strip1.begin(), strip1.begin() + start_idx + 1, strip1.end());
-
-              smooth_path = shortest_path(app->mesh.triangles,
-                  app->mesh.positions, app->mesh.adjacencies, mp2, mp1, strip1);
-            }
-
-            auto basis_shortest_segments = mesh_segments(app->mesh.triangles,
-                smooth_path.strip, smooth_path.lerps, smooth_path.start,
-                smooth_path.end);
-
-            auto smooth_base_polygon = mesh_polygon{};
-            smooth_base_polygon.edges += basis_shortest_segments;
-            smooth_base_polygon.length = basis_shortest_segments.size();
-
-            app->mesh.homotopy_basis.smooth_basis.push_back(
-                smooth_base_polygon);
-
-            auto base_shape = get_polygon_shape(
-                app, smooth_base_polygon, b + 1);
-            app->generators_shapes.push_back(base_shape);
+            auto shape = get_polygon_shape(app, generator_curve, b);
+            app->shape_shapes[b].polygons.push_back(shape);
           }
         }
+
+        update_polygons(app);
 
         // for (auto id = 0; id < basis.size(); id++) {
         //   get_polygon_shape(app, basis[id], id + 1);

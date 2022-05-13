@@ -465,6 +465,31 @@ vector<int> compute_polygon_word(const vector<pair<int, float>>& isecs,
   return polygon_word;
 }
 
+mesh_polygon vectorize_generator_loop(
+    bool_state& state, const mesh_polygon& generator_loop, int orientation) {
+  auto generator_curve      = mesh_polygon{};
+  generator_curve.is_closed = true;
+
+  auto num_curves = 10;
+  auto interval   = (int)(generator_loop.length / (num_curves * 3));
+  for (auto e = 0; e < generator_loop.edges.size(); e++) {
+    for (auto s = 0; s < generator_loop.edges[e].size(); s += interval) {
+      auto& segment       = generator_loop.edges[e][s];
+      auto  uvx           = lerp(segment.start.x, segment.end.x, 0.5f);
+      auto  uvy           = lerp(segment.start.y, segment.end.y, 0.5f);
+      auto  control_point = mesh_point{segment.face, vec2f{uvx, uvy}};
+
+      generator_curve.points.push_back((int)state.points.size());
+      state.points.push_back(control_point);
+    }
+  }
+
+  if (orientation > 0)
+    reverse(generator_curve.points.begin(), generator_curve.points.end());
+
+  return generator_curve;
+}
+
 vector<int> compute_strip_from_basis(const vector<int>& base,
     const vector<vector<int>>& triangle_rings, const vector<vec3i>& triangles,
     int root) {

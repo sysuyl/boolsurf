@@ -180,6 +180,8 @@ vector<pair<int, float>> compute_polygon_basis_intersections(
     const mesh_polygon& polygon, bool_mesh& mesh);
 vector<int> compute_polygon_word(
     const vector<pair<int, float>>& isecs, const vector<int>& polygonal_schema);
+mesh_polygon vectorize_generator_loop(
+    bool_state& state, const mesh_polygon& generator_loop, int orientation);
 vector<int> compute_strip_from_basis(const vector<int>& base,
     const vector<vector<int>>& triangle_rings, const vector<vec3i>& triangles,
     int root);
