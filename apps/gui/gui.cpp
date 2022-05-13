@@ -861,6 +861,10 @@ void draw_widgets(app_state* app, const gui_input& input) {
   }
 
   if (begin_header(widgets, "Clipping")) {
+    auto ff = [&](int i) { return std::to_string(i); };
+    draw_combobox(widgets, "Cells", app->selected_shape,
+        (int)app->state.bool_shapes.size(), ff);
+
     if (draw_button(widgets, "Clip")) {
       printf("Intersections %d\n", int(app->state.isecs_generators.size()));
       for (auto& [vertex, gens] : app->state.isecs_generators) {
@@ -1050,37 +1054,39 @@ void draw_widgets(app_state* app, const gui_input& input) {
     end_header(widgets);
   }
 
-  if (draw_button(widgets, "Close curve")) {
-    if (app->state.bool_shapes.empty()) return;
-    auto& bool_shape = app->state.bool_shapes.back();
-    auto  shape_id   = int(app->state.bool_shapes.size()) - 1;
-
-    if (bool_shape.polygons.empty()) return;
-    auto& last_polygon     = bool_shape.polygons.back();
-    last_polygon.is_closed = true;
-    auto polygon_id        = int(bool_shape.polygons.size()) - 1;
-
-    // update_polygon(app, shape_id, polygon_id, last_polygon.points.size() -
-    // 1);
-    commit_updates(app);
-    // // Is contained in a single face should be added?
-  }
-
-  if (draw_button(widgets, "Open curve")) {
-    if (app->state.bool_shapes.empty()) return;
-    auto& bool_shape = app->state.bool_shapes.back();
-    auto  shape_id   = int(app->state.bool_shapes.size()) - 1;
-
-    if (bool_shape.polygons.empty()) return;
-    auto& last_polygon     = bool_shape.polygons.back();
-    last_polygon.is_closed = false;
-    auto polygon_id        = int(bool_shape.polygons.size()) - 1;
-
-    update_polygon(app, shape_id, polygon_id, last_polygon.points.size());
-    commit_updates(app);
-  }
-
   if (begin_header(widgets, "Boolsurf solve")) {
+    if (draw_button(widgets, "Close curve")) {
+      if (app->state.bool_shapes.empty()) return;
+      auto& bool_shape = app->state.bool_shapes.back();
+      auto  shape_id   = int(app->state.bool_shapes.size()) - 1;
+
+      if (bool_shape.polygons.empty()) return;
+      auto& last_polygon     = bool_shape.polygons.back();
+      last_polygon.is_closed = true;
+      auto polygon_id        = int(bool_shape.polygons.size()) - 1;
+
+      // update_polygon(app, shape_id, polygon_id, last_polygon.points.size() -
+      // 1);
+      commit_updates(app);
+      // // Is contained in a single face should be added?
+    }
+
+    continue_line(widgets);
+
+    if (draw_button(widgets, "Open curve")) {
+      if (app->state.bool_shapes.empty()) return;
+      auto& bool_shape = app->state.bool_shapes.back();
+      auto  shape_id   = int(app->state.bool_shapes.size()) - 1;
+
+      if (bool_shape.polygons.empty()) return;
+      auto& last_polygon     = bool_shape.polygons.back();
+      last_polygon.is_closed = false;
+      auto polygon_id        = int(bool_shape.polygons.size()) - 1;
+
+      update_polygon(app, shape_id, polygon_id, last_polygon.points.size());
+      commit_updates(app);
+    }
+
     if (draw_button(widgets, "Execute")) {
       do_things(app);
     }
@@ -1088,6 +1094,9 @@ void draw_widgets(app_state* app, const gui_input& input) {
     auto invalid_shapes = vector<int>(
         app->state.invalid_shapes.begin(), app->state.invalid_shapes.end());
     if (invalid_shapes.size()) {
+      draw_label(widgets, "", app->svg_filename);
+      draw_label(widgets, "", "Fix detected invalid shapes");
+
       auto callback1 = [&](int i) { return std::to_string(invalid_shapes[i]); };
       draw_combobox(widgets, "Invalid shapes", app->selected_shape,
           (int)invalid_shapes.size(), callback1);
@@ -1099,6 +1108,10 @@ void draw_widgets(app_state* app, const gui_input& input) {
           (int)strategies.size(), callback2);
 
       if (draw_button(widgets, "Solve")) {
+        for (auto& gen_shape : app->generators_shapes) {
+          gen_shape->hidden = true;
+        }
+
         auto  s            = invalid_shapes[app->selected_shape];
         auto& shape        = app->state.bool_shapes[s];
         auto  shapes_words = compute_shapes_words(app);
@@ -1150,16 +1163,11 @@ void draw_widgets(app_state* app, const gui_input& input) {
           add_shape_shape(app, s);
         }
 
-        do_things(app);
+        // do_things(app);
       }
     }
     end_header(widgets);
   }
-
-  // continue_line(widgets);
-  auto ff = [&](int i) { return std::to_string(i); };
-  draw_combobox(widgets, "Cells", app->selected_shape,
-      (int)app->state.bool_shapes.size(), ff);
 
   // if (draw_button(widgets, "bezier")) {
   //   bezier_last_segment(app);
