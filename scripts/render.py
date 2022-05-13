@@ -55,7 +55,7 @@ def render(bin, filename, spp):
     cmd = f'{bin} render {filename} --output {dirname}\\render.png --samples {spp}'
     options = ' --envhidden --envname .\\data\\hdr-images\\doge2.hdr'
     options += ' --denoise'
-    options += ' --exposure 1.0'
+    options += ' --exposure 0.8'
     # options += ' --embreebvh'
 
     cmd += options

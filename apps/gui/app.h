@@ -129,6 +129,49 @@ struct app_state {
   }
 };
 
+shade_instance* get_polygon_shape(
+    app_state* app, const vector<int>& polygon, int index) {
+  auto polygon_shape    = add_shape(app->glscene);
+  auto polygon_material = add_material(app->glscene);
+
+  polygon_material->color = get_color(index);
+
+  auto polygon_instance = add_instance(
+      app->glscene, identity3x4f, polygon_shape, polygon_material);
+
+  set_polygon_shape(
+      polygon_instance, app->mesh, polygon, app->thick_lines, app->line_width);
+  return polygon_instance;
+}
+
+shade_instance* get_polygon_shape(
+    app_state* app, const mesh_polygon& polygon, int index) {
+  auto polygon_shape    = add_shape(app->glscene);
+  auto polygon_material = add_material(app->glscene);
+
+  polygon_material->color = get_color(index);
+
+  auto polygon_instance = add_instance(
+      app->glscene, identity3x4f, polygon_shape, polygon_material);
+
+  if (polygon.length > 0)
+    set_polygon_shape(polygon_instance, app->mesh, polygon, app->thick_lines,
+        app->line_width);
+
+  // polygon_instance->depth_test = ogl_depth_test::always;
+  // app->polygon_shapes += polygon_instance;
+
+  // auto arrow_shape    = add_shape(app->glscene);
+  // auto arrow_material = polygon_material;
+
+  // auto arrow_instance = add_instance(
+  //     app->glscene, identity3x4f, arrow_shape, arrow_material);
+  // arrow_instance->depth_test = ogl_depth_test::always;
+  // app->arrow_shapes += arrow_instance;
+
+  return polygon_instance;
+}
+
 void set_polygon_shape(app_state* app, int shape_id, int polygon_id) {
   auto& mesh      = app->mesh;
   auto  positions = polygon_positions(
@@ -271,8 +314,27 @@ void load_shape(app_state* app, const string& filename) {
     print_fatal("Error loading model " + filename);
   }
 
+  auto modelname    = path_basename(app->model_filename);
+  auto basefilename = "data/homotopy/"s + modelname + "_basis.json"s;
   init_mesh(app->mesh);
   app->mesh_original = app->mesh;
+
+  if (path_exists(basefilename)) {
+    printf("Loading: %s\n", basefilename.c_str());
+    load_homotopy_basis(app->mesh, basefilename);
+
+    init_mesh(app->mesh);
+    app->mesh_original = app->mesh;
+
+    app->mesh.homotopy_basis.smooth_basis = smooth_homotopy_basis(
+        app->mesh.homotopy_basis, app->mesh, app->smooth_generators);
+
+    for (auto b = 0; b < app->mesh.homotopy_basis.smooth_basis.size(); b++) {
+      auto& smooth_base = app->mesh.homotopy_basis.smooth_basis[b];
+      auto  base_shape  = get_polygon_shape(app, smooth_base, b + 1);
+      app->generators_shapes.push_back(base_shape);
+    }
+  }
 }
 
 void init_edges_and_vertices_shapes_and_points(
@@ -471,49 +533,6 @@ shade_instance* add_patch_shape(
 // index) {
 //   add_polygon_shape(app, polygon, index);
 // }
-
-shade_instance* get_polygon_shape(
-    app_state* app, const vector<int>& polygon, int index) {
-  auto polygon_shape    = add_shape(app->glscene);
-  auto polygon_material = add_material(app->glscene);
-
-  polygon_material->color = get_color(index);
-
-  auto polygon_instance = add_instance(
-      app->glscene, identity3x4f, polygon_shape, polygon_material);
-
-  set_polygon_shape(
-      polygon_instance, app->mesh, polygon, app->thick_lines, app->line_width);
-  return polygon_instance;
-}
-
-shade_instance* get_polygon_shape(
-    app_state* app, const mesh_polygon& polygon, int index) {
-  auto polygon_shape    = add_shape(app->glscene);
-  auto polygon_material = add_material(app->glscene);
-
-  polygon_material->color = get_color(index);
-
-  auto polygon_instance = add_instance(
-      app->glscene, identity3x4f, polygon_shape, polygon_material);
-
-  if (polygon.length > 0)
-    set_polygon_shape(polygon_instance, app->mesh, polygon, app->thick_lines,
-        app->line_width);
-
-  // polygon_instance->depth_test = ogl_depth_test::always;
-  // app->polygon_shapes += polygon_instance;
-
-  // auto arrow_shape    = add_shape(app->glscene);
-  // auto arrow_material = polygon_material;
-
-  // auto arrow_instance = add_instance(
-  //     app->glscene, identity3x4f, arrow_shape, arrow_material);
-  // arrow_instance->depth_test = ogl_depth_test::always;
-  // app->arrow_shapes += arrow_instance;
-
-  return polygon_instance;
-}
 
 void add_shape_shape(app_state* app, int shape_id) {
   auto& shape        = app->state.bool_shapes[shape_id];

@@ -473,7 +473,7 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
   for (auto& shape : state.bool_shapes) {
     for (auto& polygon : shape.polygons) {
       if (polygon.length != 0) {
-        no_polygons = true;
+        no_polygons = false;
         break;
       }
     }
@@ -557,7 +557,7 @@ scene_model make_scene(const bool_mesh& mesh, const bool_state& state,
       auto& instance    = scene.instances.emplace_back();
       instance.material = (int)scene.materials.size();
       auto& material    = scene.materials.emplace_back();
-      material.color    = get_color(s);
+      material.color    = get_color(s + 1);
       material.type     = scene_material_type::matte;
       instance.shape    = (int)scene.shapes.size();
 

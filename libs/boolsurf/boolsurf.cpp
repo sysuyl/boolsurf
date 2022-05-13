@@ -231,6 +231,77 @@ bool_homotopy_basis compute_homotopy_basis(bool_mesh& mesh, int root) {
   return homo_basis;
 }
 
+vector<mesh_polygon> smooth_homotopy_basis(
+    const bool_homotopy_basis& homotopy_basis, const bool_mesh& mesh,
+    bool smooth_generators) {
+  auto  smooth_basis = vector<mesh_polygon>();
+  auto& basis        = homotopy_basis.basis;
+  auto& root         = homotopy_basis.root;
+  for (auto b = 0; b < basis.size(); b++) {
+    auto& base = basis[b];
+
+    auto strip = compute_strip_from_basis(
+        base, mesh.triangle_rings, mesh.triangles, root);
+
+    // auto last_face = strip.back();
+    // strip.pop_back();
+
+    auto& first = strip.front();
+    auto& last  = strip.back();
+
+    auto& ftri = mesh.triangles[first];
+    auto& ltri = mesh.triangles[last];
+
+    auto start_point = mesh_point{first, get_uv_from_vertex(ftri, root)};
+    auto end_point   = mesh_point{last, get_uv_from_vertex(ltri, root)};
+    // auto end_point = mesh_point{
+    //     last, get_uv_from_vertex(ltri, base.back())};
+
+    auto path = shortest_path(mesh.triangles, mesh.positions, mesh.adjacencies,
+        start_point, end_point, strip);
+
+    printf("Base %d - Path: %d - Shortest path: %d\n", b, base.size(),
+        path.strip.size());
+
+    // Adjusting strip
+    if (smooth_generators) {
+      for (auto t = 0; t < 3; t++) {
+        auto mid      = (int)path.strip.size() / 2;
+        auto mid_face = path.strip[mid];
+
+        auto k = find_adjacent_triangle(mesh.triangles[path.strip[mid]],
+            mesh.triangles[path.strip[mid + 1]]);
+
+        auto [aa, bb] = get_triangle_uv_from_index(k);
+        auto mid_uv   = lerp(aa, bb, path.lerps[mid]);
+
+        auto kk = find_adjacent_triangle(mesh.triangles[path.strip[mid + 1]],
+            mesh.triangles[path.strip[mid]]);
+        auto [cc, dd] = get_triangle_uv_from_index(kk);
+        auto mid_uv1  = lerp(cc, dd, 1 - path.lerps[mid]);
+
+        auto mp1 = mesh_point{mid_face, mid_uv};
+        auto mp2 = mesh_point{path.strip[mid + 1], mid_uv1};
+
+        auto& strip1    = path.strip;
+        auto  start_idx = find_idx(strip1, mp1.face);
+        rotate(strip1.begin(), strip1.begin() + start_idx + 1, strip1.end());
+
+        path = shortest_path(
+            mesh.triangles, mesh.positions, mesh.adjacencies, mp2, mp1, strip1);
+      }
+    }
+
+    auto basis_shortest_segments = mesh_segments(
+        mesh.triangles, path.strip, path.lerps, path.start, path.end);
+
+    auto& smooth_base_polygon = smooth_basis.emplace_back();
+    smooth_base_polygon.edges += basis_shortest_segments;
+    smooth_base_polygon.length = basis_shortest_segments.size();
+  }
+  return smooth_basis;
+}
+
 void compute_homotopy_basis_borders(bool_mesh& mesh) {
   auto& homology_basis_borders = mesh.homotopy_basis_borders;
   auto& homology_basis         = mesh.homotopy_basis;
@@ -762,7 +833,7 @@ static mesh_hashgrid compute_hashgrid(bool_mesh& mesh,
           if (e == indices.x && s == indices.y - 1) vertex = first_vertex;
 
           // auto& polyline    = entry.back();
-          assert(segment.face == last_face);
+          // assert(segment.face == last_face);
           last_vertex = add_vertex(
               mesh, hashgrid, {segment.face, segment.end}, polyline_id, vertex);
         }
@@ -1599,7 +1670,8 @@ vector<mesh_point> compute_parallel_loop(
   parallel_points.reserve(polygon.points.size());
 
   for (auto e = 0; e < polygon.edges.size(); e++) {
-    auto segment     = polygon.edges[e].front();
+    if (!polygon.edges[e].size()) continue;
+    auto segment     = polygon.edges[e][0];
     auto start_point = mesh_point{segment.face, segment.start};
     auto end_point   = mesh_point{segment.face, segment.end};
 
@@ -1611,7 +1683,7 @@ vector<mesh_point> compute_parallel_loop(
     tangent     = normalize(tangent);
     auto normal = vec2f{tangent.y, -tangent.x};
 
-    auto path     = straightest_path(mesh, start_point, normal, 0.01f);
+    auto path     = straightest_path(mesh, start_point, normal, 0.03f);
     path.end.uv.x = clamp(path.end.uv.x, 0.0f, 1.0f);
     path.end.uv.y = clamp(path.end.uv.y, 0.0f, 1.0f);
     parallel_points.push_back(path.end);
