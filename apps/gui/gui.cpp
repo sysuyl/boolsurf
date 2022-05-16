@@ -1398,8 +1398,8 @@ void key_input(app_state* app, const gui_input& input) {
         auto& mesh      = app->mesh;
         auto& root      = app->mesh.homotopy_basis.root;
 
-        draw_sphere(app->glscene, app->mesh, app->materials.green,
-            {app->mesh.positions[root]}, 0.0005f);
+        // draw_sphere(app->glscene, app->mesh, app->materials.green,
+        //     {app->mesh.positions[root]}, 0.00005f);
 
         // auto b = app->count % num_basis;
 
@@ -1409,10 +1409,31 @@ void key_input(app_state* app, const gui_input& input) {
         //   continue;
         // }
 
-        auto  b     = 2;
+        auto  b     = 7;
         auto& base  = basis[b];
         auto  strip = compute_strip_from_basis(
              base, mesh.triangle_rings, mesh.triangles, root);
+
+        auto& first = strip.front();
+        auto& last  = strip.back();
+
+        auto& ftri = mesh.triangles[first];
+        auto& ltri = mesh.triangles[last];
+
+        auto start_point = mesh_point{first, get_uv_from_vertex(ftri, root)};
+        auto end_point   = mesh_point{last, get_uv_from_vertex(ltri, root)};
+        // auto end_point = mesh_point{
+        //     last, get_uv_from_vertex(ltri, base.back())};
+
+        // for (auto& tri : strip) {
+        //   printf("%d\n", tri);
+        // }
+
+        // printf("Root: %d\n", root);
+        // printf("%d (%d %d %d) (%f %f)\n", start_point.face, ftri.x, ftri.y,
+        //     ftri.z, start_point.uv.x, start_point.uv.y);
+        // printf("%d (%d %d %d) (%f %f)\n", end_point.face, ltri.x, ltri.y,
+        //     ltri.z, end_point.uv.x, end_point.uv.y);
 
         auto patch_color = get_color(b + 1);
         if (app->temp_patch == nullptr) {
@@ -1425,8 +1446,8 @@ void key_input(app_state* app, const gui_input& input) {
         // }
         app->count += 1;
 
-        app->mesh.homotopy_basis.smooth_basis = smooth_homotopy_basis(
-            app->mesh.homotopy_basis, app->mesh, app->smooth_generators);
+        // app->mesh.homotopy_basis.smooth_basis = smooth_homotopy_basis(
+        //     app->mesh.homotopy_basis, app->mesh, app->smooth_generators);
 
         // for (auto& base : basis) {
         // }
@@ -1460,6 +1481,10 @@ void key_input(app_state* app, const gui_input& input) {
         //       app->shape_shapes[b].polygons.push_back(shape);
         //     }
         //   }
+        // }
+
+        // for (auto id = 0; id < basis.size(); id++) {
+        //   get_polygon_shape(app, basis[id], id + 1);
         // }
 
         // update_polygons(app);

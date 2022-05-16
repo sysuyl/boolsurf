@@ -238,7 +238,7 @@ vector<mesh_polygon> smooth_homotopy_basis(
   auto& basis        = homotopy_basis.basis;
   auto& root         = homotopy_basis.root;
   for (auto b = 0; b < basis.size(); b++) {
-    if (b != 2) continue;
+    // if (b != 7) continue;
     auto& base = basis[b];
 
     auto strip = compute_strip_from_basis(
@@ -261,8 +261,8 @@ vector<mesh_polygon> smooth_homotopy_basis(
     auto path = shortest_path(mesh.triangles, mesh.positions, mesh.adjacencies,
         start_point, end_point, strip);
 
-    printf("Base %d - Path: %d - Shortest path: %d\n", b, base.size(),
-        path.strip.size());
+    // printf("Base %d - Path: %d - Shortest path: %d\n", b, base.size(),
+    //     path.strip.size());
 
     // Adjusting strip
     if (smooth_generators) {
@@ -561,7 +561,7 @@ vector<int> compute_strip_from_basis(const vector<int>& base,
   }
 
   auto last_triangle = 0;
-  for (auto e = 1; e < base.size() + 1; e++) {
+  for (auto e = 1; e < base.size(); e++) {
     auto prev_idx = (e != 0) ? e - 1 : base.size() - 1;
     auto curr_idx = e % base.size();
     auto next_idx = (e + 1) % base.size();
@@ -605,7 +605,7 @@ vector<int> compute_strip_from_basis(const vector<int>& base,
   }
 
   printf("Last triangle: %d\n", last_triangle);
-  // strip.push_back(last_triangle);
+  strip.push_back(last_triangle);
 
   return strip;
 }
