@@ -1411,16 +1411,17 @@ void key_input(app_state* app, const gui_input& input) {
         // }
         for (auto b = 0; b < basis.size(); b++) {
           if (b != 0) continue;
-          auto& base = basis[b];
 
-          auto strip = compute_strip_from_basis(
-              base, mesh.triangle_rings, mesh.triangles, root);
+          auto& base  = basis[b];
+          auto  strip = compute_strip_from_basis(
+               base, mesh.triangle_rings, mesh.triangles, root);
 
           auto& first = strip.front();
           auto& last  = strip.back();
 
           auto& ftri = mesh.triangles[first];
           auto& ltri = mesh.triangles[last];
+          auto  k    = find_in_vec(ltri, last);
 
           auto start_point = mesh_point{first, get_uv_from_vertex(ftri, root)};
           auto end_point   = mesh_point{last, get_uv_from_vertex(ltri, root)};
@@ -1429,25 +1430,26 @@ void key_input(app_state* app, const gui_input& input) {
               mesh.adjacencies, start_point, end_point, strip);
 
           auto find_closest_to_vertex = [&]() {
-            auto mid = (int)path.lerps.size() / 2;
-
+            auto mid        = (int)path.lerps.size() / 2;
             auto best_match = mid;
-            for (auto i = mid; i < path.lerps.size(); i++) {
-              auto lerp_vertex = path.lerps[i];
-              if (lerp_vertex == 0.0 || lerp_vertex == 1.0) {
-                best_match = i;
-                break;
-              }
-            }
-
-            for (auto i = mid; i > 0; i--) {
-              auto lerp_vertex = path.lerps[i];
-              if (lerp_vertex == 0.0 || lerp_vertex == 1.0) {
-                if ((mid - i) < (best_match - mid)) best_match = i;
-                break;
-              }
-            }
             return best_match;
+
+            // for (auto i = mid; i < path.lerps.size(); i++) {
+            //   auto lerp_vertex = path.lerps[i];
+            //   if (lerp_vertex == 0.0 || lerp_vertex == 1.0) {
+            //     best_match = i;
+            //     break;
+            //   }
+            // }
+
+            // for (auto i = mid; i > 0; i--) {
+            //   auto lerp_vertex = path.lerps[i];
+            //   if (lerp_vertex == 0.0 || lerp_vertex == 1.0) {
+            //     if ((mid - i) < (best_match - mid)) best_match = i;
+            //     break;
+            //   }
+            // }
+            // return best_match;
           };
 
           // auto smooth_strip = path.strip;
@@ -1475,14 +1477,16 @@ void key_input(app_state* app, const gui_input& input) {
             for (auto t = 0; t < 1; t++) {
               auto closest_lerp_id = find_closest_to_vertex();
 
-              auto first_face  = path.strip[closest_lerp_id];
-              auto middle_lerp = path.lerps[closest_lerp_id];
               auto second_face = path.strip[closest_lerp_id + 1];
-              auto edge        = common_edge(app->mesh.triangles[first_face],
-                         app->mesh.triangles[second_face]);
+              auto first_face  = path.strip[closest_lerp_id];
 
-              auto vertex = (middle_lerp == 0.0) ? edge.x : edge.y;
-              printf("Vertex: %d\n", vertex);
+              // auto first_face  = path.strip[closest_lerp_id];
+              // auto middle_lerp = path.lerps[closest_lerp_id];
+              // auto second_face = path.strip[closest_lerp_id + 1];
+              // auto edge        = common_edge(app->mesh.triangles[first_face],
+              //            app->mesh.triangles[second_face]);
+              // auto vertex = (middle_lerp == 0.0) ? edge.x : edge.y;
+              // printf("Vertex: %d\n", vertex);
 
               {
                 draw_sphere(app->glscene, app->mesh, app->materials.green,
@@ -1490,43 +1494,51 @@ void key_input(app_state* app, const gui_input& input) {
               }
 
               // auto first_incident     = 0;
-              auto first_incident_idx = 0;
-              for (auto idx = 0; idx < path.strip.size(); idx++) {
-                auto& tri   = path.strip[idx];
-                auto  verts = app->mesh.triangles[tri];
-                auto  k     = find_in_vec(app->mesh.triangles[tri], vertex);
-                if (k == -1) continue;
+              // auto first_incident_idx = 0;
+              // for (auto idx = 0; idx < path.strip.size(); idx++) {
+              //   auto& tri   = path.strip[idx];
+              //   auto  verts = app->mesh.triangles[tri];
+              //   auto  k     = find_in_vec(app->mesh.triangles[tri], vertex);
+              //   if (k == -1) continue;
 
-                // first_incident     = tri;
-                first_incident_idx = idx;
-                break;
-              }
+              //   // first_incident     = tri;
+              //   first_incident_idx = idx;
+              //   break;
+              // }
 
               // auto last_incident     = 0;
-              auto last_incident_idx = 0;
-              for (auto idx = first_incident_idx; idx < path.strip.size();
-                   idx++) {
-                auto& tri = path.strip[idx];
-                auto  k   = find_in_vec(app->mesh.triangles[tri], vertex);
-                if (k != -1) {
-                  // last_incident     = tri;
-                  last_incident_idx = idx;
-                } else {
-                  break;
-                }
-              }
+              // auto last_incident_idx = 0;
+              // for (auto idx = first_incident_idx; idx < path.strip.size();
+              //      idx++) {
+              //   auto& tri = path.strip[idx];
+              //   auto  k   = find_in_vec(app->mesh.triangles[tri], vertex);
+              //   if (k != -1) {
+              //     // last_incident     = tri;
+              //     last_incident_idx = idx;
+              //   } else {
+              //     break;
+              //   }
+              // }
 
               auto res = vector<int>{};
-              res.reserve(path.strip.size());
+              res.reserve(path.strip.size() + 10);
 
-              // Initial part of original strip, up until intersection with
-              res.insert(
-                  res.end(), strip.begin() + last_incident_idx, strip.end());
+              res.insert(res.end(), strip.begin() + second_face, strip.end());
 
-              // Append out-flanking part of fan.
-              res.insert(
-                  res.end(), strip.begin(), strip.begin() + first_incident_idx);
-              res.shrink_to_fit();
+              // Add fan
+              auto fan           = triangle_fan(adjacencies, last, k, true);
+              auto fan_last_face = 0;
+              for (auto f = 0; f < fan.size(); f++) {
+                if (fan[f] == last) fan_last_face = f;
+              }
+
+              while (true) {
+                fan_last_face = (fan_last_face + 1) % fan.size();
+                if (fan[fan_last_face] == first) break;
+                res.push_back(fan[fan_last_face]);
+              }
+
+              res.insert(res.end(), strip.begin(), strip.begin() + first_face);
 
               {
                 auto patch_color = get_color(b + 1);
