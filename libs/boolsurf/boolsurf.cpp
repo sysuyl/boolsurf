@@ -1788,7 +1788,7 @@ vector<mesh_point> compute_parallel_loop(
   auto parallel_points = vector<mesh_point>();
   parallel_points.reserve(polygon.points.size());
 
-  for (auto e = 0; e < polygon.edges.size(); e++) {
+  for (auto e = 0; e < polygon.edges.size() - 2; e++) {
     if (!polygon.edges[e].size()) continue;
     auto segment     = polygon.edges[e][0];
     auto start_point = mesh_point{segment.face, segment.start};

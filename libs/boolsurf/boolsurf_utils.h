@@ -155,6 +155,21 @@ inline int find_adjacent_triangle(
   return -1;
 }
 
+inline bool check_triangle_strip(
+    const vector<vec3i>& adjacencies, const vector<int>& strip) {
+  auto faces = unordered_set<int>{};
+  faces.insert(strip[0]);
+  for (auto i = 1; i < strip.size(); ++i) {
+    if (faces.count(strip[i]) != 0) {
+      printf("strip[%d] (face: %d) appears twice\n", i, strip[i]);
+    }
+    faces.insert(strip[i]);
+    assert(find_in_vec(adjacencies[strip[i - 1]], strip[i]) != -1);
+    assert(find_in_vec(adjacencies[strip[i]], strip[i - 1]) != -1);
+  }
+  return true;
+}
+
 // From yocto_mesh.h + small update
 inline vec2f intersect_segments(const vec2f& start1, const vec2f& end1,
     const vec2f& start2, const vec2f& end2) {
