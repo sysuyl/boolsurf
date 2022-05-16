@@ -1525,22 +1525,41 @@ void key_input(app_state* app, const gui_input& input) {
                   path.strip.end());
 
               // Add fan
-              auto fan = triangle_fan(app->mesh.adjacencies, last, k, true);
-              auto fan_last_face = -1;
-              for (auto f = 0; f < fan.size(); f++) {
-                if (fan[f] == last) fan_last_face = f;
+              auto root_fan = app->mesh.triangle_rings[root];
+
+              auto first_idx = find_idx(root_fan, first);
+              auto last_idx  = find_idx(root_fan, last);
+              last_idx       = (last_idx + 1) % root_fan.size();
+              printf("first: %d (%d)\n", first, first_idx);
+              printf("second: %d (%d)\n", last, last_idx);
+
+              for (auto f = 0; f < root_fan.size(); f++) {
+                auto idx = (f + last_idx) % root_fan.size();
+                if (idx == first_idx) break;
+                printf("%d (%d) - ", root_fan[idx], idx);
+                res.push_back(root_fan[idx]);
+                // path.lerps.push_back(1.0f);
               }
+              // auto fan = triangle_fan(app->mesh.adjacencies, last, k, false);
+              // for (auto i = 0; i < fan.size(); i++) {
+              //   printf("%d ", fan[i]);
+              // }
 
-              assert(fan_last_face != -1);
+              // auto fan_last_face = -1;
+              // for (auto f = 0; f < fan.size(); f++) {
+              //   if (fan[f] == last) fan_last_face = f;
+              // }
 
-              while (true) {
-                fan_last_face = (fan_last_face + 1) % fan.size();
-                if (fan[fan_last_face] == first) break;
-                res.push_back(fan[fan_last_face]);
-              }
+              // assert(fan_last_face != -1);
 
-              res.insert(res.end(), strip.begin(),
-                  strip.begin() + closest_lerp_id + 1);
+              // while (true) {
+              //   fan_last_face = (fan_last_face + 1) % fan.size();
+              //   if (fan[fan_last_face] == first) break;
+              //   res.push_back(fan[fan_last_face]);
+              // }
+
+              res.insert(res.end(), path.strip.begin(),
+                  path.strip.begin() + closest_lerp_id + 1);
 
               {
                 auto patch_color = get_color(b + 1);
