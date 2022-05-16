@@ -604,7 +604,7 @@ vector<int> compute_strip_from_basis(const vector<int>& base,
     // printf("\n");
   }
 
-  printf("Last triangle: %d\n", last_triangle);
+  // printf("Last triangle: %d\n", last_triangle);
   strip.push_back(last_triangle);
 
   return strip;

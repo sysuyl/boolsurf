@@ -3314,7 +3314,7 @@ static vector<int> fix_strip(const vector<vec3i>& adjacencies,
     result.push_back(strip[i]);
 
   assert(path_check_strip(adjacencies, result));
-  remove_loops_from_strip(result);
+  // remove_loops_from_strip(result);
   assert(path_check_strip(adjacencies, result));
   return result;
 }
