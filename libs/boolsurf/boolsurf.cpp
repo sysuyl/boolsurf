@@ -238,6 +238,7 @@ vector<mesh_polygon> smooth_homotopy_basis(
   auto& basis        = homotopy_basis.basis;
   auto& root         = homotopy_basis.root;
   for (auto b = 0; b < basis.size(); b++) {
+    if (b != 2) continue;
     auto& base = basis[b];
 
     auto strip = compute_strip_from_basis(
@@ -491,7 +492,7 @@ mesh_polygon vectorize_generator_loop(
   return generator_curve;
 }
 
-vector<int> compute_strip_from_basis(const vector<int>& base,
+vector<int> compute_strip_from_basis_old(const vector<int>& base,
     const vector<vector<int>>& triangle_rings, const vector<vec3i>& triangles,
     int root) {
   auto strip      = vector<int>();
@@ -536,6 +537,75 @@ vector<int> compute_strip_from_basis(const vector<int>& base,
 
   while (!contains(root_ring, strip.back()))
     rotate(strip.begin(), strip.begin() + 1, strip.end());
+
+  return strip;
+}
+
+vector<int> compute_strip_from_basis(const vector<int>& base,
+    const vector<vector<int>>& triangle_rings, const vector<vec3i>& triangles,
+    int root) {
+  auto strip = vector<int>();
+
+  auto edge_to_face = hash_map<vec2i, int>();
+  for (auto e = 0; e < base.size(); e++) {
+    auto edge        = vec2i{base[(e + 1) % base.size()], base[e]};
+    auto vertex_ring = triangle_rings[base[e]];
+
+    for (auto& face : vertex_ring) {
+      auto face_verts = triangles[face];
+
+      if (edge_in_triangle(face_verts, edge)) {
+        edge_to_face[edge] = face;
+      }
+    }
+  }
+
+  auto last_triangle = 0;
+  for (auto e = 1; e < base.size() + 1; e++) {
+    auto prev_idx = (e != 0) ? e - 1 : base.size() - 1;
+    auto curr_idx = e % base.size();
+    auto next_idx = (e + 1) % base.size();
+
+    auto prev_v = base[prev_idx];
+    auto curr_v = base[curr_idx];
+    auto next_v = base[next_idx];
+
+    auto prev_edge = vec2i{curr_v, prev_v};
+    auto next_edge = vec2i{next_v, curr_v};
+
+    auto prev_face = edge_to_face.at(prev_edge);
+    auto next_face = edge_to_face.at(next_edge);
+
+    auto triangle_ring = triangle_rings[curr_v];
+
+    // printf("Triangle ring of %d:\n", curr_v);
+    // for (auto& tri : triangle_ring) {
+    //   printf("%d ", tri);
+    // }
+    // printf("\n");
+
+    auto start = find_idx(triangle_ring, prev_face);
+    auto end   = find_idx(triangle_ring, next_face);
+
+    // printf("Start idx: %d (%d) (%d) - end idx: %d (%d) (%d)  \n", start,
+    //     triangle_ring[start], prev_face, end, triangle_ring[end], next_face);
+
+    for (auto f = 0; f < triangle_ring.size(); f++) {
+      auto idx = (f + start) % triangle_ring.size();
+      if (idx == end) {
+        last_triangle = triangle_ring[idx];
+        break;
+      } else {
+        strip.push_back(triangle_ring[idx]);
+      }
+      // printf("%d -> %d\n", idx, triangle_ring[idx]);
+    }
+    // printf("\n");
+    // printf("\n");
+  }
+
+  printf("Last triangle: %d\n", last_triangle);
+  // strip.push_back(last_triangle);
 
   return strip;
 }

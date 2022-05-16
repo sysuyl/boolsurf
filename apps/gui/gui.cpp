@@ -1393,42 +1393,76 @@ void key_input(app_state* app, const gui_input& input) {
       } break;
 
       case (int)gui_key('H'): {
-        auto num_basis    = app->mesh.homotopy_basis.basis.size();
-        auto shapes_words = compute_shapes_words(app);
+        auto  num_basis = app->mesh.homotopy_basis.basis.size();
+        auto& basis     = app->mesh.homotopy_basis.basis;
+        auto& mesh      = app->mesh;
+        auto& root      = app->mesh.homotopy_basis.root;
 
-        for (auto& gen_shape : app->generators_shapes) {
-          gen_shape->hidden = true;
-        }
+        draw_sphere(app->glscene, app->mesh, app->materials.green,
+            {app->mesh.positions[root]}, 0.0005f);
 
-        for (auto s = 0; s < shapes_words.size(); s++) {
-          for (auto b = 0; b < shapes_words[s].size(); b++) {
-            auto& polygon_word = shapes_words[s][b];
+        // auto b = app->count % num_basis;
 
-            auto coefs = vector<int>(num_basis + 1, 0);
-            for (auto& code : polygon_word) coefs[abs(code)] += sign(code);
-
-            for (auto c = 1; c < coefs.size(); c++) {
-              if (coefs[c] == 0) continue;
-
-              auto& gen_polygon = app->mesh.homotopy_basis.smooth_basis[c - 1];
-              auto  generator_curve = vectorize_generator_loop(
-                   app->state, gen_polygon, coefs[c]);
-
-              recompute_polygon_segments(
-                  app->mesh, app->state, generator_curve);
-              app->state.bool_shapes[b].polygons.push_back(generator_curve);
-
-              auto shape = get_polygon_shape(app, generator_curve, b);
-              app->shape_shapes[b].polygons.push_back(shape);
-            }
-          }
-        }
-
-        update_polygons(app);
-
-        // for (auto id = 0; id < basis.size(); id++) {
-        //   get_polygon_shape(app, basis[id], id + 1);
+        // // for (auto b = 0; b < basis.size(); b++) {
+        // if (b != 2) {
+        //   app->count += 1;
+        //   continue;
         // }
+
+        auto  b     = 2;
+        auto& base  = basis[b];
+        auto  strip = compute_strip_from_basis(
+             base, mesh.triangle_rings, mesh.triangles, root);
+
+        auto patch_color = get_color(b + 1);
+        if (app->temp_patch == nullptr) {
+          app->temp_patch = add_patch_shape(app, strip, patch_color);
+          app->temp_patch->depth_test = ogl_depth_test::always;
+        }
+        app->temp_patch->hidden = app->count % 2 == 0;
+
+        get_polygon_shape(app, basis[b], b + 1);
+        // }
+        app->count += 1;
+
+        app->mesh.homotopy_basis.smooth_basis = smooth_homotopy_basis(
+            app->mesh.homotopy_basis, app->mesh, app->smooth_generators);
+
+        // for (auto& base : basis) {
+        // }
+        // auto shapes_words = compute_shapes_words(app);
+
+        // for (auto& gen_shape : app->generators_shapes) {
+        //   gen_shape->hidden = true;
+        // }
+
+        // for (auto s = 0; s < shapes_words.size(); s++) {
+        //   for (auto b = 0; b < shapes_words[s].size(); b++) {
+        //     auto& polygon_word = shapes_words[s][b];
+
+        //     auto coefs = vector<int>(num_basis + 1, 0);
+        //     for (auto& code : polygon_word) coefs[abs(code)] +=
+        //     sign(code);
+
+        //     for (auto c = 1; c < coefs.size(); c++) {
+        //       if (coefs[c] == 0) continue;
+
+        //       auto& gen_polygon =
+        //       app->mesh.homotopy_basis.smooth_basis[c - 1]; auto
+        //       generator_curve = vectorize_generator_loop(
+        //            app->state, gen_polygon, coefs[c]);
+
+        //       recompute_polygon_segments(
+        //           app->mesh, app->state, generator_curve);
+        //       app->state.bool_shapes[b].polygons.push_back(generator_curve);
+
+        //       auto shape = get_polygon_shape(app, generator_curve, b);
+        //       app->shape_shapes[b].polygons.push_back(shape);
+        //     }
+        //   }
+        // }
+
+        // update_polygons(app);
       } break;
 
       case (int)gui_key('S'): {
@@ -1463,7 +1497,8 @@ void key_input(app_state* app, const gui_input& input) {
         for (int i = 0; i < visited.size(); i++) {
           // auto tag = app->mesh.borders.tags[visited[i]];
           // auto adj = app->mesh.adjacencies[visited[i]];
-          // printf("%d: tag(%d %d %d) adj(%d %d %d)\n", visited[i], tag[0],
+          // printf("%d: tag(%d %d %d) adj(%d %d %d)\n", visited[i],
+          // tag[0],
           //     tag[1], tag[2], adj[0], adj[1], adj[2]);
         }
 
