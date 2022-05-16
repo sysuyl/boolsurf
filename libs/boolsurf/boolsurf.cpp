@@ -244,9 +244,6 @@ vector<mesh_polygon> smooth_homotopy_basis(
     auto strip = compute_strip_from_basis(
         base, mesh.triangle_rings, mesh.triangles, root);
 
-    // auto last_face = strip.back();
-    // strip.pop_back();
-
     auto& first = strip.front();
     auto& last  = strip.back();
 
@@ -255,41 +252,67 @@ vector<mesh_polygon> smooth_homotopy_basis(
 
     auto start_point = mesh_point{first, get_uv_from_vertex(ftri, root)};
     auto end_point   = mesh_point{last, get_uv_from_vertex(ltri, root)};
-    // auto end_point = mesh_point{
-    //     last, get_uv_from_vertex(ltri, base.back())};
 
     auto path = shortest_path(mesh.triangles, mesh.positions, mesh.adjacencies,
         start_point, end_point, strip);
 
-    // printf("Base %d - Path: %d - Shortest path: %d\n", b, base.size(),
-    //     path.strip.size());
+    auto find_closest_to_vertex = [&]() {
+      auto mid = (int)path.lerps.size() / 2;
+
+      auto best_match = mid;
+      for (auto i = mid; i < path.lerps.size(); i++) {
+        auto lerp_vertex = path.lerps[i];
+        if (lerp_vertex == 0.0 || lerp_vertex == 1.0) {
+          best_match = i;
+          printf("First best match: %d\n", best_match - mid);
+          break;
+        }
+      }
+
+      for (auto i = mid; i > 0; i--) {
+        auto lerp_vertex = path.lerps[i];
+        if (lerp_vertex == 0.0 || lerp_vertex == 1.0) {
+          if ((mid - i) < (best_match - mid)) best_match = i;
+
+          printf("Second best match: %d\n", mid - best_match);
+          break;
+        }
+      }
+
+      printf("\n");
+      return best_match;
+    };
 
     // Adjusting strip
     if (smooth_generators) {
-      for (auto t = 0; t < 3; t++) {
-        auto mid      = (int)path.strip.size() / 2;
-        auto mid_face = path.strip[mid];
+      for (auto t = 0; t < 1; t++) {
+        auto closest = find_closest_to_vertex();
+        printf("Closest: %d\n", closest);
 
-        auto k = find_adjacent_triangle(mesh.triangles[path.strip[mid]],
-            mesh.triangles[path.strip[mid + 1]]);
+        // auto mid      = (int)path.strip.size() / 2;
+        // auto mid_face = path.strip[mid];
 
-        auto [aa, bb] = get_triangle_uv_from_index(k);
-        auto mid_uv   = lerp(aa, bb, path.lerps[mid]);
+        // auto k = find_adjacent_triangle(mesh.triangles[path.strip[mid]],
+        //     mesh.triangles[path.strip[mid + 1]]);
 
-        auto kk = find_adjacent_triangle(mesh.triangles[path.strip[mid + 1]],
-            mesh.triangles[path.strip[mid]]);
-        auto [cc, dd] = get_triangle_uv_from_index(kk);
-        auto mid_uv1  = lerp(cc, dd, 1 - path.lerps[mid]);
+        // auto [aa, bb] = get_triangle_uv_from_index(k);
+        // auto mid_uv   = lerp(aa, bb, path.lerps[mid]);
 
-        auto mp1 = mesh_point{mid_face, mid_uv};
-        auto mp2 = mesh_point{path.strip[mid + 1], mid_uv1};
+        // auto kk = find_adjacent_triangle(mesh.triangles[path.strip[mid + 1]],
+        //     mesh.triangles[path.strip[mid]]);
+        // auto [cc, dd] = get_triangle_uv_from_index(kk);
+        // auto mid_uv1  = lerp(cc, dd, 1 - path.lerps[mid]);
 
-        auto& strip1    = path.strip;
-        auto  start_idx = find_idx(strip1, mp1.face);
-        rotate(strip1.begin(), strip1.begin() + start_idx + 1, strip1.end());
+        // auto mp1 = mesh_point{mid_face, mid_uv};
+        // auto mp2 = mesh_point{path.strip[mid + 1], mid_uv1};
 
-        path = shortest_path(
-            mesh.triangles, mesh.positions, mesh.adjacencies, mp2, mp1, strip1);
+        // auto& strip1    = path.strip;
+        // auto  start_idx = find_idx(strip1, mp1.face);
+        // rotate(strip1.begin(), strip1.begin() + start_idx + 1, strip1.end());
+
+        // path = shortest_path(
+        //     mesh.triangles, mesh.positions, mesh.adjacencies, mp2, mp1,
+        //     strip1);
       }
     }
 

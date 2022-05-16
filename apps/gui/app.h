@@ -328,16 +328,16 @@ void load_shape(app_state* app, const string& filename) {
     init_mesh(app->mesh);
     app->mesh_original = app->mesh;
 
-    app->mesh.homotopy_basis.smooth_basis = smooth_homotopy_basis(
-        app->mesh.homotopy_basis, app->mesh, app->smooth_generators);
+    // app->mesh.homotopy_basis.smooth_basis = smooth_homotopy_basis(
+    //     app->mesh.homotopy_basis, app->mesh, app->smooth_generators);
 
-    for (auto b = 0; b < app->mesh.homotopy_basis.smooth_basis.size(); b++) {
-      printf("Base: %d - size: %d\n", b,
-          app->mesh.homotopy_basis.smooth_basis[b].length);
-      auto& smooth_base = app->mesh.homotopy_basis.smooth_basis[b];
-      auto  base_shape  = get_polygon_shape(app, smooth_base, 13);
-      app->generators_shapes.push_back(base_shape);
-    }
+    // for (auto b = 0; b < app->mesh.homotopy_basis.smooth_basis.size(); b++) {
+    //   printf("Base: %d - size: %d\n", b,
+    //       app->mesh.homotopy_basis.smooth_basis[b].length);
+    //   auto& smooth_base = app->mesh.homotopy_basis.smooth_basis[b];
+    //   auto  base_shape  = get_polygon_shape(app, smooth_base, 13);
+    //   app->generators_shapes.push_back(base_shape);
+    // }
   }
 }
 
