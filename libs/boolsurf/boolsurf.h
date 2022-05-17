@@ -189,6 +189,7 @@ std::tuple<vector<int>, mesh_point, mesh_point> cleaned_strip(
     const vector<vec3i>& triangles, const vector<vec3f>& positions,
     const vector<vec3i>& adjacencies, const vector<int>& strip,
     const mesh_point& start, const mesh_point& end);
+void remove_loops_from_strip(vector<int>& strip);
 
 void              slice_mesh(bool_mesh& mesh, bool_state& state);
 vector<mesh_cell> make_cell_graph(bool_mesh& mesh);

@@ -848,6 +848,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
       app->mesh.homotopy_basis = compute_homotopy_basis(app->mesh, root);
       init_mesh(app->mesh);
       app->mesh_original = app->mesh;
+      save_homotopy_basis(app->mesh, app->model_filename);
 
       app->mesh.homotopy_basis.smooth_basis = smooth_homotopy_basis(
           app->mesh.homotopy_basis, app->mesh, app->smooth_generators);

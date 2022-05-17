@@ -3317,6 +3317,7 @@ static vector<int> fix_strip(const vector<vec3i>& adjacencies,
     new_strip.insert(
         new_strip.end(), strip.begin(), strip.begin() + first_idx + 2);
     new_strip.insert(new_strip.end(), strip.begin() + second_idx, strip.end());
+    path_check_strip(adjacencies, new_strip);
 
     // for (auto& tri : strip) {
     //   printf("%d\n", tri);

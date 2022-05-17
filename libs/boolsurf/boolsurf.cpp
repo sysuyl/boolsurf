@@ -195,6 +195,7 @@ std::tuple<vector<int>, mesh_point, mesh_point> cleaned_strip(
       auto curr_tid = strip[end_entry - 1];
       kv            = find_in_vec(triangles[curr_tid], vid);
     }
+
     kv = find_in_vec(triangles[cleaned.back()], vid);
     assert(kv != -1);
     b3f[kv] = 1;
@@ -244,6 +245,26 @@ std::tuple<vector<int>, mesh_point, mesh_point> cleaned_strip(
     new_start = {cleaned[0], vec2f{b3f.y, b3f.z}};  // updating start
   }
   return {cleaned, new_start, new_end};
+}
+
+void remove_loops_from_strip(vector<int>& strip) {
+  auto faces      = unordered_map<int, int>{};
+  faces[strip[0]] = 0;
+  auto result     = vector<int>(strip.size());
+  result[0]       = strip[0];
+  auto index      = 1;
+  for (auto i = 1; i < strip.size(); ++i) {
+    if (faces.count(strip[i]) != 0) {
+      // printf("fixing %d (%d)\n", i, strip[i]);
+      auto t = faces[strip[i]];
+      index  = t + 1;
+      continue;
+    }
+    faces[strip[i]] = i;
+    result[index++] = strip[i];
+  }
+  result.resize(index);
+  strip = result;
 }
 
 void reset_mesh(bool_mesh& mesh) {
