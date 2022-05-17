@@ -185,6 +185,10 @@ mesh_polygon vectorize_generator_loop(
 vector<int> compute_strip_from_basis(const vector<int>& base,
     const vector<vector<int>>& triangle_rings, const vector<vec3i>& triangles,
     int root);
+std::tuple<vector<int>, mesh_point, mesh_point> cleaned_strip(
+    const vector<vec3i>& triangles, const vector<vec3f>& positions,
+    const vector<vec3i>& adjacencies, const vector<int>& strip,
+    const mesh_point& start, const mesh_point& end);
 
 void              slice_mesh(bool_mesh& mesh, bool_state& state);
 vector<mesh_cell> make_cell_graph(bool_mesh& mesh);

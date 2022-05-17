@@ -122,6 +122,130 @@ void init_mesh(bool_mesh& mesh) {
   mesh.adjacencies.reserve(mesh.adjacencies.size() * 2);
 }
 
+std::tuple<vector<int>, mesh_point, mesh_point> handle_short_strips(
+    const vector<vec3i>& triangles, const vector<vec3f>& positions,
+    const vector<int>& strip, const mesh_point& start, const mesh_point& end) {
+  if (strip.size() == 1) {
+    return {strip, start, end};
+  } else if (strip.size() == 2) {
+    auto [inside, b2f] = point_in_triangle(triangles, positions, start.face,
+        eval_position(triangles, positions, end));
+    if (inside) {
+      auto new_end = mesh_point{start.face, b2f};
+      return {{start.face}, start, new_end};
+    }
+    std::tie(inside, b2f) = point_in_triangle(triangles, positions, end.face,
+        eval_position(triangles, positions, start));
+
+    if (inside) {
+      auto new_start = mesh_point{end.face, b2f};
+      return {{end.face}, new_start, end};
+    }
+
+    return {strip, start, end};
+  }
+  return {{-1}, {}, {}};
+}
+
+vec3f flip_bary_to_adjacent_tri(const vector<vec3i>& adjacencies,
+    const int tid0, const int tid1, const vec3f& bary) {
+  if (tid0 == tid1) return bary;
+  auto new_bary = zero3f;
+  auto k1       = find_in_vec(adjacencies[tid1], tid0);
+  auto k0       = find_in_vec(adjacencies[tid0], tid1);
+  if (k1 == -1) {
+    std::cout << "Error, faces are not adjacent" << std::endl;
+    return zero3f;
+  }
+  new_bary[k1]           = bary[(k0 + 1) % 3];
+  new_bary[(k1 + 1) % 3] = bary[k0];
+  new_bary[(k1 + 2) % 3] = bary[(k0 + 2) % 3];
+
+  return new_bary;
+}
+
+static vec3f get_bary(const vec2f& uv) {
+  return vec3f{1 - uv.x - uv.y, uv.x, uv.y};
+}
+
+std::tuple<vector<int>, mesh_point, mesh_point> cleaned_strip(
+    const vector<vec3i>& triangles, const vector<vec3f>& positions,
+    const vector<vec3i>& adjacencies, const vector<int>& strip,
+    const mesh_point& start, const mesh_point& end) {
+  vector<int> cleaned = strip;
+
+  auto start_entry = 0, end_entry = (int)strip.size() - 1;
+  auto b3f           = zero3f;
+  auto new_start     = start;
+  auto new_end       = end;
+  auto [is_vert, kv] = point_is_vert(end);
+  auto [is_edge, ke] = point_is_edge(end);
+  if (strip.size() <= 2)
+    return handle_short_strips(triangles, positions, strip, start, end);
+  // Erasing from the bottom
+  if (is_vert) {
+    auto vid      = triangles[end.face][kv];
+    auto curr_tid = strip[end_entry - 1];
+    kv            = find_in_vec(triangles[curr_tid], vid);
+    while (kv != -1) {
+      cleaned.pop_back();
+      --end_entry;
+      if (end_entry == 1) break;
+      // see comment below
+      auto curr_tid = strip[end_entry - 1];
+      kv            = find_in_vec(triangles[curr_tid], vid);
+    }
+    kv = find_in_vec(triangles[cleaned.back()], vid);
+    assert(kv != -1);
+    b3f[kv] = 1;
+    new_end = mesh_point{cleaned.back(), vec2f{b3f.y, b3f.z}};  // updating end
+  } else if (is_edge) {
+    if (end.face != strip.back()) {
+      assert(adjacencies[end.face][ke] == strip.back());
+
+      if (end.face == strip[end_entry - 1]) cleaned.pop_back();
+    } else if (adjacencies[end.face][ke] == strip[end_entry - 1])
+      cleaned.pop_back();
+
+    b3f = flip_bary_to_adjacent_tri(
+        adjacencies, end.face, cleaned.back(), get_bary(end.uv));
+
+    new_end = mesh_point{cleaned.back(), vec2f{b3f.y, b3f.z}};  // updating end
+  }
+  std::tie(is_vert, kv) = point_is_vert(start);
+  std::tie(is_edge, ke) = point_is_vert(start);
+
+  if (is_vert) {
+    auto vid      = triangles[start.face][kv];
+    auto curr_tid = strip[start_entry + 1];
+    kv            = find_in_vec(triangles[curr_tid], vid);
+    while (kv != -1) {
+      cleaned.erase(cleaned.begin());
+      ++start_entry;
+      if (start_entry > end_entry - 1) break;
+      auto curr_tid = strip[start_entry + 1];
+      kv            = find_in_vec(triangles[curr_tid], vid);
+    }
+    kv = find_in_vec(triangles[cleaned[0]], vid);
+    assert(kv != -1);
+    b3f       = zero3f;
+    b3f[kv]   = 1;
+    new_start = mesh_point{cleaned[0], vec2f{b3f.y, b3f.z}};  // udpdating start
+
+  } else if (is_edge) {
+    if (start.face != strip[0]) {
+      assert(adjacencies[start.face][ke] == strip[0]);
+      if (start.face == strip[1]) cleaned.erase(cleaned.begin());
+    } else if (adjacencies[start.face][ke] == strip[1]) {
+      cleaned.erase(cleaned.begin());
+    }
+    b3f = flip_bary_to_adjacent_tri(
+        adjacencies, start.face, cleaned[0], get_bary(start.uv));
+    new_start = {cleaned[0], vec2f{b3f.y, b3f.z}};  // updating start
+  }
+  return {cleaned, new_start, new_end};
+}
+
 void reset_mesh(bool_mesh& mesh) {
   mesh.triangles.resize(mesh.num_triangles);
   mesh.positions.resize(mesh.num_positions);
