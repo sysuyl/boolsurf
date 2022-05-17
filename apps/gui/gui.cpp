@@ -1106,7 +1106,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
           (int)invalid_shapes.size(), callback1);
 
       auto& selected_shape = app->state.bool_shapes[app->selected_shape];
-      auto  callback2      = [&](int i) { return std::to_string(i + 1); };
+      // printf("Num polygona: %d\n", selected_shape.polygons.size());
+      auto callback2 = [&](int i) { return std::to_string(i + 1); };
       draw_combobox(widgets, "Invalid polygon", app->selected_polygon,
           (int)selected_shape.polygons.size(), callback2);
 
@@ -1115,6 +1116,34 @@ void draw_widgets(app_state* app, const gui_input& input) {
       auto callback3 = [&](int i) { return strategies[i]; };
       draw_combobox(widgets, "Strategy", app->selected_strategy,
           (int)strategies.size(), callback3);
+
+      if (draw_button(widgets, "Visualize generators")) {
+        // Hide all generators
+        for (auto& gen_shape : app->generators_shapes) {
+          gen_shape->hidden = true;
+        }
+
+        auto  s            = invalid_shapes[app->selected_shape];
+        auto  p            = app->selected_polygon;
+        auto& shape        = app->state.bool_shapes[s];
+        auto  shapes_words = compute_shapes_words(app);
+        auto& polygon_word = shapes_words[s][p];
+        auto  num_basis    = app->mesh.homotopy_basis.basis.size();
+
+        auto coefs = vector<int>(num_basis + 1, 0);
+        for (auto& code : polygon_word) coefs[abs(code)] += sign(code);
+
+        printf("Coefs: ");
+        for (auto& w : polygon_word) printf("%d ", w);
+        printf("\n");
+
+        // Highlight all missing generators
+        for (auto c = 0; c < coefs.size(); c++) {
+          if (coefs[c] == 0) continue;
+          app->generators_shapes[c - 1]->hidden = false;
+          ;
+        }
+      }
 
       if (draw_button(widgets, "Solve")) {
         for (auto& gen_shape : app->generators_shapes) {
@@ -1132,7 +1161,8 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
         // for (auto p = 0; p < shape_words.size(); p++) {
         auto& polygon_word = shape_words[p];
-        auto  coefs        = vector<int>(num_basis + 1, 0);
+
+        auto coefs = vector<int>(num_basis + 1, 0);
         for (auto& code : polygon_word) coefs[abs(code)] += sign(code);
 
         if (count(coefs.begin(), coefs.end(), 0) == num_basis + 1) return;
@@ -1173,6 +1203,10 @@ void draw_widgets(app_state* app, const gui_input& input) {
             recompute_polygon_segments(
                 app->mesh, app->state, shape.polygons[p]);
           add_shape_shape(app, s);
+        }
+
+        for (auto& gen_shape : app->generators_shapes) {
+          gen_shape->hidden = false;
         }
 
         // do_things(app);
