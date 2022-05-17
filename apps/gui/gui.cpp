@@ -1105,11 +1105,16 @@ void draw_widgets(app_state* app, const gui_input& input) {
       draw_combobox(widgets, "Invalid shapes", app->selected_shape,
           (int)invalid_shapes.size(), callback1);
 
+      auto& selected_shape = app->state.bool_shapes[app->selected_shape];
+      auto  callback2      = [&](int i) { return std::to_string(i + 1); };
+      draw_combobox(widgets, "Invalid polygon", app->selected_polygon,
+          (int)selected_shape.polygons.size(), callback2);
+
       auto strategies = vector<string>{
           "Duplicate loop", "Remove loop", "Add missing generators"};
-      auto callback2 = [&](int i) { return strategies[i]; };
+      auto callback3 = [&](int i) { return strategies[i]; };
       draw_combobox(widgets, "Strategy", app->selected_strategy,
-          (int)strategies.size(), callback2);
+          (int)strategies.size(), callback3);
 
       if (draw_button(widgets, "Solve")) {
         for (auto& gen_shape : app->generators_shapes) {
@@ -1117,6 +1122,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
         }
 
         auto  s            = invalid_shapes[app->selected_shape];
+        auto  p            = app->selected_polygon;
         auto& shape        = app->state.bool_shapes[s];
         auto  shapes_words = compute_shapes_words(app);
         auto& shape_words  = shapes_words[s];
@@ -1124,38 +1130,38 @@ void draw_widgets(app_state* app, const gui_input& input) {
         auto num_shape_polygons = shape.polygons.size();
         auto num_basis          = app->mesh.homotopy_basis.basis.size();
 
-        for (auto p = 0; p < shape_words.size(); p++) {
-          auto& polygon_word = shape_words[p];
-          auto  coefs        = vector<int>(num_basis + 1, 0);
-          for (auto& code : polygon_word) coefs[abs(code)] += sign(code);
+        // for (auto p = 0; p < shape_words.size(); p++) {
+        auto& polygon_word = shape_words[p];
+        auto  coefs        = vector<int>(num_basis + 1, 0);
+        for (auto& code : polygon_word) coefs[abs(code)] += sign(code);
 
-          if (count(coefs.begin(), coefs.end(), 0) == num_basis + 1) continue;
+        if (count(coefs.begin(), coefs.end(), 0) == num_basis + 1) return;
 
-          if (app->selected_strategy == 0) {
-            // Duplicate loop
-            auto parallel_points = compute_parallel_loop(
-                app->mesh_original, shape.polygons[p]);
+        if (app->selected_strategy == 0) {
+          // Duplicate loop
+          auto parallel_points = compute_parallel_loop(
+              app->mesh_original, shape.polygons[p]);
 
-            auto& parallel_polygon = shape.polygons.emplace_back();
-            for (auto& point : parallel_points) {
-              parallel_polygon.points.push_back((int)app->state.points.size());
-              app->state.points.push_back(point);
-            }
-          } else if (app->selected_strategy == 1) {
-            shape.polygons.erase(shape.polygons.begin() + p);
-            continue;
-          } else if (app->selected_strategy == 2) {
-            // Add missing generators
-            for (auto c = 1; c < coefs.size(); c++) {
-              if (coefs[c] == 0) continue;
+          auto& parallel_polygon = shape.polygons.emplace_back();
+          for (auto& point : parallel_points) {
+            parallel_polygon.points.push_back((int)app->state.points.size());
+            app->state.points.push_back(point);
+          }
+        } else if (app->selected_strategy == 1) {
+          shape.polygons.erase(shape.polygons.begin() + p);
+          // continue;
+        } else if (app->selected_strategy == 2) {
+          // Add missing generators
+          for (auto c = 1; c < coefs.size(); c++) {
+            if (coefs[c] == 0) continue;
 
-              auto& gen_polygon = app->mesh.homotopy_basis.smooth_basis[c - 1];
-              auto  generator_curve = vectorize_generator_loop(
-                   app->state, gen_polygon, coefs[c]);
-              shape.polygons += generator_curve;
-            }
+            auto& gen_polygon = app->mesh.homotopy_basis.smooth_basis[c - 1];
+            auto  generator_curve = vectorize_generator_loop(
+                 app->state, gen_polygon, coefs[c]);
+            shape.polygons += generator_curve;
           }
         }
+        // }
 
         app->state.invalid_shapes.clear();
         app->mesh = app->mesh_original;

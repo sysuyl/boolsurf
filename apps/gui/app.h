@@ -78,9 +78,10 @@ struct app_state {
   float              selected_point_radius = 0;
   int                selected_cell         = -1;
   int                selected_shape        = -1;
+  int                selected_polygon        = -1;
   int                selected_strategy     = -1;
   int                count                 = 0;
-  int                selected_polygon      = 0;
+  // int                selected_polygon      = 0;
   hash_set<int>      current_shape         = {};
 
   // rendering state
