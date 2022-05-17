@@ -1126,6 +1126,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
 
       if (draw_button(widgets, "Visualize single")) {
         // Hide all generators
+        printf("Num generators: %d\n", app->generators_shapes.size());
         for (auto& gen_shape : app->generators_shapes) {
           gen_shape->hidden = true;
         }
@@ -1144,9 +1145,11 @@ void draw_widgets(app_state* app, const gui_input& input) {
         printf("\n");
 
         // Highlight all missing generators
-        for (auto c = 0; c < coefs.size(); c++) {
-          if (coefs[c] == 0) continue;
-          app->generators_shapes[c - 1]->hidden = false;
+        for (auto c = 1; c < coefs.size(); c++) {
+          if (coefs[c] == 0)
+            app->generators_shapes[c - 1]->hidden = true;
+          else
+            app->generators_shapes[c - 1]->hidden = false;
         }
 
         for (auto sid = 0; sid < app->shape_shapes.size(); sid++) {
@@ -1238,6 +1241,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
           add_shape_shape(app, s);
         }
 
+        app->generators_shapes = {};
         for (auto& smooth_base : app->mesh.homotopy_basis.smooth_basis) {
           auto base_shape = get_polygon_shape(app, smooth_base, 13);
           app->generators_shapes.push_back(base_shape);
