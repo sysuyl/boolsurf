@@ -532,6 +532,10 @@ void draw_widgets(app_state* app, const gui_input& input) {
       }
     }
 
+    if (draw_checkbox(widgets, "patch", app->show_generators)) {
+      app->temp_patch->hidden = !app->temp_patch->hidden;
+    }
+
     // if (draw_checkbox(widgets, "arrows", app->show_arrows)) {
     //   for (auto i : app->arrow_shapes) {
     //     i->hidden = !app->show_arrows;
@@ -1402,13 +1406,6 @@ void key_input(app_state* app, const gui_input& input) {
         // draw_sphere(app->glscene, app->mesh, app->materials.green,
         //     {app->mesh.positions[root]}, 0.00005f);
 
-        // auto b = app->count % num_basis;
-
-        // // for (auto b = 0; b < basis.size(); b++) {
-        // if (b != 2) {
-        //   app->count += 1;
-        //   continue;
-        // }
         for (auto b = 0; b < basis.size(); b++) {
           if (b != 0) continue;
 
@@ -1421,7 +1418,7 @@ void key_input(app_state* app, const gui_input& input) {
 
           auto& ftri = mesh.triangles[first];
           auto& ltri = mesh.triangles[last];
-          auto  k    = find_in_vec(ltri, root);
+          // auto  k    = find_in_vec(ltri, root);
 
           auto start_point = mesh_point{first, get_uv_from_vertex(ftri, root)};
           auto end_point   = mesh_point{last, get_uv_from_vertex(ltri, root)};
@@ -1435,18 +1432,18 @@ void key_input(app_state* app, const gui_input& input) {
 
           auto path = shortest_path(mesh.triangles, mesh.positions,
               mesh.adjacencies, start_point, end_point, strip);
-          return;
+          printf("First smoothing strip: %d\n", path.strip.size());
 
           auto find_closest_to_vertex = [&]() {
             auto mid        = (int)path.lerps.size() / 2;
             auto best_match = mid;
-            auto threshold  = 0.01f;
+            auto threshold  = 0.02f;
             for (auto i = mid; i < path.lerps.size(); i++) {
               auto lerp_vertex = path.lerps[i];
               if (lerp_vertex > 0.0 - threshold &&
                   lerp_vertex < 1.0 - threshold) {
                 best_match = i;
-                // printf("%f\n", lerp_vertex);
+                printf("%f\n", lerp_vertex);
                 break;
               }
             }
@@ -1457,7 +1454,7 @@ void key_input(app_state* app, const gui_input& input) {
                   lerp_vertex < 1.0 - threshold) {
                 if ((mid - i) < (best_match - mid)) {
                   best_match = i;
-                  // printf("%f\n", lerp_vertex);
+                  printf("%f\n", lerp_vertex);
                   break;
                 }
               }
@@ -1465,35 +1462,24 @@ void key_input(app_state* app, const gui_input& input) {
             return best_match;
           };
 
-          // auto smooth_strip = path.strip;
-          // auto first_face   = smooth_strip.front();
-          // auto last_face    = smooth_strip.back();
-
-          // auto root_fan = app->mesh.triangle_rings[root];
-
-          // auto first_idx = find_idx(root_fan, first_face);
-          // auto last_idx  = find_idx(root_fan, last_face);
-          // last_idx       = (last_idx + 1) % root_fan.size();
-          // printf("first: %d (%d)\n", first_face, first_idx);
-          // printf("second: %d (%d)\n", last_face, last_idx);
-
-          // for (auto f = 0; f < root_fan.size(); f++) {
-          //   auto idx = (f + last_idx) % root_fan.size();
-          //   if (idx == first_idx) break;
-          //   printf("%d (%d) - ", root_fan[idx], idx);
-          //   smooth_strip.push_back(root_fan[idx]);
-          //   // path.lerps.push_back(1.0f);
-          // }
-
           // Adjusting strip
           if (app->smooth_generators) {
             for (auto t = 0; t < 1; t++) {
+              printf("----------------\n");
+              printf("Iteration: %d\n", t);
               auto mid = find_closest_to_vertex();
-              printf("Splitting point: %d\n", mid);
+              printf("\tSplitting point: %d\n", mid);
 
-              // new first face of the strip
+              // Old first and last face of the strip
+              auto first = path.strip.front();
+              auto last  = path.strip.back();
+              printf("\tFirst face: %d - Last face: %d\n", first, last);
+
+              // New first and last of the strip
               auto second_face = path.strip[mid + 1];
               auto first_face  = path.strip[mid];
+              printf("\tNew first face: %d - New last face: %d\n", second_face,
+                  first_face);
 
               auto kk = find_adjacent_triangle(
                   mesh.triangles[second_face], mesh.triangles[first_face]);
@@ -1508,70 +1494,73 @@ void key_input(app_state* app, const gui_input& input) {
               auto mid_uv   = lerp(aa, bb, path.lerps[mid]);
               auto mp2      = mesh_point{first_face, mid_uv};
 
-              draw_mesh_point(
-                  app->glscene, app->mesh, app->materials.green, mp2, 0.0005f);
-              draw_mesh_point(
-                  app->glscene, app->mesh, app->materials.red, mp1, 0.0005f);
+              // draw_mesh_point(
+              //     app->glscene, app->mesh, app->materials.green, mp2,
+              //     0.002f);
+              // draw_mesh_point(
+              //     app->glscene, app->mesh, app->materials.red, mp1,
+              //     0.002f);
 
               auto res = vector<int>{};
-              res.reserve(path.strip.size() + 10);
+              res.reserve(path.strip.size() + 12);
               res.insert(
-                  res.end(), path.strip.begin() + mid + 1, path.strip.end());
+                  res.end(), path.strip.begin() + (mid + 1), path.strip.end());
 
               // printf("Start: %d - End: %d\n", res.front(), res.back());
 
-              // Add fan
-              auto root_fan = app->mesh.triangle_rings[root];
+              // Add fan (only for root vertex)
+              if (t == 0) {
+                auto root_fan = app->mesh.triangle_rings[root];
 
-              auto first_idx = find_idx(root_fan, first);
-              auto last_idx  = find_idx(root_fan, last);
-              last_idx       = (last_idx + 1) % root_fan.size();
-              // printf("first: %d (%d)\n", first, first_idx);
-              // printf("second: %d (%d)\n", last, last_idx);
+                auto last_idx = find_idx(root_fan, last);
+                // last_idx      = (last_idx + 1) % root_fan.size();
+                // res.push_back(root_fan[last_idx]);
 
-              for (auto f = 0; f < root_fan.size(); f++) {
-                auto idx = (f + last_idx) % root_fan.size();
-                if (idx == first_idx) break;
-                // printf("%d (%d) - ", root_fan[idx], idx);
-                res.push_back(root_fan[idx]);
-                // path.lerps.push_back(1.0f);
+                // auto first_idx = find_idx(root_fan, first);
+                // first_idx      = (first_idx - 1) % root_fan.size();
+                // res.push_back(root_fan[first_idx]);
+
+                while (true) {
+                  last_idx = (last_idx + 1) % root_fan.size();
+                  if (root_fan[last_idx] == first) break;
+                  res.push_back(root_fan[last_idx]);
+                }
               }
-
-              // printf(" End: %d\n", res.back());
 
               res.insert(
                   res.end(), path.strip.begin(), path.strip.begin() + mid + 1);
-
-              // printf(" End: %d\n", res.back());
-
-              printf("---------------\n");
-              printf("Start point: %d (%f %f)\n", mp1.face, mp1.uv.x, mp1.uv.y);
-              printf("End point: %d (%f %f)\n", mp2.face, mp2.uv.x, mp2.uv.y);
-              for (auto t = 0; t < res.size(); t++)
-                printf("%d - %d\n", t, res[t]);
-              printf("\n");
-
               check_triangle_strip(app->mesh.adjacencies, res);
-
-              // auto path = shortest_path(mesh.triangles, mesh.positions,
-              //     mesh.adjacencies, mp1, mp2, res);
-              // printf("New path: %d\n", path.strip.size());
 
               {
                 auto patch_color = get_color(b + 1);
-                if (app->temp_patch == nullptr) {
-                  app->temp_patch = add_patch_shape(app, res, patch_color);
-                  app->temp_patch->depth_test = ogl_depth_test::always;
-                }
+                app->temp_patch  = add_patch_shape(app, res, patch_color);
+                app->temp_patch->depth_test = ogl_depth_test::always;
+                app->temp_patch->hidden     = true;
 
                 if (app->count % 2 == 0)
                   app->temp_patch->hidden = !app->temp_patch->hidden;
               }
 
-              // printf("First: %d (%d)\n", first_incident, first_incident_idx);
-              // printf("Second_idx: %d (%d)\n", last_incident,
-              // last_incident_idx);
+              printf(
+                  "\tStart point: %d (%f %f)\n", mp1.face, mp1.uv.x, mp1.uv.y);
+              printf("\tEnd point: %d (%f %f)\n", mp2.face, mp2.uv.x, mp2.uv.y);
+              for (auto t = 0; t < res.size(); t++) printf("%d\n", res[t]);
+              printf("\n");
 
+              path = shortest_path(mesh.triangles, mesh.positions,
+                  mesh.adjacencies, mp1, mp2, res);
+
+              printf("\tNew path length: %d\n", path.strip.size());
+
+              // {
+              //   auto patch_color = get_color(b + 1);
+              //   app->temp_patch  = add_patch_shape(app, res, patch_color);
+              //   app->temp_patch->depth_test = ogl_depth_test::always;
+              //   app->temp_patch->hidden     = true;
+
+              //   if (app->count % 2 == 0)
+              //     app->temp_patch->hidden = !app->temp_patch->hidden;
+              // }
               // // Finding new start and end points (MESHPOINT VERSION)
               // auto mid      = (int)path.strip.size() / 2;
               // auto mid_face = path.strip[mid];
@@ -1621,28 +1610,18 @@ void key_input(app_state* app, const gui_input& input) {
               // path = shortest_path(mesh.triangles, mesh.positions,
               //     mesh.adjacencies, mp2, mp1, strip1);
               // printf("New path: %d\n", path.strip.size());
-
-              // auto start_mp = mesh_point{first_face,
-              //     get_uv_from_vertex(app->mesh.triangles[first_face],
-              //     vertex)};
-
-              // auto end_mp = mesh_point{second_face,
-              //     get_uv_from_vertex(app->mesh.triangles[second_face],
-              //     vertex)};
-
-              // draw_mesh_point(
-              //     app->glscene, app->mesh, app->materials.red, end_mp,
-              //     0.0009f);
-
-              // auto strip     = path.strip;
-              // auto start_idx = find_idx(strip, first_face);
-              // rotate(strip.begin(), strip.begin() + start_idx + 1,
-              // strip.end());
-
-              // // path = shortest_path(mesh.triangles, mesh.positions,
-              // //     mesh.adjacencies, end_mp, start_mp, strip);
             }
           }
+
+          // {
+          //   auto patch_color = get_color(b + 1);
+          //   app->temp_patch  = add_patch_shape(app, path.strip,
+          //   patch_color); app->temp_patch->depth_test =
+          //   ogl_depth_test::always; app->temp_patch->hidden     = true;
+
+          //   if (app->count % 2 == 0)
+          //     app->temp_patch->hidden = !app->temp_patch->hidden;
+          // }
 
           auto basis_shortest_segments = mesh_segments(
               mesh.triangles, path.strip, path.lerps, path.start, path.end);

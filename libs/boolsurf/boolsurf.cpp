@@ -286,33 +286,29 @@ vector<mesh_polygon> smooth_homotopy_basis(
     // Adjusting strip
     if (smooth_generators) {
       for (auto t = 0; t < 1; t++) {
-        auto closest = find_closest_to_vertex();
-        printf("Closest: %d\n", closest);
+        auto mid      = (int)path.strip.size() / 2;
+        auto mid_face = path.strip[mid];
 
-        // auto mid      = (int)path.strip.size() / 2;
-        // auto mid_face = path.strip[mid];
+        auto k = find_adjacent_triangle(mesh.triangles[path.strip[mid]],
+            mesh.triangles[path.strip[mid + 1]]);
 
-        // auto k = find_adjacent_triangle(mesh.triangles[path.strip[mid]],
-        //     mesh.triangles[path.strip[mid + 1]]);
+        auto [aa, bb] = get_triangle_uv_from_index(k);
+        auto mid_uv   = lerp(aa, bb, path.lerps[mid]);
 
-        // auto [aa, bb] = get_triangle_uv_from_index(k);
-        // auto mid_uv   = lerp(aa, bb, path.lerps[mid]);
+        auto kk = find_adjacent_triangle(mesh.triangles[path.strip[mid + 1]],
+            mesh.triangles[path.strip[mid]]);
+        auto [cc, dd] = get_triangle_uv_from_index(kk);
+        auto mid_uv1  = lerp(cc, dd, 1 - path.lerps[mid]);
 
-        // auto kk = find_adjacent_triangle(mesh.triangles[path.strip[mid + 1]],
-        //     mesh.triangles[path.strip[mid]]);
-        // auto [cc, dd] = get_triangle_uv_from_index(kk);
-        // auto mid_uv1  = lerp(cc, dd, 1 - path.lerps[mid]);
+        auto mp1 = mesh_point{mid_face, mid_uv};
+        auto mp2 = mesh_point{path.strip[mid + 1], mid_uv1};
 
-        // auto mp1 = mesh_point{mid_face, mid_uv};
-        // auto mp2 = mesh_point{path.strip[mid + 1], mid_uv1};
+        auto& strip1    = path.strip;
+        auto  start_idx = find_idx(strip1, mp1.face);
+        rotate(strip1.begin(), strip1.begin() + start_idx + 1, strip1.end());
 
-        // auto& strip1    = path.strip;
-        // auto  start_idx = find_idx(strip1, mp1.face);
-        // rotate(strip1.begin(), strip1.begin() + start_idx + 1, strip1.end());
-
-        // path = shortest_path(
-        //     mesh.triangles, mesh.positions, mesh.adjacencies, mp2, mp1,
-        //     strip1);
+        path = shortest_path(
+            mesh.triangles, mesh.positions, mesh.adjacencies, mp2, mp1, strip1);
       }
     }
 
