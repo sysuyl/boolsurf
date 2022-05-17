@@ -77,12 +77,12 @@ struct app_state {
   int                selected_point        = -1;
   float              selected_point_radius = 0;
   int                selected_cell         = -1;
-  int                selected_shape        = -1;
-  int                selected_polygon        = -1;
-  int                selected_strategy     = -1;
+  int                selected_shape        = 0;
+  int                selected_polygon      = 0;
+  int                selected_strategy     = 0;
   int                count                 = 0;
   // int                selected_polygon      = 0;
-  hash_set<int>      current_shape         = {};
+  hash_set<int> current_shape = {};
 
   // rendering state
   shade_scene*    glscene           = new shade_scene{};
@@ -320,7 +320,6 @@ void load_shape(app_state* app, const string& filename) {
   auto modelname    = path_basename(app->model_filename);
   auto basefilename = "data/homotopy/"s + modelname + "_basis.json"s;
   init_mesh(app->mesh);
-  app->mesh_original = app->mesh;
 
   if (path_exists(basefilename)) {
     printf("Loading: %s\n", basefilename.c_str());
@@ -340,6 +339,8 @@ void load_shape(app_state* app, const string& filename) {
       app->generators_shapes.push_back(base_shape);
     }
   }
+
+  app->mesh_original = app->mesh;
 }
 
 void init_edges_and_vertices_shapes_and_points(
