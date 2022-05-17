@@ -3309,8 +3309,8 @@ static vector<int> fix_strip(const vector<vec3i>& adjacencies,
       second_idx = second_idx + 1;
     }
 
-    printf("First idx: %d (%d) - Second idx: %d (%d)\n", first_idx,
-        strip[first_idx], second_idx, strip[second_idx]);
+    // printf("First idx: %d (%d) - Second idx: %d (%d)\n", first_idx,
+    //     strip[first_idx], second_idx, strip[second_idx]);
 
     auto new_strip = vector<int>();
     new_strip.reserve(strip.size());
