@@ -3295,8 +3295,50 @@ static vector<int> fix_strip(const vector<vec3i>& adjacencies,
     }
   }
 
+  assert(first_strip_intersection < second_strip_intersection);
+  // assert(first_fan_intersection < second_fan_intersection);
+
   if (first_strip_intersection >= second_strip_intersection) return strip;
-  if (first_fan_intersection >= second_fan_intersection) return strip;
+
+  if (first_fan_intersection >= second_fan_intersection) {
+    auto first_idx  = first_strip_intersection;
+    auto second_idx = second_strip_intersection;
+
+    while (strip[first_idx] == strip[second_idx]) {
+      first_idx  = first_idx - 1;
+      second_idx = second_idx + 1;
+    }
+
+    printf("First idx: %d (%d) - Second idx: %d (%d)\n", first_idx,
+        strip[first_idx], second_idx, strip[second_idx]);
+
+    auto new_strip = vector<int>();
+    new_strip.reserve(strip.size());
+    new_strip.insert(
+        new_strip.end(), strip.begin(), strip.begin() + first_idx + 2);
+    new_strip.insert(new_strip.end(), strip.begin() + second_idx, strip.end());
+
+    // for (auto& tri : strip) {
+    //   printf("%d\n", tri);
+    // }
+
+    // for (auto& tri : new_strip) {
+    //   printf("%d\n", tri);
+    // }
+    // printf("\n");
+
+    // for (auto& f : fan) {
+    //   printf("%d\n", f);
+    // }
+
+    // printf("Face: %d\n", face);
+
+    return new_strip;
+  }
+
+  // if (first_fan_intersection >= second_fan_intersection) {
+  //   return strip;
+  // }
 
   auto result = vector<int>{};
   result.reserve(strip.size() + 12);
