@@ -312,7 +312,7 @@ vector<vector<vector<int>>> compute_shapes_words(app_state* app) {
 
 void do_things(app_state* app) {
   // Cleaning input shapes (?)
-  clean_input_shapes(app->state);
+  // clean_input_shapes(app->state);
 
   debug_triangles().clear();
   debug_nodes().clear();
@@ -321,42 +321,25 @@ void do_things(app_state* app) {
   compute_cells(app->mesh, app->state);
 
   if (app->state.invalid_shapes.size()) {
+    auto shapes_words = compute_shapes_words(app);
+
+    auto num_basis = app->mesh.homotopy_basis.basis.size();
+    auto coefs     = vector<int>(num_basis + 1, 0);
+    for (auto& shape_id : app->state.invalid_shapes) {
+      auto& shape_words = shapes_words[shape_id];
+      for (auto p = 0; p < shapes_words[shape_id].size(); p++) {
+        auto& polygon_words = shapes_words[shape_id][p];
+        for (auto& code : polygon_words) coefs[abs(code)] += sign(code);
+      }
+    }
+
+    for (auto c = 1; c < coefs.size(); c++) {
+      if (coefs[c] == 0)
+        app->generators_shapes[c - 1]->hidden = true;
+      else
+        app->generators_shapes[c - 1]->hidden = false;
+    }
     return;
-    // for (auto s : app->state.invalid_shapes) {
-    //   printf("Invalid shape: %d\n", s);
-    //   auto& shape              = app->state.bool_shapes[s];
-    //   auto  num_shape_polygons = shape.polygons.size();
-
-    //   auto parallel_polygons = vector<mesh_polygon>{};
-    //   for (auto p = 0; p < num_shape_polygons; p++) {
-    //     auto is_valid = check_polygon_validity(app->mesh, s, p);
-    //     if (!is_valid) {
-    //       printf("Invalid polygon: %d\n", p);
-    //       auto parallel_points = compute_parallel_loop(
-    //           app->mesh_original, shape.polygons[p]);
-
-    //       auto& parallel_polygon = parallel_polygons.emplace_back();
-    //       for (auto& point : parallel_points) {
-    //         parallel_polygon.points.push_back((int)app->state.points.size());
-    //         app->state.points.push_back(point);
-    //       }
-    //     }
-    //   }
-
-    //   shape.polygons += parallel_polygons;
-    // }
-
-    // app->state.invalid_shapes.clear();
-    // app->mesh = app->mesh_original;
-    // app->shape_shapes.clear();
-    // for (auto s = 0; s < app->state.bool_shapes.size(); s++) {
-    //   auto& shape = app->state.bool_shapes[s];
-    //   for (auto p = 0; p < shape.polygons.size(); p++)
-    //     recompute_polygon_segments(app->mesh, app->state, shape.polygons[p]);
-
-    //   add_shape_shape(app, s);
-    // }
-    // return;
   }
 
   // #ifdef MY_DEBUG
@@ -1108,15 +1091,20 @@ void draw_widgets(app_state* app, const gui_input& input) {
       draw_label(widgets, "", app->svg_filename);
       draw_label(widgets, "", "Selecting shape");
       auto callback1 = [&](int i) { return std::to_string(invalid_shapes[i]); };
+
       draw_combobox(widgets, "Shape", app->selected_shape,
           (int)invalid_shapes.size(), callback1);
+      if (draw_button(widgets, "Select")) {
+        auto& current_shape =
+            app->state.bool_shapes[invalid_shapes[app->selected_shape]];
+
+        app->selected = {};
+        for (auto pid = 0; pid < current_shape.polygons.size(); pid++)
+          app->selected.insert(pid);
+      }
 
       auto  shape_idx      = invalid_shapes[app->selected_shape];
       auto& selected_shape = app->state.bool_shapes[shape_idx];
-
-      for (auto pid = 0;
-           pid < app->state.bool_shapes[shape_idx].polygons.size(); pid++)
-        app->selected.insert(pid);
 
       draw_label(widgets, "", app->svg_filename);
       draw_label(widgets, "", "Selecting polygons");
@@ -1131,15 +1119,22 @@ void draw_widgets(app_state* app, const gui_input& input) {
           (int)selected_shape.polygons.size(), callback2);
 
       auto s = invalid_shapes[app->selected_shape];
-      // auto p = app->selected_polygon;
 
-      if (draw_button(widgets, "Add"))
+      if (draw_button(widgets, "Add")) {
         app->selected.insert(app->selected_polygon);
+        for (auto& s : app->selected) {
+          printf("selected: %d\n", s);
+        }
+      }
 
       continue_line(widgets);
 
-      if (draw_button(widgets, "Remove"))
+      if (draw_button(widgets, "Remove")) {
         app->selected.erase(app->selected_polygon);
+        for (auto& s : app->selected) {
+          printf("selected: %d\n", s);
+        }
+      }
 
       if (draw_button(widgets, "Visualize single")) {
         // Hide all generators
@@ -1175,9 +1170,9 @@ void draw_widgets(app_state* app, const gui_input& input) {
           for (auto pid = 0; pid < shape_shape.polygons.size(); pid++) {
             auto& polygon_shape = shape_shape.polygons[pid];
             if (sid == s && contains(app->selected, pid))
-              polygon_shape->hidden = false;
+              polygon_shape->material->color = get_color(sid);
             else
-              polygon_shape->hidden = true;
+              polygon_shape->material->color = {0.3f, 0.3f, 0.3f};
           }
         }
       }
@@ -1240,9 +1235,14 @@ void draw_widgets(app_state* app, const gui_input& input) {
               app->state.points.push_back(point);
             }
           }
+          app->selected = {};
+
         } else if (app->selected_strategy == 1) {
-          for (auto& p : app->selected) shape.polygons[p] = mesh_polygon{};
-          // continue;
+          for (auto& p : app->selected) {
+            shape.polygons[p] = mesh_polygon{};
+          }
+          app->selected = {};
+
         } else if (app->selected_strategy == 2) {
           // Add missing generators
           for (auto c = 1; c < coefs.size(); c++) {
@@ -1251,8 +1251,10 @@ void draw_widgets(app_state* app, const gui_input& input) {
             auto& gen_polygon = app->mesh.homotopy_basis.smooth_basis[c - 1];
             auto  generator_curve = vectorize_generator_loop(
                  app->state, gen_polygon, coefs[c]);
+
             shape.polygons += generator_curve;
           }
+          app->selected = {};
         }
 
         app->state.invalid_shapes.clear();
@@ -1277,6 +1279,29 @@ void draw_widgets(app_state* app, const gui_input& input) {
           auto base_shape = get_polygon_shape(app, smooth_base, 13);
           app->generators_shapes.push_back(base_shape);
         }
+
+        {
+          auto shapes_words = compute_shapes_words(app);
+
+          auto num_basis = app->mesh.homotopy_basis.basis.size();
+          auto coefs     = vector<int>(num_basis + 1, 0);
+          for (auto& shape_id : app->state.invalid_shapes) {
+            auto& shape_words = shapes_words[shape_id];
+            for (auto p = 0; p < shapes_words[shape_id].size(); p++) {
+              auto& polygon_words = shapes_words[shape_id][p];
+              for (auto& code : polygon_words) coefs[abs(code)] += sign(code);
+            }
+          }
+
+          for (auto c = 1; c < coefs.size(); c++) {
+            if (coefs[c] == 0)
+              app->generators_shapes[c - 1]->hidden = true;
+            else
+              app->generators_shapes[c - 1]->hidden = false;
+          }
+        }
+
+        return;
       }
     }
     end_header(widgets);
