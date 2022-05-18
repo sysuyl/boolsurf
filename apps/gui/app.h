@@ -79,6 +79,7 @@ struct app_state {
   int                selected_cell         = -1;
   int                selected_shape        = 0;
   int                selected_polygon      = 0;
+  hash_set<int>      selected              = {};
   int                selected_strategy     = 0;
   int                count                 = 0;
   // int                selected_polygon      = 0;

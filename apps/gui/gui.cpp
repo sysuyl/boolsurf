@@ -627,12 +627,14 @@ void draw_widgets(app_state* app, const gui_input& input) {
   //   auto ff = [&](int i) { return std::to_string(i); };
 
   //   auto s = ""s;
-  //   for (auto& shape_id : app->current_shape) s += std::to_string(shape_id) +
-  //   "
-  //   "; draw_label(widgets, "Current:", s);
+  //   for (auto& shape_id : app->current_shape)
+  //     s += std::to_string(shape_id) +
+  //          "
+  //          "; draw_label(widgets, " Current
+  //         : ", s);
 
-  //   draw_combobox(widgets, "Shape", app->selected_polygon,
-  //       (int)app->state.bool_shapes.size(), ff);
+  //           draw_combobox(widgets, "Shape", app->selected_polygon,
+  //               (int)app->state.bool_shapes.size(), ff);
 
   //   if (draw_button(widgets, "Add")) {
   //     app->current_shape.insert(app->selected_polygon);
@@ -1103,26 +1105,41 @@ void draw_widgets(app_state* app, const gui_input& input) {
       draw_label(widgets, "", app->svg_filename);
       draw_label(widgets, "", "Fix detected invalid shapes");
 
+      draw_label(widgets, "", app->svg_filename);
+      draw_label(widgets, "", "Selecting shape");
       auto callback1 = [&](int i) { return std::to_string(invalid_shapes[i]); };
-      draw_combobox(widgets, "Invalid shapes", app->selected_shape,
+      draw_combobox(widgets, "Shape", app->selected_shape,
           (int)invalid_shapes.size(), callback1);
 
-      auto  shape_idx = invalid_shapes[app->selected_shape];
-      auto& selected_shape =
-          app->state.bool_shapes[invalid_shapes[app->selected_shape]];
-      // printf("Num polygona: %d\n", selected_shape.polygons.size());
+      auto  shape_idx      = invalid_shapes[app->selected_shape];
+      auto& selected_shape = app->state.bool_shapes[shape_idx];
+
+      for (auto pid = 0;
+           pid < app->state.bool_shapes[shape_idx].polygons.size(); pid++)
+        app->selected.insert(pid);
+
+      draw_label(widgets, "", app->svg_filename);
+      draw_label(widgets, "", "Selecting polygons");
+
+      auto str = ""s;
+      for (auto& polygon_id : app->selected)
+        str += std::to_string(polygon_id + 1) + " ";
+      draw_label(widgets, "Current: ", str);
+
       auto callback2 = [&](int i) { return std::to_string(i + 1); };
-      draw_combobox(widgets, "Invalid polygon", app->selected_polygon,
+      draw_combobox(widgets, "Polygon", app->selected_polygon,
           (int)selected_shape.polygons.size(), callback2);
 
-      auto strategies = vector<string>{
-          "Duplicate loop", "Remove loop", "Add missing generators"};
-      auto callback3 = [&](int i) { return strategies[i]; };
-      draw_combobox(widgets, "Strategy", app->selected_strategy,
-          (int)strategies.size(), callback3);
-
       auto s = invalid_shapes[app->selected_shape];
-      auto p = app->selected_polygon;
+      // auto p = app->selected_polygon;
+
+      if (draw_button(widgets, "Add"))
+        app->selected.insert(app->selected_polygon);
+
+      continue_line(widgets);
+
+      if (draw_button(widgets, "Remove"))
+        app->selected.erase(app->selected_polygon);
 
       if (draw_button(widgets, "Visualize single")) {
         // Hide all generators
@@ -1130,19 +1147,20 @@ void draw_widgets(app_state* app, const gui_input& input) {
         for (auto& gen_shape : app->generators_shapes) {
           gen_shape->hidden = true;
         }
-
-        printf("Showing polygon %d\n", p);
         auto& shape        = app->state.bool_shapes[s];
         auto  shapes_words = compute_shapes_words(app);
-        auto& polygon_word = shapes_words[s][p];
-        auto  num_basis    = app->mesh.homotopy_basis.basis.size();
 
-        auto coefs = vector<int>(num_basis + 1, 0);
-        for (auto& code : polygon_word) coefs[abs(code)] += sign(code);
+        auto num_basis = app->mesh.homotopy_basis.basis.size();
+        auto coefs     = vector<int>(num_basis + 1, 0);
 
-        printf("Coefs: ");
-        for (auto& w : polygon_word) printf("%d ", w);
-        printf("\n");
+        for (auto& p : app->selected) {
+          auto& polygon_word = shapes_words[s][p];
+          for (auto& code : polygon_word) coefs[abs(code)] += sign(code);
+        }
+
+        // printf("Selected shape/polygons coefs: ");
+        // for (auto& w : coefs) printf("%d ", w);
+        // printf("\n");
 
         // Highlight all missing generators
         for (auto c = 1; c < coefs.size(); c++) {
@@ -1156,7 +1174,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
           auto& shape_shape = app->shape_shapes[sid];
           for (auto pid = 0; pid < shape_shape.polygons.size(); pid++) {
             auto& polygon_shape = shape_shape.polygons[pid];
-            if (sid == s && pid == p)
+            if (sid == s && contains(app->selected, pid))
               polygon_shape->hidden = false;
             else
               polygon_shape->hidden = true;
@@ -1164,6 +1182,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
         }
       }
 
+      continue_line(widgets);
       if (draw_button(widgets, "Visualize all")) {
         // Hide all generators
         for (auto& gen_shape : app->generators_shapes) {
@@ -1179,6 +1198,14 @@ void draw_widgets(app_state* app, const gui_input& input) {
         }
       }
 
+      draw_label(widgets, "", app->svg_filename);
+      draw_label(widgets, "", "Selecting strategy");
+      auto strategies = vector<string>{
+          "Duplicate loop", "Remove loop", "Add missing generators"};
+      auto callback3 = [&](int i) { return strategies[i]; };
+      draw_combobox(widgets, "Strategy", app->selected_strategy,
+          (int)strategies.size(), callback3);
+
       if (draw_button(widgets, "Solve")) {
         for (auto& gen_shape : app->generators_shapes) {
           gen_shape->hidden = true;
@@ -1192,25 +1219,29 @@ void draw_widgets(app_state* app, const gui_input& input) {
         auto num_basis          = app->mesh.homotopy_basis.basis.size();
 
         // for (auto p = 0; p < shape_words.size(); p++) {
-        auto& polygon_word = shape_words[p];
-
         auto coefs = vector<int>(num_basis + 1, 0);
-        for (auto& code : polygon_word) coefs[abs(code)] += sign(code);
+
+        for (auto& p : app->selected) {
+          auto& polygon_word = shape_words[p];
+          for (auto& code : polygon_word) coefs[abs(code)] += sign(code);
+        }
 
         if (count(coefs.begin(), coefs.end(), 0) == num_basis + 1) return;
 
         if (app->selected_strategy == 0) {
           // Duplicate loop
-          auto parallel_points = compute_parallel_loop(
-              app->mesh_original, shape.polygons[p]);
+          for (auto& p : app->selected) {
+            auto parallel_points = compute_parallel_loop(
+                app->mesh_original, shape.polygons[p]);
 
-          auto& parallel_polygon = shape.polygons.emplace_back();
-          for (auto& point : parallel_points) {
-            parallel_polygon.points.push_back((int)app->state.points.size());
-            app->state.points.push_back(point);
+            auto& parallel_polygon = shape.polygons.emplace_back();
+            for (auto& point : parallel_points) {
+              parallel_polygon.points.push_back((int)app->state.points.size());
+              app->state.points.push_back(point);
+            }
           }
         } else if (app->selected_strategy == 1) {
-          shape.polygons[p] = mesh_polygon{};
+          for (auto& p : app->selected) shape.polygons[p] = mesh_polygon{};
           // continue;
         } else if (app->selected_strategy == 2) {
           // Add missing generators
