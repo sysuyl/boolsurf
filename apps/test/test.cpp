@@ -251,7 +251,7 @@ int main(int num_args, const char* args[]) {
 
     // Label propagation
     auto propagation_timer = simple_timer{};
-    compute_cell_labels(_state);
+    compute_cell_labels(_state, true);
     stats.propagation_ms += elapsed_milliseconds(propagation_timer);
 
     auto booleans_timer = simple_timer{};

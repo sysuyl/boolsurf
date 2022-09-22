@@ -310,6 +310,42 @@ vector<vector<vector<int>>> compute_shapes_words(app_state* app) {
   return shapes_words;
 }
 
+void visualize_shape_and_generators(
+    app_state* app, int s, hash_set<int>& selected) {
+  for (auto& gen_shape : app->generators_shapes) {
+    gen_shape->hidden = true;
+  }
+  auto& shape        = app->state.bool_shapes[s];
+  auto  shapes_words = compute_shapes_words(app);
+
+  auto num_basis = app->mesh.homotopy_basis.basis.size();
+  auto coefs     = vector<int>(num_basis + 1, 0);
+
+  for (auto& p : selected) {
+    auto& polygon_word = shapes_words[s][p];
+    for (auto& code : polygon_word) coefs[abs(code)] += sign(code);
+  }
+
+  // Highlight all missing generators
+  for (auto c = 1; c < coefs.size(); c++) {
+    if (coefs[c] == 0)
+      app->generators_shapes[c - 1]->hidden = true;
+    else
+      app->generators_shapes[c - 1]->hidden = false;
+  }
+
+  for (auto sid = 0; sid < app->shape_shapes.size(); sid++) {
+    auto& shape_shape = app->shape_shapes[sid];
+    for (auto pid = 0; pid < shape_shape.polygons.size(); pid++) {
+      auto& polygon_shape = shape_shape.polygons[pid];
+      if (sid == s && contains(selected, pid))
+        polygon_shape->material->color = get_color(sid);
+      else
+        polygon_shape->material->color = {0.3f, 0.3f, 0.3f};
+    }
+  }
+}
+
 void do_things(app_state* app) {
   // Cleaning input shapes (?)
   // clean_input_shapes(app->state);
@@ -318,7 +354,7 @@ void do_things(app_state* app) {
   debug_nodes().clear();
   debug_indices().clear();
 
-  compute_cells(app->mesh, app->state);
+  compute_cells(app->mesh, app->state, app->non_zero);
 
   if (app->state.invalid_shapes.size()) {
     auto shapes_words = compute_shapes_words(app);
@@ -346,8 +382,6 @@ void do_things(app_state* app) {
   // save_tree_png(app->state, app->test_filename, "", app->color_shapes);
   //#endif
 
-  compute_shapes(app->state);
-
   if (!app->color_hashgrid) {
     app->cell_shapes.resize(app->state.cells.size());
     for (int i = 0; i < app->state.cells.size(); i++) {
@@ -355,6 +389,10 @@ void do_things(app_state* app) {
     }
 
     update_cell_shapes(app);
+
+    // for (int i = 0; i < app->state.cells.size(); i++) {
+    //   app->cell_shapes[i]->material->color = {0.9f, 0.9f, 0.9f};
+    // }
     update_cell_colors(app);
 
     // for (auto p = 0; p < app->state.polygons.size(); p++) {
@@ -430,12 +468,13 @@ void do_things(app_state* app) {
     app->border_faces_shapes += add_patch_shape(app, faces, {1, 0, 0});
     app->border_faces_shapes.back()->depth_test = ogl_depth_test::always;
   }
+  app->state.correct_input = true;
 }
 
 void draw_widgets(app_state* app, const gui_input& input) {
   auto widgets = &app->widgets;
   begin_imgui(widgets, "boolsurf", {0, 0}, {320, 720});
-  draw_label(widgets, "selected", std::to_string(app->selected_point));
+  // draw_label(widgets, "selected", std::to_string(app->selected_point));
 
   if (draw_filedialog_button(widgets, "load test", true, "load file",
           app->test_filename, false, "data/tests/", "test.json", "*.json")) {
@@ -1081,6 +1120,91 @@ void draw_widgets(app_state* app, const gui_input& input) {
       do_things(app);
     }
 
+    if (app->state.correct_input) {
+      auto cb1 = [&](int i) { return std::to_string(i); };
+      auto cb2 = [&](int i) { return std::to_string(i + 1); };
+
+      draw_combobox(widgets, "Starting cell", app->selected_cell,
+          (int)app->state.cells.size(), cb1);
+
+      if (draw_button(widgets, "Color cells")) {
+        compute_cell_labels(app->state, app->non_zero);
+
+        auto offset = vector<int>((int)app->state.bool_shapes.size(), 0);
+        for (auto& cell_label : app->state.labels) {
+          for (auto l = 0; l < cell_label.size(); l++) {
+            offset[l] = min(offset[l], cell_label[l]);
+          }
+        }
+
+        if (app->selected_cell != -1) {
+          offset = app->state.labels[app->selected_cell];
+        }
+
+        for (auto& cell_label : app->state.labels) {
+          for (auto l = 0; l < cell_label.size(); l++) {
+            cell_label[l] = (cell_label[l] - offset[l]);
+          }
+        }
+
+        printf("Labels\n");
+        for (auto& cell_label : app->state.labels) {
+          for (auto l = 0; l < cell_label.size(); l++) {
+            printf("%d ", cell_label[l]);
+          }
+          printf("\n");
+        }
+        printf("\n");
+
+        for (auto& cell_label : app->state.labels) {
+          for (auto l = 0; l < cell_label.size(); l++) {
+            if (app->non_zero)
+              cell_label[l] = (cell_label[l] != 0) ? 1 : 0;
+            else
+              cell_label[l] = cell_label[l] % 2;
+          }
+        }
+
+        // for (int i = 0; i < state.cells.size(); i++) {
+        //   app->cell_shapes[i]->material->color = app->test.cell_colors[i];
+        // }
+
+        for (auto& cell_label : app->state.labels) {
+          for (auto l = 0; l < cell_label.size(); l++) {
+            printf("%d ", cell_label[l]);
+          }
+          printf("\n");
+        }
+        printf("\n");
+
+        update_cell_shapes(app);
+        update_cell_colors(app);
+      }
+
+      draw_combobox(widgets, "Invert label", app->selected_shape,
+          (int)app->state.bool_shapes.size() - 2, cb2);
+
+      if (draw_button(widgets, "Invert")) {
+        for (auto& cell_label : app->state.labels) {
+          for (auto l = 0; l < cell_label.size(); l++) {
+            if (l == app->selected_shape + 1) {
+              cell_label[l] = (cell_label[l] == 0) ? 1 : 0;
+            }
+          }
+        }
+
+        for (auto& cell_label : app->state.labels) {
+          for (auto l = 0; l < cell_label.size(); l++) {
+            printf("%d ", cell_label[l]);
+          }
+          printf("\n");
+        }
+
+        update_cell_shapes(app);
+        update_cell_colors(app);
+      }
+    }
+
     auto invalid_shapes = vector<int>(
         app->state.invalid_shapes.begin(), app->state.invalid_shapes.end());
 
@@ -1088,31 +1212,29 @@ void draw_widgets(app_state* app, const gui_input& input) {
       draw_label(widgets, "", app->svg_filename);
       draw_label(widgets, "", "Fix detected invalid shapes");
 
-      draw_label(widgets, "", app->svg_filename);
       draw_label(widgets, "", "Selecting shape");
       auto callback1 = [&](int i) { return std::to_string(invalid_shapes[i]); };
 
       draw_combobox(widgets, "Shape", app->selected_shape,
           (int)invalid_shapes.size(), callback1);
       if (draw_button(widgets, "Select")) {
-        auto& current_shape =
-            app->state.bool_shapes[invalid_shapes[app->selected_shape]];
+        // auto& current_shape =
+        //     app->state.bool_shapes[invalid_shapes[app->selected_shape]];
 
         app->selected = {};
-        for (auto pid = 0; pid < current_shape.polygons.size(); pid++)
-          app->selected.insert(pid);
+        // for (auto pid = 0; pid < current_shape.polygons.size(); pid++)
+        //   app->selected.insert(pid);
       }
 
       auto  shape_idx      = invalid_shapes[app->selected_shape];
       auto& selected_shape = app->state.bool_shapes[shape_idx];
 
       draw_label(widgets, "", app->svg_filename);
-      draw_label(widgets, "", "Selecting polygons");
 
       auto str = ""s;
       for (auto& polygon_id : app->selected)
         str += std::to_string(polygon_id + 1) + " ";
-      draw_label(widgets, "Current: ", str);
+      draw_label(widgets, "", "Selecting polygons "s + str);
 
       auto callback2 = [&](int i) { return std::to_string(i + 1); };
       draw_combobox(widgets, "Polygon", app->selected_polygon,
@@ -1135,10 +1257,9 @@ void draw_widgets(app_state* app, const gui_input& input) {
           printf("selected: %d\n", s);
         }
       }
+      continue_line(widgets);
 
-      if (draw_button(widgets, "Visualize single")) {
-        // Hide all generators
-        printf("Num generators: %d\n", app->generators_shapes.size());
+      if (draw_button(widgets, "Show single")) {
         for (auto& gen_shape : app->generators_shapes) {
           gen_shape->hidden = true;
         }
@@ -1152,10 +1273,6 @@ void draw_widgets(app_state* app, const gui_input& input) {
           auto& polygon_word = shapes_words[s][p];
           for (auto& code : polygon_word) coefs[abs(code)] += sign(code);
         }
-
-        // printf("Selected shape/polygons coefs: ");
-        // for (auto& w : coefs) printf("%d ", w);
-        // printf("\n");
 
         // Highlight all missing generators
         for (auto c = 1; c < coefs.size(); c++) {
@@ -1176,9 +1293,10 @@ void draw_widgets(app_state* app, const gui_input& input) {
           }
         }
       }
+      continue_line(widgets);
 
       continue_line(widgets);
-      if (draw_button(widgets, "Visualize all")) {
+      if (draw_button(widgets, "Show all")) {
         // Hide all generators
         for (auto& gen_shape : app->generators_shapes) {
           gen_shape->hidden = false;
@@ -1257,7 +1375,6 @@ void draw_widgets(app_state* app, const gui_input& input) {
           app->selected = {};
         }
 
-        app->state.invalid_shapes.clear();
         app->mesh = app->mesh_original;
         app->shape_shapes.clear();
 
@@ -1300,6 +1417,7 @@ void draw_widgets(app_state* app, const gui_input& input) {
               app->generators_shapes[c - 1]->hidden = false;
           }
         }
+        app->state.invalid_shapes.clear();
 
         return;
       }
@@ -1530,6 +1648,67 @@ void key_input(app_state* app, const gui_input& input) {
         do_things(app);
       } break;
 
+      case (int)gui_key('0'): {
+        auto invalid_shapes = vector<int>(
+            app->state.invalid_shapes.begin(), app->state.invalid_shapes.end());
+
+        auto selected_shape = invalid_shapes[app->selected_shape];
+
+        auto selected_polygons = hash_set<int>();
+        selected_polygons.insert(0);
+
+        visualize_shape_and_generators(app, selected_shape, selected_polygons);
+      } break;
+
+      case (int)gui_key('1'): {
+        auto invalid_shapes = vector<int>(
+            app->state.invalid_shapes.begin(), app->state.invalid_shapes.end());
+
+        auto selected_shape = invalid_shapes[app->selected_shape];
+
+        auto selected_polygons = hash_set<int>();
+        selected_polygons.insert(1);
+
+        visualize_shape_and_generators(app, selected_shape, selected_polygons);
+      } break;
+
+      case (int)gui_key('2'): {
+        auto invalid_shapes = vector<int>(
+            app->state.invalid_shapes.begin(), app->state.invalid_shapes.end());
+
+        auto selected_shape = invalid_shapes[app->selected_shape];
+
+        auto selected_polygons = hash_set<int>();
+        selected_polygons.insert(2);
+
+        visualize_shape_and_generators(app, selected_shape, selected_polygons);
+      } break;
+
+      case (int)gui_key('3'): {
+        auto invalid_shapes = vector<int>(
+            app->state.invalid_shapes.begin(), app->state.invalid_shapes.end());
+
+        auto selected_shape = invalid_shapes[app->selected_shape];
+
+        auto selected_polygons = hash_set<int>();
+        selected_polygons.insert(3);
+
+        visualize_shape_and_generators(app, selected_shape, selected_polygons);
+      } break;
+
+      case (int)gui_key('4'): {
+        auto invalid_shapes = vector<int>(
+            app->state.invalid_shapes.begin(), app->state.invalid_shapes.end());
+
+        auto  selected_shape    = invalid_shapes[app->selected_shape];
+        auto& shape             = app->state.bool_shapes[selected_shape];
+        auto  selected_polygons = hash_set<int>();
+        for (auto p = 0; p < shape.polygons.size(); p++)
+          selected_polygons.insert(p);
+
+        visualize_shape_and_generators(app, selected_shape, selected_polygons);
+      } break;
+
       case (int)gui_key('H'): {
         // auto shapes_words = compute_shapes_words(app);
 
@@ -1734,6 +1913,7 @@ int main(int argc, const char* argv[]) {
   add_option(cli, "save-edges", app->save_edges, "Save mesh edges in scene.");
   add_option(
       cli, "save-polygons", app->save_polygons, "Save polygons in scene.");
+  add_option(cli, "non-zero", app->non_zero, "Even odd labelling");
   add_option(cli, "save-generators", app->save_generators,
       "Save generators in scene.");
   add_option(
@@ -1743,7 +1923,8 @@ int main(int argc, const char* argv[]) {
 
   parse_cli(cli, argc, argv);
 
-  init_window(window, {1280 + 320, 720}, "boolsurf", true);
+  // init_window(window, {1280 + 320, 720}, "boolsurf", true);
+  init_window(window, {1280, 720}, "boolsurf", true);
 
   window->user_data = app;
 
