@@ -246,7 +246,7 @@ bool_state state_from_screenspace_test(
       test.camera = cam;
 
       try {
-        stop = compute_cells(mesh, state);
+        stop = compute_cells(mesh, state, true);
         compute_shapes(state);
       } catch (const std::exception&) {
         stop = true;

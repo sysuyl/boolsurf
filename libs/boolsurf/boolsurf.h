@@ -147,6 +147,7 @@ struct bool_state {
   // vector<mesh_shape> shapes         = {};
   vector<int> shapes_sorting = {};
   bool        failed         = false;
+  bool        correct_input  = false;
 };
 
 struct bool_operation {
@@ -193,9 +194,9 @@ void remove_loops_from_strip(vector<int>& strip);
 
 void              slice_mesh(bool_mesh& mesh, bool_state& state);
 vector<mesh_cell> make_cell_graph(bool_mesh& mesh);
-void              compute_cell_labels(bool_state& state);
+void              compute_cell_labels(bool_state& state, bool non_zero);
 
-bool              compute_cells(bool_mesh& mesh, bool_state& state);
+bool compute_cells(bool_mesh& mesh, bool_state& state, bool non_zero);
 vector<mesh_cell> make_mesh_cells(vector<int>& cell_tags,
     const vector<vec3i>& adjacencies, const vector<bool>& border_tags);
 

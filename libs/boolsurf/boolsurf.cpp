@@ -1466,6 +1466,7 @@ static vector<vector<int>> propagate_cell_labels(bool_state& state) {
   // TODO: Initialization of visit (is it ok?)
   auto new_start = vector<int>();
   new_start.push_back((int)cells.size() - 1);
+
   for (auto cell_id : new_start) {
     auto& cell      = cells[cell_id];
     labels[cell_id] = vector<int>(num_shapes, 0);
@@ -2172,26 +2173,12 @@ void slice_mesh(bool_mesh& mesh, bool_state& state) {
   compute_border_tags(mesh, state);
 }
 
-void compute_cell_labels(bool_state& state) {
+void compute_cell_labels(bool_state& state, bool non_zero) {
   _PROFILE();
-
   propagate_cell_labels(state);
-
-  auto offset = vector<int>((int)state.bool_shapes.size(), 0);
-  for (auto& cell_label : state.labels) {
-    for (auto l = 0; l < cell_label.size(); l++) {
-      offset[l] = min(offset[l], cell_label[l]);
-    }
-  }
-
-  for (auto& cell_label : state.labels) {
-    for (auto l = 0; l < cell_label.size(); l++) {
-      cell_label[l] = (cell_label[l] - offset[l]) % 2;
-    }
-  }
 }
 
-bool compute_cells(bool_mesh& mesh, bool_state& state) {
+bool compute_cells(bool_mesh& mesh, bool_state& state, bool non_zero) {
   // Triangola mesh in modo da embeddare tutti i poligoni come mesh-edges.
   _PROFILE();
   global_state = &state;
@@ -2203,7 +2190,7 @@ bool compute_cells(bool_mesh& mesh, bool_state& state) {
   state.cells = make_cell_graph(mesh);
 
   // Calcola i label delle celle con una visita sulla loro adiacenza.
-  compute_cell_labels(state);
+  compute_cell_labels(state, non_zero);
   return true;
 }
 
@@ -2261,7 +2248,7 @@ void compute_generator_polygons(
 
 void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
   // Calcoliamo tutti i bordi di una shape
-  for (auto s = 0; s < state.bool_shapes.size(); s++) {
+  for (auto s = 1; s < state.bool_shapes.size(); s++) {
     auto& bool_shape = state.bool_shapes[s];
 
     // Calcoliamo il bordo solo per le shape root dell'albero csg
@@ -2272,6 +2259,7 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
     // solamente i punti corretti)
     auto generator_polygons = hash_set<int>();
     compute_generator_polygons(state, s, generator_polygons);
+    if (!generator_polygons.size()) continue;
 
     auto components = compute_components(state, bool_shape);
 
@@ -2341,6 +2329,7 @@ void compute_shape_borders(const bool_mesh& mesh, bool_state& state) {
               auto& isec_generators = state.isecs_generators.at(current);
 
               if (contains(generator_polygons, isec_generators.x) &&
+
                   contains(generator_polygons, isec_generators.y))
                 border_points.push_back(current);
             } else
@@ -2447,18 +2436,21 @@ vec3f get_cell_color(const bool_state& state, int cell_id, bool color_shapes) {
   } else {
     auto color = vec3f{0, 0, 0};
     int  count = 0;
-    for (int p = 0; p < state.labels[cell_id].size(); p++) {
+
+    for (int p = 1; p < state.labels[cell_id].size(); p++) {
       auto label = state.labels[cell_id][p];
       if (label > 0) {
         color += get_color(p);
         count += 1;
       }
     }
+
     if (count > 0) {
       color /= count;
     } else {
       color = {0.9, 0.9, 0.9};
     }
+
     return color;
   }
 }
